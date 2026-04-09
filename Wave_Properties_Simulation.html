@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Properties: Air vs Water</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+        }
+
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8 overflow-x-hidden">
+
+    <!-- Header Section -->
+    <header class="max-w-6xl mx-auto w-full mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300 tracking-tight">
+                    Wave Medium Analysis
+                </h1>
+                <p class="text-slate-400 mt-2 text-sm md:text-base max-w-2xl">
+                    Visualizing <span class="math-font text-sky-300">v = f&lambda;</span>. Observe how identical frequency pitches stretch into longer wavelengths when sound enters a faster medium like water.
+                </p>
+            </div>
+            
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-l-sky-400 max-w-sm">
+                <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 9-5-9-5-9 5 9 5z"/><path d="m12 14 9-5-9-5-9 5 9 5z"/><path d="m12 14 9-5-9-5-9 5 9 5z"/><path d="M12 21v-7"/></svg>
+                    Critical Insight
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Frequency (<span class="math-font">f</span>) is determined by the source and <strong class="text-white">remains constant</strong>. Because sound travels faster in water, the waves stretch out to cover more distance per cycle.
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow">
+        
+        <!-- Controls & Data Panel (Left) -->
+        <aside class="flex flex-col gap-6 lg:col-span-1">
+            
+            <!-- Controller -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
+                <h2 class="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-400"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 3.5 0 0 0 0 7h5a3.5 3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Wave Source
+                </h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-sm font-medium text-slate-300">Frequency (Pitch)</label>
+                            <div class="text-2xl font-bold math-font text-sky-400 glow-text" id="freq-display">440 Hz</div>
+                        </div>
+                        <input type="range" id="freq-slider" min="100" max="1000" value="440" class="w-full">
+                        <div class="flex justify-between text-xs text-slate-500 mt-1">
+                            <span>100 Hz (Low)</span>
+                            <span>1000 Hz (High)</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-700/50 flex gap-3">
+                        <button id="play-pause-btn" class="flex-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/50 rounded-lg py-2.5 px-4 font-semibold transition-all flex items-center justify-center gap-2">
+                            <svg id="icon-pause" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                            <svg id="icon-play" class="hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            <span id="btn-text">Pause Animation</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Breakdown -->
+            <div class="glass-panel rounded-2xl p-6 flex-grow">
+                <h2 class="text-lg font-semibold mb-4 text-slate-200">Current Equations</h2>
+                
+                <!-- Air Math -->
+                <div class="mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h3 class="text-sm text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Air (<span class="math-font">20°C</span>)
+                    </h3>
+                    <div class="math-font text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">v (Speed)</span>
+                            <span class="text-white">343 m/s</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">&lambda; = v / f</span>
+                            <span class="text-cyan-400 font-bold" id="math-lambda-air">&lambda; = 343 / 440</span>
+                        </div>
+                        <div class="text-right text-lg text-cyan-300 glow-text mt-1" id="result-lambda-air">
+                            &lambda; &approx; 0.780 m
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Water Math -->
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h3 class="text-sm text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> Water (<span class="math-font">20°C</span>)
+                    </h3>
+                    <div class="math-font text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">v (Speed)</span>
+                            <span class="text-white">1482 m/s</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">&lambda; = v / f</span>
+                            <span class="text-blue-400 font-bold" id="math-lambda-water">&lambda; = 1482 / 440</span>
+                        </div>
+                        <div class="text-right text-lg text-blue-300 glow-text mt-1" id="result-lambda-water">
+                            &lambda; &approx; 3.368 m
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Visualization Canvas (Right) -->
+        <div class="glass-panel rounded-2xl lg:col-span-2 relative min-h-[500px] lg:min-h-0 flex flex-col overflow-hidden border border-slate-700/60 shadow-2xl">
+            <!-- Canvas Overlay Labels -->
+            <div class="absolute top-4 left-6 z-10 pointer-events-none">
+                <span class="px-3 py-1 bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 rounded-md text-xs font-bold uppercase tracking-widest backdrop-blur-sm">Medium: Air</span>
+            </div>
+            <div class="absolute top-1/2 left-6 mt-4 z-10 pointer-events-none">
+                <span class="px-3 py-1 bg-blue-900/60 border border-blue-500/30 text-blue-300 rounded-md text-xs font-bold uppercase tracking-widest backdrop-blur-sm">Medium: Water</span>
+            </div>
+
+            <!-- The Canvas -->
+            <canvas id="waveCanvas" class="w-full h-full"></canvas>
+            
+            <!-- Scale Note -->
+            <div class="absolute bottom-4 right-6 z-10 text-xs text-slate-500 math-font bg-slate-900/80 px-2 py-1 rounded">
+                Scale: 1 meter &approx; 150px
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /**
+         * Physics & Visualization Logic
+         */
+        
+        // Physics Constants
+        const V_AIR = 343;   // m/s
+        const V_WATER = 1482; // m/s
+        
+        // Visual Constants
+        const PIXELS_PER_METER = 150; 
+        const VISUAL_TIME_SCALE = 1.0; // Visual Hz (How many wave cycles occur per second on screen)
+        const AMPLITUDE = 40; // Pixels
+
+        // State
+        let currentFreq = 440; // Hz
+        let isPlaying = true;
+        let animationTime = 0;
+        let lastTimestamp = 0;
+
+        // DOM Elements
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const freqSlider = document.getElementById('freq-slider');
+        const freqDisplay = document.getElementById('freq-display');
+        
+        const mathLambdaAir = document.getElementById('math-lambda-air');
+        const resultLambdaAir = document.getElementById('result-lambda-air');
+        const mathLambdaWater = document.getElementById('math-lambda-water');
+        const resultLambdaWater = document.getElementById('result-lambda-water');
+        
+        const playBtn = document.getElementById('play-pause-btn');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+        const btnText = document.getElementById('btn-text');
+
+        // Particle systems for background effects
+        let particles = [];
+
+        // Handle Canvas Resizing for High DPI
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+
+            initParticles(rect.width, rect.height);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // UI Interactions
+        freqSlider.addEventListener('input', (e) => {
+            currentFreq = parseInt(e.target.value);
+            updateMathUI();
+        });
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+                btnText.innerText = "Pause Animation";
+                lastTimestamp = performance.now();
+                requestAnimationFrame(draw);
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+                btnText.innerText = "Play Animation";
+            }
+        });
+
+        function updateMathUI() {
+            freqDisplay.innerText = `${currentFreq} Hz`;
+            
+            const lambdaAir = V_AIR / currentFreq;
+            const lambdaWater = V_WATER / currentFreq;
+
+            mathLambdaAir.innerHTML = `&lambda; = 343 / ${currentFreq}`;
+            resultLambdaAir.innerHTML = `&lambda; &approx; ${lambdaAir.toFixed(3)} m`;
+            
+            mathLambdaWater.innerHTML = `&lambda; = 1482 / ${currentFreq}`;
+            resultLambdaWater.innerHTML = `&lambda; &approx; ${lambdaWater.toFixed(3)} m`;
+        }
+
+        // Initialize Background Particles (Air molecules & Water Bubbles)
+        function initParticles(width, height) {
+            particles = [];
+            // Air particles (Top half)
+            for (let i = 0; i < 50; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * (height / 2),
+                    size: Math.random() * 1.5 + 0.5,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    type: 'air'
+                });
+            }
+            // Water particles (Bottom half)
+            for (let i = 0; i < 40; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: (height / 2) + Math.random() * (height / 2),
+                    size: Math.random() * 2 + 1,
+                    vx: 0,
+                    vy: -Math.random() * 1 - 0.2, // floating up
+                    type: 'water'
+                });
+            }
+        }
+
+        function drawParticles(width, height, deltaTime) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            
+            particles.forEach(p => {
+                if (isPlaying) {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // Wave influence on particles (subtle horizontal push)
+                    // The particles wiggle based on the wave passing through them
+                    const lambdaPx = (p.type === 'air' ? V_AIR / currentFreq : V_WATER / currentFreq) * PIXELS_PER_METER;
+                    const phase = 2 * Math.PI * (p.x / lambdaPx) - 2 * Math.PI * VISUAL_TIME_SCALE * animationTime;
+                    const wavePush = Math.sin(phase) * 0.5;
+                    p.x += wavePush;
+
+                    // Boundaries mapping
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
+
+                    if (p.type === 'air') {
+                        if (p.y < 0) p.y = height / 2;
+                        if (p.y > height / 2) p.y = 0;
+                        ctx.fillStyle = 'rgba(200, 240, 255, 0.4)';
+                    } else {
+                        if (p.y < height / 2) p.y = height;
+                        ctx.fillStyle = 'rgba(100, 200, 255, 0.3)';
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Draw a single wavelength bracket
+        function drawWavelengthBracket(yPos, lambdaPx, color, label) {
+            // Find the first crest (where sin(...) = 1)
+            // Phase: 2*pi*(x/lambda) - 2*pi*f*t = pi/2
+            // x/lambda = 1/4 + f*t
+            // x = lambda * (0.25 + f*t)
+            
+            // To keep the bracket stable or moving with a crest:
+            // Let's attach it to crest n=0 and n=1, taking modulo to keep it on screen
+            
+            let crestOffset = (VISUAL_TIME_SCALE * animationTime) % 1;
+            let x1 = lambdaPx * (0.25 + crestOffset);
+            
+            // If x1 moved too far right, shift it left by one full wavelength
+            while (x1 > lambdaPx) {
+                x1 -= lambdaPx;
+            }
+            
+            let x2 = x1 + lambdaPx;
+            
+            const bracketHeight = 15;
+            const textY = yPos - bracketHeight - 8;
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+            
+            // Horizontal line
+            ctx.beginPath();
+            ctx.moveTo(x1, yPos);
+            ctx.lineTo(x2, yPos);
+            ctx.stroke();
+
+            // Left tick
+            ctx.beginPath();
+            ctx.moveTo(x1, yPos - bracketHeight/2);
+            ctx.lineTo(x1, yPos + bracketHeight/2);
+            ctx.stroke();
+
+            // Right tick
+            ctx.beginPath();
+            ctx.moveTo(x2, yPos - bracketHeight/2);
+            ctx.lineTo(x2, yPos + bracketHeight/2);
+            ctx.stroke();
+
+            // Text
+            ctx.font = 'bold 12px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            // Background for text
+            const text = `λ = ${label}m`;
+            const metrics = ctx.measureText(text);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+            ctx.fillRect(x1 + (lambdaPx / 2) - metrics.width/2 - 4, textY - 10, metrics.width + 8, 14);
+            
+            ctx.fillStyle = color;
+            ctx.fillText(text, x1 + (lambdaPx / 2), textY);
+            
+            // Draw crest highlights (dots)
+            ctx.beginPath();
+            ctx.arc(x1, yPos + bracketHeight + AMPLITUDE + 5, 4, 0, Math.PI*2);
+            ctx.arc(x2, yPos + bracketHeight + AMPLITUDE + 5, 4, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawWave(width, centerY, velocity, color, glowColor) {
+            // Physical lambda
+            const lambdaTrue = velocity / currentFreq;
+            // Visual mapping
+            const lambdaPx = lambdaTrue * PIXELS_PER_METER;
+            
+            ctx.save();
+            ctx.beginPath();
+            
+            // Styling with Glow
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = glowColor;
+
+            for (let x = 0; x <= width; x += 2) {
+                // Wave Equation: y = A * sin( kx - wt )
+                // where k = 2PI/lambda, w = 2PI*f
+                const phase = 2 * Math.PI * (x / lambdaPx) - 2 * Math.PI * VISUAL_TIME_SCALE * animationTime;
+                const y = centerY + AMPLITUDE * Math.sin(phase);
+                
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw Bracket Annotation
+            drawWavelengthBracket(centerY - AMPLITUDE - 25, lambdaPx, color, lambdaTrue.toFixed(2));
+            
+            // Draw a tracer particle to show phase speed explicitly
+            let tracerX = lambdaPx * ((VISUAL_TIME_SCALE * animationTime) % 1);
+            let tracerY = centerY + AMPLITUDE * Math.sin(2 * Math.PI * (tracerX / lambdaPx) - 2 * Math.PI * VISUAL_TIME_SCALE * animationTime);
+            
+            // Draw trailing line
+            ctx.beginPath();
+            ctx.moveTo(tracerX, centerY - AMPLITUDE);
+            ctx.lineTo(tracerX, centerY + AMPLITUDE);
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Draw tracer dot
+            ctx.beginPath();
+            ctx.arc(tracerX, tracerY, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ffffff';
+            ctx.fill();
+        }
+
+        // Main Animation Loop
+        function draw(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const deltaTime = (timestamp - lastTimestamp) / 1000; // seconds
+            lastTimestamp = timestamp;
+
+            if (isPlaying) {
+                animationTime += deltaTime;
+            }
+
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            
+            // Clear entire canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Backgrounds
+            // Air Background
+            const airGrad = ctx.createLinearGradient(0, 0, 0, height/2);
+            airGrad.addColorStop(0, '#0f172a');
+            airGrad.addColorStop(1, '#1e293b');
+            ctx.fillStyle = airGrad;
+            ctx.fillRect(0, 0, width, height/2);
+
+            // Water Background
+            const waterGrad = ctx.createLinearGradient(0, height/2, 0, height);
+            waterGrad.addColorStop(0, '#0c4a6e'); // Deep blue
+            waterGrad.addColorStop(1, '#082f49');
+            ctx.fillStyle = waterGrad;
+            ctx.fillRect(0, height/2, width, height/2);
+
+            // Interface Line (Surface)
+            ctx.beginPath();
+            ctx.moveTo(0, height/2);
+            ctx.lineTo(width, height/2);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Particles
+            drawParticles(width, height, deltaTime);
+
+            // Draw Waves
+            // Center Y for Air is 25% down, Center Y for Water is 75% down
+            drawWave(width, height * 0.28, V_AIR, '#22d3ee', 'rgba(34, 211, 238, 0.8)'); // Cyan
+            drawWave(width, height * 0.78, V_WATER, '#60a5fa', 'rgba(96, 165, 250, 0.8)'); // Blue
+
+            // Origin Source Line (The "Speaker")
+            ctx.beginPath();
+            ctx.moveTo(1, 0);
+            ctx.lineTo(1, height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (isPlaying) {
+                requestAnimationFrame(draw);
+            }
+        }
+
+        // Initialization
+        updateMathUI();
+        // Wait a small tick to ensure layout is computed before resizing canvas
+        setTimeout(() => {
+            resizeCanvas();
+            requestAnimationFrame(draw);
+        }, 50);
+        
+    </script>
+</body>
+</html>

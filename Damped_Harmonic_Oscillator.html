@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Damped Harmonic Oscillator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.260.0/umd/lucide.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-96 glass-panel flex flex-col h-full md:h-screen z-10 shadow-2xl overflow-y-auto shrink-0">
+        <div class="p-6 border-b border-slate-700/50">
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
+                <i data-lucide="activity" class="text-sky-400"></i>
+                Harmonic Oscillator
+            </h1>
+            <p class="text-sm text-slate-400 mt-2">RK4 Numerical Integration</p>
+        </div>
+
+        <div class="p-6 flex-1 flex flex-col gap-6">
+            <!-- Equation -->
+            <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2 font-semibold">Differential Equation</div>
+                <div class="math-font text-sm text-sky-200">
+                    m(d²x/dt²) + b(dx/dt) + kx = 0
+                </div>
+            </div>
+
+            <!-- Status Badge -->
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-slate-300">Regime:</span>
+                <span id="regime-badge" class="px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase transition-colors duration-300 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Underdamped
+                </span>
+            </div>
+
+            <!-- Discriminant display -->
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-slate-400 math-font">Δ = b² - 4mk</span>
+                <span id="delta-value" class="math-font font-bold text-white">0.00</span>
+            </div>
+
+            <hr class="border-slate-700/50">
+
+            <!-- Controls -->
+            <div class="space-y-5">
+                <!-- Mass -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            <i data-lucide="box" class="w-4 h-4 text-slate-400"></i> Mass (<span class="math-font text-sky-300">m</span>)
+                        </label>
+                        <span id="m-val" class="text-sm font-bold text-sky-400 math-font">1.0 kg</span>
+                    </div>
+                    <input type="range" id="m-slider" min="0.1" max="5" step="0.1" value="1.0">
+                </div>
+
+                <!-- Damping -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            <i data-lucide="waves" class="w-4 h-4 text-slate-400"></i> Damping (<span class="math-font text-pink-300">b</span>)
+                        </label>
+                        <span id="b-val" class="text-sm font-bold text-pink-400 math-font">1.0 N·s/m</span>
+                    </div>
+                    <input type="range" id="b-slider" min="0" max="20" step="0.1" value="1.0">
+                    <button id="btn-critical" class="mt-2 text-xs w-full py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-600">
+                        Set to Critical Damping
+                    </button>
+                </div>
+
+                <!-- Spring Constant -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            <i data-lucide="navigation" class="w-4 h-4 text-slate-400 transform rotate-90"></i> Spring Constant (<span class="math-font text-emerald-300">k</span>)
+                        </label>
+                        <span id="k-val" class="text-sm font-bold text-emerald-400 math-font">10.0 N/m</span>
+                    </div>
+                    <input type="range" id="k-slider" min="1" max="50" step="0.5" value="10.0">
+                </div>
+
+                <!-- Initial Position -->
+                <div class="pt-2">
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            <i data-lucide="move-vertical" class="w-4 h-4 text-slate-400"></i> Initial Position (<span class="math-font text-amber-300">x₀</span>)
+                        </label>
+                        <span id="x0-val" class="text-sm font-bold text-amber-400 math-font">5.0 m</span>
+                    </div>
+                    <input type="range" id="x0-slider" min="-10" max="10" step="0.5" value="5.0">
+                </div>
+            </div>
+            
+            <div class="flex-1"></div>
+
+            <!-- Playback Controls -->
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <button id="btn-play" class="flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold transition shadow-lg shadow-sky-900/50">
+                    <i data-lucide="play" class="w-5 h-5"></i> <span id="play-text">Play</span>
+                </button>
+                <button id="btn-reset" class="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i> Reset
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Visualizations -->
+    <main class="flex-1 flex flex-col h-full relative">
+        <!-- Live Spring Animation -->
+        <div class="flex-1 relative bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 flex items-center justify-center min-h-[300px]">
+            <canvas id="springCanvas"></canvas>
+            
+            <!-- Floating overlay data -->
+            <div class="absolute top-4 right-4 glass-panel p-3 rounded-lg flex flex-col gap-1 text-sm pointer-events-none">
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Time (t)</span><span id="t-display" class="math-font text-white">0.00 s</span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Position (x)</span><span id="x-display" class="math-font text-white">0.00 m</span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Velocity (v)</span><span id="v-display" class="math-font text-white">0.00 m/s</span></div>
+            </div>
+        </div>
+
+        <!-- Position Graph -->
+        <div class="h-64 md:h-1/3 relative bg-[#090e17]">
+            <canvas id="graphCanvas"></canvas>
+            <div class="absolute top-2 left-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Position x(t) over Time
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Lucide icons securely
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        // --- Physics State & RK4 Engine ---
+        let m = 1.0;
+        let b = 1.0;
+        let k = 10.0;
+        let x0 = 5.0;
+        
+        let state = {
+            t: 0,
+            x: 5.0,
+            v: 0.0
+        };
+        
+        const dt = 0.03; // Time step for numerical integration
+        let isPlaying = false;
+        let history = []; // Array of {t, x}
+        const MAX_HISTORY_TIME = 20; // Show last 20 seconds on graph
+
+        // DOM Elements
+        const sliderM = document.getElementById('m-slider');
+        const sliderB = document.getElementById('b-slider');
+        const sliderK = document.getElementById('k-slider');
+        const sliderX0 = document.getElementById('x0-slider');
+        const valM = document.getElementById('m-val');
+        const valB = document.getElementById('b-val');
+        const valK = document.getElementById('k-val');
+        const valX0 = document.getElementById('x0-val');
+        const badgeRegime = document.getElementById('regime-badge');
+        const deltaValue = document.getElementById('delta-value');
+        const btnPlay = document.getElementById('btn-play');
+        const playText = document.getElementById('play-text');
+        const btnReset = document.getElementById('btn-reset');
+        const btnCritical = document.getElementById('btn-critical');
+        const playIcon = btnPlay.querySelector('i');
+        
+        const dispT = document.getElementById('t-display');
+        const dispX = document.getElementById('x-display');
+        const dispV = document.getElementById('v-display');
+
+        const springCanvas = document.getElementById('springCanvas');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const ctxS = springCanvas.getContext('2d');
+        const ctxG = graphCanvas.getContext('2d');
+
+        // Derivative function for RK4: return [dx/dt, dv/dt]
+        // Equation: m*v' + b*v + k*x = 0  =>  v' = -(b*v + k*x)/m
+        function derivatives(t, x, v) {
+            return {
+                dx: v,
+                dv: -(b * v + k * x) / m
+            };
+        }
+
+        // 4th-Order Runge-Kutta Step
+        function stepRK4() {
+            let t = state.t;
+            let x = state.x;
+            let v = state.v;
+
+            let k1 = derivatives(t, x, v);
+            let k2 = derivatives(t + 0.5*dt, x + 0.5*dt*k1.dx, v + 0.5*dt*k1.dv);
+            let k3 = derivatives(t + 0.5*dt, x + 0.5*dt*k2.dx, v + 0.5*dt*k2.dv);
+            let k4 = derivatives(t + dt, x + dt*k3.dx, v + dt*k3.dv);
+
+            state.x += (dt / 6) * (k1.dx + 2*k2.dx + 2*k3.dx + k4.dx);
+            state.v += (dt / 6) * (k1.dv + 2*k2.dv + 2*k3.dv + k4.dv);
+            state.t += dt;
+
+            history.push({ t: state.t, x: state.x });
+            
+            // Limit history to save memory and handle graph scrolling
+            if (history.length > 0 && (state.t - history[0].t) > MAX_HISTORY_TIME) {
+                history.shift();
+            }
+        }
+
+        // --- UI Updates ---
+        function updateRegime() {
+            const discriminant = (b * b) - (4 * m * k);
+            deltaValue.textContent = discriminant.toFixed(2);
+            
+            // Styling based on regime
+            badgeRegime.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/30', 
+                                         'bg-amber-500/20', 'text-amber-400', 'border-amber-500/30',
+                                         'bg-rose-500/20', 'text-rose-400', 'border-rose-500/30');
+
+            if (Math.abs(discriminant) < 0.1 || (discriminant > -0.1 && discriminant < 0.1)) {
+                 // Float precision threshold for exactly 0
+                badgeRegime.textContent = "Critically Damped";
+                badgeRegime.classList.add('bg-amber-500/20', 'text-amber-400', 'border-amber-500/30');
+            } else if (discriminant < 0) {
+                badgeRegime.textContent = "Underdamped";
+                badgeRegime.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/30');
+            } else {
+                badgeRegime.textContent = "Overdamped";
+                badgeRegime.classList.add('bg-rose-500/20', 'text-rose-400', 'border-rose-500/30');
+            }
+        }
+
+        function readInputs() {
+            m = parseFloat(sliderM.value);
+            b = parseFloat(sliderB.value);
+            k = parseFloat(sliderK.value);
+            x0 = parseFloat(sliderX0.value);
+            
+            valM.textContent = m.toFixed(1) + " kg";
+            valB.textContent = b.toFixed(1) + " N·s/m";
+            valK.textContent = k.toFixed(1) + " N/m";
+            valX0.textContent = x0.toFixed(1) + " m";
+            
+            updateRegime();
+        }
+
+        function resetSimulation() {
+            readInputs();
+            state.t = 0;
+            state.x = x0;
+            state.v = 0;
+            history = [{ t: 0, x: x0 }];
+            updateDisplays();
+            drawAll();
+        }
+
+        function updateDisplays() {
+            dispT.textContent = state.t.toFixed(2) + " s";
+            dispX.textContent = state.x.toFixed(2) + " m";
+            dispV.textContent = state.v.toFixed(2) + " m/s";
+        }
+
+        // --- Rendering ---
+        function resizeCanvases() {
+            springCanvas.width = springCanvas.clientWidth;
+            springCanvas.height = springCanvas.clientHeight;
+            graphCanvas.width = graphCanvas.clientWidth;
+            graphCanvas.height = graphCanvas.clientHeight;
+            drawAll();
+        }
+
+        function drawSpring() {
+            const w = springCanvas.width;
+            const h = springCanvas.height;
+            ctxS.clearRect(0, 0, w, h);
+
+            const centerX = w / 2;
+            const topY = 40; 
+            const pixelsPerMeter = Math.min(20, h / 30); // Scale factor
+            
+            // Equilibrium point
+            const equilibriumY = h / 2;
+            const currentY = equilibriumY + state.x * pixelsPerMeter;
+
+            // Draw ceiling
+            ctxS.beginPath();
+            ctxS.moveTo(centerX - 100, topY);
+            ctxS.lineTo(centerX + 100, topY);
+            ctxS.lineWidth = 4;
+            ctxS.strokeStyle = '#475569';
+            ctxS.stroke();
+
+            // Draw ceiling hatch marks
+            for(let i = -90; i <= 90; i += 20) {
+                ctxS.beginPath();
+                ctxS.moveTo(centerX + i, topY);
+                ctxS.lineTo(centerX + i + 10, topY - 10);
+                ctxS.lineWidth = 2;
+                ctxS.stroke();
+            }
+
+            // Draw equilibrium dashed line
+            ctxS.beginPath();
+            ctxS.moveTo(centerX - 150, equilibriumY);
+            ctxS.lineTo(centerX + 150, equilibriumY);
+            ctxS.setLineDash([5, 5]);
+            ctxS.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctxS.lineWidth = 1;
+            ctxS.stroke();
+            ctxS.setLineDash([]);
+            
+            // Label equilibrium
+            ctxS.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctxS.font = '12px Inter';
+            ctxS.fillText('x = 0', centerX + 110, equilibriumY + 4);
+
+            // Draw Spring
+            const coils = 12;
+            const springWidth = 30;
+            const springLength = currentY - topY - 20; // 20 is half block height
+            
+            ctxS.beginPath();
+            ctxS.moveTo(centerX, topY);
+            
+            for (let i = 0; i <= coils; i++) {
+                const y = topY + (springLength / coils) * i;
+                const x = centerX + (i % 2 === 0 ? springWidth : -springWidth) * (i === 0 || i === coils ? 0 : 1);
+                ctxS.lineTo(x, y);
+            }
+            ctxS.strokeStyle = '#94a3b8';
+            ctxS.lineWidth = 3;
+            ctxS.lineJoin = 'round';
+            ctxS.stroke();
+
+            // Draw Mass Block
+            const blockWidth = 50 + m * 10; // Visual scaling based on mass
+            const blockHeight = 40 + m * 5;
+            
+            // Add a subtle glow/shadow based on velocity
+            const velMagnitude = Math.min(Math.abs(state.v), 10);
+            ctxS.shadowBlur = velMagnitude * 3;
+            ctxS.shadowColor = 'rgba(56, 189, 248, 0.6)';
+            
+            ctxS.fillStyle = '#0ea5e9'; // sky-500
+            ctxS.fillRect(centerX - blockWidth/2, currentY - blockHeight/2, blockWidth, blockHeight);
+            
+            // Block border
+            ctxS.strokeStyle = '#e0f2fe';
+            ctxS.lineWidth = 2;
+            ctxS.strokeRect(centerX - blockWidth/2, currentY - blockHeight/2, blockWidth, blockHeight);
+            ctxS.shadowBlur = 0; // reset
+
+            // Draw fluid/damping indicator if b > 0
+            if (b > 0) {
+                const dashY = h - 30;
+                ctxS.fillStyle = `rgba(236, 72, 153, ${Math.min(b / 20, 0.6)})`; // pink-500
+                ctxS.fillRect(0, dashY, w, 30);
+                
+                // Draw pistons (dashpot simulation)
+                ctxS.fillStyle = '#64748b';
+                ctxS.fillRect(centerX - blockWidth/2 - 15, currentY, 10, dashY - currentY);
+                ctxS.fillRect(centerX + blockWidth/2 + 5, currentY, 10, dashY - currentY);
+            }
+        }
+
+        function drawGraph() {
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            ctxG.clearRect(0, 0, w, h);
+
+            if (history.length === 0) return;
+
+            const padding = 20;
+            const graphW = w;
+            const graphH = h - 2 * padding;
+            const centerY = h / 2;
+
+            // X-axis scale (Time)
+            // If total time < MAX_HISTORY_TIME, map 0..MAX_HISTORY_TIME. Else map (current-MAX)..(current)
+            const minT = Math.max(0, state.t - MAX_HISTORY_TIME);
+            const maxT = minT + MAX_HISTORY_TIME;
+            
+            function mapT(t) {
+                return ((t - minT) / MAX_HISTORY_TIME) * graphW;
+            }
+
+            // Y-axis scale (Position) - Fix scale from -15 to +15 meters
+            const maxDisplacement = 12;
+            function mapX(x) {
+                return centerY - (x / maxDisplacement) * (graphH / 2);
+            }
+
+            // Draw center zero line
+            ctxG.beginPath();
+            ctxG.moveTo(0, centerY);
+            ctxG.lineTo(w, centerY);
+            ctxG.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctxG.lineWidth = 1;
+            ctxG.stroke();
+
+            // Draw curve
+            ctxG.beginPath();
+            for (let i = 0; i < history.length; i++) {
+                const pt = history[i];
+                const px = mapT(pt.t);
+                const py = mapX(pt.x);
+                if (i === 0) ctxG.moveTo(px, py);
+                else ctxG.lineTo(px, py);
+            }
+
+            // Apply gradient to line based on regime
+            const discriminant = (b * b) - (4 * m * k);
+            let strokeColor = '#34d399'; // emerald for under
+            if (Math.abs(discriminant) < 0.1 || (discriminant > -0.1 && discriminant < 0.1)) strokeColor = '#fbbf24'; // amber for critical
+            else if (discriminant > 0) strokeColor = '#fb7185'; // rose for over
+
+            ctxG.strokeStyle = strokeColor;
+            ctxG.lineWidth = 3;
+            ctxG.lineJoin = 'round';
+            ctxG.stroke();
+
+            // Draw current point glow
+            if (history.length > 0) {
+                const lastPt = history[history.length - 1];
+                const lx = mapT(lastPt.t);
+                const ly = mapX(lastPt.x);
+                
+                ctxG.beginPath();
+                ctxG.arc(lx, ly, 5, 0, Math.PI * 2);
+                ctxG.fillStyle = '#ffffff';
+                ctxG.fill();
+                ctxG.shadowBlur = 10;
+                ctxG.shadowColor = strokeColor;
+                ctxG.fill();
+                ctxG.shadowBlur = 0;
+            }
+        }
+
+        function drawAll() {
+            drawSpring();
+            drawGraph();
+        }
+
+        // --- Animation Loop ---
+        let animationId;
+        function loop() {
+            if (isPlaying) {
+                stepRK4();
+                updateDisplays();
+                drawAll();
+            }
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // --- Event Listeners ---
+        window.addEventListener('resize', resizeCanvases);
+
+        // Slider events
+        [sliderM, sliderB, sliderK, sliderX0].forEach(slider => {
+            slider.addEventListener('input', () => {
+                readInputs();
+                if (!isPlaying) {
+                    // Update preview if paused
+                    if (slider === sliderX0) {
+                        state.x = x0; 
+                        history = [{ t: state.t, x: x0 }];
+                        drawAll();
+                        updateDisplays();
+                    }
+                }
+            });
+        });
+
+        btnPlay.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                btnPlay.classList.replace('bg-sky-600', 'bg-rose-600');
+                btnPlay.classList.replace('hover:bg-sky-500', 'hover:bg-rose-500');
+                btnPlay.classList.replace('shadow-sky-900/50', 'shadow-rose-900/50');
+                playText.textContent = "Pause";
+                playIcon.setAttribute('data-lucide', 'pause');
+            } else {
+                btnPlay.classList.replace('bg-rose-600', 'bg-sky-600');
+                btnPlay.classList.replace('hover:bg-rose-500', 'hover:bg-sky-500');
+                btnPlay.classList.replace('shadow-rose-900/50', 'shadow-sky-900/50');
+                playText.textContent = "Play";
+                playIcon.setAttribute('data-lucide', 'play');
+            }
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons(); // re-render icon
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            if (isPlaying) btnPlay.click(); // pause if playing
+            resetSimulation();
+        });
+
+        btnCritical.addEventListener('click', () => {
+            // b = 2*sqrt(m*k)
+            const criticalB = 2 * Math.sqrt(m * k);
+            sliderB.value = Math.min(Math.max(criticalB, 0), 20); // clamp
+            readInputs();
+        });
+
+        // Initialize
+        readInputs();
+        resetSimulation();
+        resizeCanvases();
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

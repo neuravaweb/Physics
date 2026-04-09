@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String Harmonics Animation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            color: #f8fafc;
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .insight-box {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(139, 92, 246, 0.1));
+            border-left: 4px solid #38bdf8;
+        }
+
+        .math-text {
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6));
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px #38bdf8, inset 0 0 4px rgba(255,255,255,0.8);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+        
+        .glow-cyan { text-shadow: 0 0 8px rgba(56, 189, 248, 0.8); color: #38bdf8; }
+        .glow-purple { text-shadow: 0 0 8px rgba(167, 139, 250, 0.8); color: #a78bfa; }
+        .glow-pink { text-shadow: 0 0 8px rgba(244, 114, 182, 0.8); color: #f472b6; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 lg:p-8">
+
+    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Main Canvas Area -->
+        <div class="lg:col-span-2 flex flex-col gap-4">
+            <div class="glass-panel rounded-2xl p-6 relative flex-grow min-h-[350px] flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold tracking-tight">String Harmonics</h2>
+                    <span id="harmonicLabel" class="bg-sky-500/20 text-sky-300 border border-sky-500/30 px-3 py-1 rounded-full text-sm font-semibold uppercase tracking-wider shadow-[0_0_10px_rgba(56,189,248,0.2)]">
+                        1st Harmonic (Fundamental)
+                    </span>
+                </div>
+                
+                <div class="relative flex-grow bg-[#090e17] rounded-xl overflow-hidden border border-slate-700/50" id="canvasContainer">
+                    <canvas id="waveCanvas"></canvas>
+                    
+                    <!-- Labels for fixed ends -->
+                    <div class="absolute left-4 top-4 text-xs text-slate-400 opacity-70">Fixed Node (x = 0)</div>
+                    <div class="absolute right-4 top-4 text-xs text-slate-400 opacity-70">Fixed Node (x = L)</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="glass-panel rounded-2xl p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="text-sm font-medium text-slate-300">Harmonic (n)</label>
+                            <span id="nValueDisplay" class="font-bold text-sky-400">1</span>
+                        </div>
+                        <input type="range" id="harmonicSlider" min="1" max="5" value="1" step="1">
+                        <div class="flex justify-between text-xs text-slate-500 mt-2">
+                            <span>Fundamental</span>
+                            <span>5th Harmonic</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="text-sm font-medium text-slate-300">Simulation Speed</label>
+                            <span id="speedValueDisplay" class="font-bold text-sky-400">1x</span>
+                        </div>
+                        <input type="range" id="speedSlider" min="0.1" max="2" value="0.5" step="0.1">
+                        <div class="flex justify-between text-xs text-slate-500 mt-2">
+                            <span>Slow Mo</span>
+                            <span>Fast</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational & Math Panel -->
+        <div class="glass-panel rounded-2xl p-6 flex flex-col gap-6">
+            <div>
+                <h3 class="text-lg font-semibold mb-3 border-b border-slate-600 pb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    Real-time Mathematics
+                </h3>
+                
+                <div class="space-y-4 math-text text-[15px]">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Length (<span class="italic">L</span>)</span>
+                        <span class="font-bold">0.64 m</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Harmonic (<span class="italic">n</span>)</span>
+                        <span class="font-bold glow-cyan" id="math-n">1</span>
+                    </div>
+
+                    <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">Wavelength (λ)</div>
+                        <div class="flex items-center justify-between">
+                            <span>L = n(λ/2) ⟹ λ = 2L/n</span>
+                            <span class="font-bold glow-purple" id="math-lambda">1.28 m</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">Frequency (f)</div>
+                        <div class="flex items-center justify-between">
+                            <span>f = n · f₁</span>
+                            <span class="font-bold glow-pink" id="math-f">330 Hz</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">Wave Speed (v)</div>
+                        <div class="flex items-center justify-between">
+                            <span>v = f · λ</span>
+                            <span class="font-bold text-white" id="math-v">422.4 m/s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="insight-box rounded-xl p-4 mt-auto">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-sky-400 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        <h4 class="font-bold text-sky-100 mb-1">Critical Insight</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            The wave speed (<strong class="text-white">422.4 m/s</strong>) on a string is determined by its physical properties (tension and linear mass density), not how you pluck it. 
+                            <br><br>
+                            Change the harmonic above! Notice how <strong class="text-purple-300">Wavelength</strong> decreases and <strong class="text-pink-300">Frequency</strong> increases proportionately, perfectly canceling out so the wave speed <strong class="text-white">v</strong> remains constant.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Physics & State Variables
+        const L = 0.64;           // String Length (m)
+        const v = 422.4;          // Wave speed (m/s) - Constant based on physical properties
+        const f1 = 330;           // Fundamental frequency (Hz)
+        
+        let state = {
+            n: 1,                 // Current harmonic (n)
+            speedMod: 0.5,        // Animation speed modifier
+            time: 0               // Elapsed animation time
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+        
+        const sliderN = document.getElementById('harmonicSlider');
+        const sliderSpeed = document.getElementById('speedSlider');
+        
+        // Math DOM Elements
+        const elLabel = document.getElementById('harmonicLabel');
+        const elN = document.getElementById('math-n');
+        const elLambda = document.getElementById('math-lambda');
+        const elF = document.getElementById('math-f');
+        const elV = document.getElementById('math-v');
+        const elNDisp = document.getElementById('nValueDisplay');
+        const elSpeedDisp = document.getElementById('speedValueDisplay');
+
+        // Ordinal suffix helper
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+
+        function getHarmonicName(n) {
+            if(n === 1) return "1st Harmonic (Fundamental)";
+            if(n === 2) return "2nd Harmonic (1st Overtone)";
+            if(n === 3) return "3rd Harmonic (2nd Overtone)";
+            return `${getOrdinal(n)} Harmonic`;
+        }
+
+        // Update Math Display
+        function updateMath() {
+            const n = state.n;
+            const lambda = (2 * L) / n;
+            const f = n * f1;
+            const calculatedV = f * lambda; // Should always perfectly equal 422.4
+
+            elLabel.innerText = getHarmonicName(n);
+            elN.innerText = n;
+            elNDisp.innerText = n;
+            elLambda.innerText = lambda.toFixed(2) + " m";
+            elF.innerText = f.toFixed(0) + " Hz";
+            
+            // Highlight text briefly to show it updated
+            [elLambda, elF].forEach(el => {
+                el.style.transform = "scale(1.1)";
+                setTimeout(() => el.style.transform = "scale(1)", 150);
+                el.style.transition = "transform 0.15s ease-out";
+            });
+        }
+
+        // Resize Canvas dynamically
+        function resizeCanvas() {
+            // High DPI support for crisp lines
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resizeCanvas);
+        
+        sliderN.addEventListener('input', (e) => {
+            state.n = parseInt(e.target.value);
+            updateMath();
+        });
+
+        sliderSpeed.addEventListener('input', (e) => {
+            state.speedMod = parseFloat(e.target.value);
+            elSpeedDisp.innerText = state.speedMod.toFixed(1) + "x";
+        });
+
+        // Animation Loop
+        let lastTimestamp = 0;
+        function draw(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const deltaTime = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            // Increment time. 
+            // In reality angular freq is 2*pi*f. We scale it visually so it doesn't stroke out users.
+            // Notice how frequency state.n * f1 speeds up the visual oscillation physically!
+            const visualW = (state.n * 0.05) * state.speedMod; 
+            state.time += visualW * (deltaTime / 16); 
+
+            // Canvas dimensions in CSS pixels (due to dpr scaling)
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            const midY = height / 2;
+            const amplitude = Math.min(height * 0.35, 120); // 35% of height max
+            
+            const paddingX = 40; // Space for fixed ends
+            const stringLengthPx = width - (paddingX * 2);
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw envelope (ghost wave indicating maximum displacement)
+            ctx.beginPath();
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 2;
+            for (let x = 0; x <= stringLengthPx; x++) {
+                const waveK = (Math.PI * state.n * x) / stringLengthPx;
+                const envY = midY - amplitude * Math.sin(waveK);
+                x === 0 ? ctx.moveTo(paddingX + x, envY) : ctx.lineTo(paddingX + x, envY);
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let x = 0; x <= stringLengthPx; x++) {
+                const waveK = (Math.PI * state.n * x) / stringLengthPx;
+                const envY = midY + amplitude * Math.sin(waveK);
+                x === 0 ? ctx.moveTo(paddingX + x, envY) : ctx.lineTo(paddingX + x, envY);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw Actual Vibrating String
+            ctx.beginPath();
+            ctx.strokeStyle = "#38bdf8"; // Cyan string
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            for (let x = 0; x <= stringLengthPx; x++) {
+                // Standing wave equation: y(x,t) = 2A * sin(kx) * cos(wt)
+                const waveK = (Math.PI * state.n * x) / stringLengthPx;
+                const y = midY - (amplitude * Math.sin(waveK) * Math.cos(state.time));
+                
+                if (x === 0) {
+                    ctx.moveTo(paddingX + x, y);
+                } else {
+                    ctx.lineTo(paddingX + x, y);
+                }
+            }
+            ctx.stroke();
+
+            // Draw Nodes (Points of zero amplitude)
+            ctx.fillStyle = "#f472b6"; // Pink nodes
+            for (let i = 0; i <= state.n; i++) {
+                const nodeX = paddingX + (stringLengthPx * i) / state.n;
+                
+                // Outer glow circle
+                ctx.beginPath();
+                ctx.arc(nodeX, midY, 8, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(244, 114, 182, 0.3)";
+                ctx.fill();
+
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(nodeX, midY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = "#f472b6";
+                ctx.fill();
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Initialize
+        resizeCanvas();
+        updateMath();
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>

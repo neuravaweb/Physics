@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young's Double-Slit Interference</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0b1120;
+            color: #e2e8f0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        
+        /* Math typography */
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- UI Controls Panel -->
+    <div class="glass-panel w-full md:w-[380px] h-auto md:h-full flex flex-col z-10 shadow-2xl overflow-y-auto">
+        <div class="p-6 flex-1">
+            <h1 class="text-2xl font-bold text-white mb-2 tracking-tight">Double-Slit Interference</h1>
+            <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+                Thomas Young's experiment demonstrates the wave nature of light. The two slits act as coherent point sources, creating an interference pattern on the screen.
+            </p>
+
+            <div class="space-y-6">
+                <!-- Wavelength Control -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-300">Wavelength (<span class="math">&lambda;</span>)</label>
+                        <span id="lambda-val" class="text-sm text-cyan-400 font-mono">40</span>
+                    </div>
+                    <input type="range" id="lambda-slider" min="20" max="80" value="40">
+                </div>
+
+                <!-- Slit Separation Control -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-300">Slit Separation (<span class="math">d</span>)</label>
+                        <span id="d-val" class="text-sm text-cyan-400 font-mono">120</span>
+                    </div>
+                    <input type="range" id="d-slider" min="60" max="250" value="120">
+                </div>
+
+                <!-- Screen Distance Control -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-slate-300">Screen Distance (<span class="math">L</span>)</label>
+                        <span id="l-val" class="text-sm text-cyan-400 font-mono">600</span>
+                    </div>
+                    <input type="range" id="l-slider" min="300" max="900" value="600">
+                </div>
+            </div>
+
+            <!-- Analysis Box -->
+            <div class="mt-8 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <h2 class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-3">Probe Analysis</h2>
+                
+                <div class="grid grid-cols-2 gap-3 mb-3 text-sm">
+                    <div class="bg-slate-900/50 p-2 rounded">
+                        <span class="text-slate-500 text-xs block">Path 1 (<span class="math">r₁</span>)</span>
+                        <span id="r1-val" class="text-white font-mono">0.0</span>
+                    </div>
+                    <div class="bg-slate-900/50 p-2 rounded">
+                        <span class="text-slate-500 text-xs block">Path 2 (<span class="math">r₂</span>)</span>
+                        <span id="r2-val" class="text-white font-mono">0.0</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between bg-slate-900/50 p-3 rounded mb-3">
+                    <span class="text-slate-300 text-sm">Path Diff <span class="math">|r₁ - r₂|</span></span>
+                    <span id="delta-r-val" class="text-cyan-400 font-mono font-bold text-lg">0.0</span>
+                </div>
+
+                <div id="interference-state" class="text-center p-2 rounded text-sm font-medium border border-transparent transition-colors duration-300">
+                    <!-- State injected by JS -->
+                </div>
+                
+                <p class="text-xs text-slate-500 mt-4 text-center">
+                    Drag the glowing circle on the screen to analyze different points.
+                </p>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-700/50 text-xs text-slate-500 text-center">
+            Interactive physics simulation
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="flex-1 relative cursor-crosshair" id="canvas-container">
+        <canvas id="simCanvas" class="absolute inset-0 w-full h-full"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base
+        const container = document.getElementById('canvas-container');
+
+        // UI Elements
+        const lambdaSlider = document.getElementById('lambda-slider');
+        const dSlider = document.getElementById('d-slider');
+        const lSlider = document.getElementById('l-slider');
+        
+        const lambdaVal = document.getElementById('lambda-val');
+        const dVal = document.getElementById('d-val');
+        const lVal = document.getElementById('l-val');
+
+        const r1Val = document.getElementById('r1-val');
+        const r2Val = document.getElementById('r2-val');
+        const deltaRVal = document.getElementById('delta-r-val');
+        const stateBox = document.getElementById('interference-state');
+
+        // Simulation State
+        let config = {
+            lambda: parseFloat(lambdaSlider.value),
+            d: parseFloat(dSlider.value),
+            L: parseFloat(lSlider.value),
+            barrierX: 150,
+            time: 0,
+            waveSpeed: 30, // Pixels per second
+            probeY: 0 // Relative to center
+        };
+
+        // Theme colors
+        const colors = {
+            bg: '#0b1120',
+            barrier: '#334155',
+            wave: 'rgba(6, 182, 212, 0.15)', // Cyan wave
+            waveBright: 'rgba(6, 182, 212, 0.6)',
+            screen: '#1e293b',
+            intensity: 'rgba(6, 182, 212, 0.8)',
+            path1: '#f43f5e', // Rose
+            path2: '#10b981', // Emerald
+        };
+
+        let isDragging = false;
+
+        // Resize handler
+        function resize() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            // Center probe on initial load
+            if (config.probeY === 0 && config.time === 0) {
+                config.probeY = canvas.height / 2;
+            }
+        }
+        window.addEventListener('resize', resize);
+
+        // Update config from sliders
+        function updateConfig() {
+            config.lambda = parseFloat(lambdaSlider.value);
+            config.d = parseFloat(dSlider.value);
+            config.L = parseFloat(lSlider.value);
+            
+            lambdaVal.innerText = config.lambda.toFixed(1);
+            dVal.innerText = config.d.toFixed(1);
+            lVal.innerText = config.L.toFixed(1);
+        }
+
+        lambdaSlider.addEventListener('input', updateConfig);
+        dSlider.addEventListener('input', updateConfig);
+        lSlider.addEventListener('input', updateConfig);
+
+        // Mouse interactions for the probe
+        function handleInteraction(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Support both mouse and touch
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const y = clientY - rect.top;
+            
+            config.probeY = Math.max(20, Math.min(canvas.height - 20, y));
+        }
+
+        canvas.addEventListener('mousedown', (e) => { isDragging = true; handleInteraction(e); });
+        canvas.addEventListener('mousemove', (e) => { if (isDragging) handleInteraction(e); });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        
+        canvas.addEventListener('touchstart', (e) => { isDragging = true; handleInteraction(e); }, {passive: true});
+        canvas.addEventListener('touchmove', (e) => { if (isDragging) handleInteraction(e); }, {passive: true});
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        // Math utilities
+        const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
+
+        // Main drawing loop
+        let lastTime = performance.now();
+
+        function draw() {
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000; // Delta time in seconds
+            lastTime = now;
+            config.time += dt;
+
+            const centerY = canvas.height / 2;
+            const screenX = config.barrierX + config.L;
+
+            // 1. Clear background
+            ctx.fillStyle = colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid lines for scale
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0; i<canvas.width; i+=50) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+            for(let i=0; i<canvas.height; i+=50) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+            ctx.stroke();
+
+            // Source positions
+            const s1y = centerY - config.d / 2;
+            const s2y = centerY + config.d / 2;
+
+            // 2. Draw expanding waves
+            ctx.lineWidth = 2;
+            const maxRadius = Math.sqrt(config.L**2 + (canvas.height)**2) + 100;
+            const phaseOffset = (config.time * config.waveSpeed) % config.lambda;
+
+            // Draw concentric circles from S1 and S2
+            for (let r = phaseOffset; r < maxRadius; r += config.lambda) {
+                // Opacity fades with distance
+                const alpha = Math.max(0, 1 - (r / maxRadius));
+                ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.4})`;
+                
+                // S1 Wave
+                ctx.beginPath();
+                ctx.arc(config.barrierX, s1y, r, -Math.PI/2, Math.PI/2);
+                ctx.stroke();
+
+                // S2 Wave
+                ctx.beginPath();
+                ctx.arc(config.barrierX, s2y, r, -Math.PI/2, Math.PI/2);
+                ctx.stroke();
+            }
+
+            // 3. Draw interference pattern on screen
+            // Calculate intensity for each Y pixel on the screen
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0);
+            
+            const intensityScale = 100; // How far the graph protrudes
+            
+            for (let y = 0; y < canvas.height; y++) {
+                const dist1 = distance(config.barrierX, s1y, screenX, y);
+                const dist2 = distance(config.barrierX, s2y, screenX, y);
+                const pathDiff = Math.abs(dist1 - dist2);
+                
+                // Intensity formula: I = 4 * I0 * cos^2(pi * deltaR / lambda)
+                // We normalize it between 0 and 1
+                const phase = (Math.PI * pathDiff) / config.lambda;
+                const intensity = Math.pow(Math.cos(phase), 2);
+                
+                const graphX = screenX + intensity * intensityScale;
+                ctx.lineTo(graphX, y);
+            }
+            
+            ctx.lineTo(screenX, canvas.height);
+            ctx.closePath();
+            
+            // Fill interference graph with glowing gradient
+            const grad = ctx.createLinearGradient(screenX, 0, screenX + intensityScale, 0);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0.1)');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0.8)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.strokeStyle = colors.intensity;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 4. Draw Barrier and Screen physical representation
+            // Barrier
+            ctx.fillStyle = colors.barrier;
+            const slitWidth = 10;
+            ctx.fillRect(config.barrierX - 4, 0, 8, s1y - slitWidth/2); // Top
+            ctx.fillRect(config.barrierX - 4, s1y + slitWidth/2, 8, config.d - slitWidth); // Middle
+            ctx.fillRect(config.barrierX - 4, s2y + slitWidth/2, 8, canvas.height - s2y); // Bottom
+            
+            // Screen
+            ctx.fillStyle = colors.barrier;
+            ctx.fillRect(screenX - 2, 0, 4, canvas.height);
+
+            // 5. Probe calculations & drawing
+            const r1 = distance(config.barrierX, s1y, screenX, config.probeY);
+            const r2 = distance(config.barrierX, s2y, screenX, config.probeY);
+            const deltaR = Math.abs(r1 - r2);
+            const n = deltaR / config.lambda;
+
+            // Draw paths
+            ctx.setLineDash([5, 5]);
+            
+            // Path 1
+            ctx.beginPath();
+            ctx.moveTo(config.barrierX, s1y);
+            ctx.lineTo(screenX, config.probeY);
+            ctx.strokeStyle = colors.path1;
+            ctx.stroke();
+            
+            // Path 2
+            ctx.beginPath();
+            ctx.moveTo(config.barrierX, s2y);
+            ctx.lineTo(screenX, config.probeY);
+            ctx.strokeStyle = colors.path2;
+            ctx.stroke();
+            
+            ctx.setLineDash([]); // Reset
+
+            // Draw probe point
+            ctx.beginPath();
+            ctx.arc(screenX, config.probeY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            
+            // Glow around probe based on intensity
+            const currentIntensity = Math.pow(Math.cos((Math.PI * deltaR) / config.lambda), 2);
+            ctx.beginPath();
+            ctx.arc(screenX, config.probeY, 15 + currentIntensity * 10, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${currentIntensity * 0.5})`;
+            ctx.fill();
+
+            // 6. Update UI Panel with calculations
+            r1Val.innerText = r1.toFixed(1);
+            r2Val.innerText = r2.toFixed(1);
+            deltaRVal.innerText = `${deltaR.toFixed(1)} = ${(n).toFixed(2)}λ`;
+
+            // Determine interference type based on closeness to integer or half-integer
+            const remainder = n % 1;
+            if (remainder < 0.15 || remainder > 0.85) {
+                stateBox.className = "text-center p-2 rounded text-sm font-bold bg-cyan-900/50 text-cyan-300 border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]";
+                stateBox.innerHTML = `Constructive Interference<br><span class="text-xs font-normal opacity-75">Bright Fringe (n ≈ ${Math.round(n)})</span>`;
+            } else if (remainder > 0.35 && remainder < 0.65) {
+                stateBox.className = "text-center p-2 rounded text-sm font-bold bg-slate-900 text-slate-400 border border-slate-700";
+                stateBox.innerHTML = `Destructive Interference<br><span class="text-xs font-normal opacity-75">Dark Fringe (n ≈ ${Math.floor(n)} + ½)</span>`;
+            } else {
+                stateBox.className = "text-center p-2 rounded text-sm font-medium bg-slate-800 text-slate-300 border border-slate-700/50";
+                stateBox.innerHTML = `Intermediate State<br><span class="text-xs font-normal opacity-75">Partial Interference</span>`;
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Initialize and start loop
+        resize();
+        updateConfig();
+        requestAnimationFrame(draw);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superposition Principle & Standing Waves</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+        }
+
+        /* Custom Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        /* Checkbox styling */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #38bdf8;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #38bdf8;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <header class="w-full max-w-6xl mb-8 text-center">
+        <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-4">
+            Superposition Principle
+        </h1>
+        <p class="text-lg text-slate-400 max-w-3xl mx-auto">
+            When two identical waves traveling in opposite directions meet, they interfere to form a <span class="text-white font-semibold">standing wave</span>.
+        </p>
+    </header>
+
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Canvas Container -->
+        <div class="lg:col-span-2 relative glass-panel rounded-xl overflow-hidden shadow-2xl h-[400px] md:h-[500px]">
+            <canvas id="waveCanvas"></canvas>
+            <div class="absolute top-4 left-4 flex gap-3 text-sm font-semibold">
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#06b6d4] shadow-[0_0_8px_#06b6d4]"></span> Wave 1 (Right)</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#ec4899] shadow-[0_0_8px_#ec4899]"></span> Wave 2 (Left)</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#eab308] shadow-[0_0_8px_#eab308]"></span> Superposition</div>
+            </div>
+        </div>
+
+        <!-- Controls & Theory Container -->
+        <div class="flex flex-col gap-6">
+            
+            <!-- Controls Panel -->
+            <div class="glass-panel p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center justify-between">
+                    Controls
+                    <button id="playPauseBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm transition-colors shadow-[0_0_10px_rgba(37,99,235,0.5)]">
+                        Pause
+                    </button>
+                </h2>
+
+                <!-- Toggles -->
+                <div class="space-y-3 mb-6">
+                    <label class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="showW1" class="sr-only" checked>
+                            <div class="block bg-slate-700 w-10 h-6 rounded-full transition-colors w1-bg"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 w1-dot translate-x-4"></div>
+                        </div>
+                        <div class="ml-3 text-slate-300">Show Wave 1 <span class="text-xs text-cyan-400">(\(y_1\))</span></div>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="showW2" class="sr-only" checked>
+                            <div class="block bg-slate-700 w-10 h-6 rounded-full transition-colors w2-bg"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 w2-dot translate-x-4"></div>
+                        </div>
+                        <div class="ml-3 text-slate-300">Show Wave 2 <span class="text-xs text-pink-400">(\(y_2\))</span></div>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="showSum" class="sr-only" checked>
+                            <div class="block bg-slate-700 w-10 h-6 rounded-full transition-colors sum-bg"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 sum-dot translate-x-4"></div>
+                        </div>
+                        <div class="ml-3 text-slate-300 font-semibold">Show Superposition</div>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="showNodes" class="sr-only" checked>
+                            <div class="block bg-slate-700 w-10 h-6 rounded-full transition-colors node-bg"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 node-dot translate-x-4"></div>
+                        </div>
+                        <div class="ml-3 text-slate-300">Show Nodes</div>
+                    </label>
+                </div>
+
+                <!-- Sliders -->
+                <div class="space-y-5">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Amplitude (\(A\))</span>
+                            <span id="ampValue" class="text-cyan-400">50</span>
+                        </div>
+                        <input type="range" id="ampSlider" min="0" max="100" value="50">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Wavelength (\(\lambda\))</span>
+                            <span id="waveValue" class="text-cyan-400">200</span>
+                        </div>
+                        <input type="range" id="waveSlider" min="50" max="400" value="200">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Frequency (\(\omega\))</span>
+                            <span id="freqValue" class="text-cyan-400">1.0</span>
+                        </div>
+                        <input type="range" id="freqSlider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theory Panel -->
+            <div class="glass-panel p-6 rounded-xl shadow-lg text-sm text-slate-300 overflow-y-auto max-h-[300px] lg:max-h-none">
+                <h3 class="text-lg font-bold text-white mb-2">The Mathematics</h3>
+                
+                <p class="mb-2">Two identical waves traveling in opposite directions:</p>
+                <div class="overflow-x-auto pb-2">
+                    \( y_1 = A \sin(kx - \omega t) \) <br>
+                    \( y_2 = A \sin(kx + \omega t) \)
+                </div>
+                
+                <p class="mt-2 mb-2">Using the trigonometric identity:</p>
+                <div class="overflow-x-auto pb-2 text-xs">
+                    \( \sin(\alpha) + \sin(\beta) = 2\sin(\frac{\alpha+\beta}{2})\cos(\frac{\alpha-\beta}{2}) \)
+                </div>
+                
+                <p class="mt-2 mb-2">The total standing wave is:</p>
+                <div class="overflow-x-auto pb-2 font-bold text-yellow-400">
+                    \( y_{total} = 2A \sin(kx) \cos(\omega t) \)
+                </div>
+
+                <div class="mt-4 p-3 bg-slate-800/50 rounded border border-slate-700">
+                    <strong class="text-white">Nodes</strong> are points that never move.
+                    They occur where \( \sin(kx) = 0 \). <br><br>
+                    \( kx = n\pi \) <br>
+                    Since \( k = \frac{2\pi}{\lambda} \), then \( \frac{2\pi}{\lambda}x = n\pi \)<br>
+                    Position of nodes: \( x = \frac{n\lambda}{2} \)
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Toggles
+        const showW1 = document.getElementById('showW1');
+        const showW2 = document.getElementById('showW2');
+        const showSum = document.getElementById('showSum');
+        const showNodes = document.getElementById('showNodes');
+        
+        // Sliders
+        const ampSlider = document.getElementById('ampSlider');
+        const waveSlider = document.getElementById('waveSlider');
+        const freqSlider = document.getElementById('freqSlider');
+        
+        // Values display
+        const ampValue = document.getElementById('ampValue');
+        const waveValue = document.getElementById('waveValue');
+        const freqValue = document.getElementById('freqValue');
+        
+        // Play/Pause
+        const playPauseBtn = document.getElementById('playPauseBtn');
+
+        // Animation state
+        let time = 0;
+        let isPlaying = true;
+        let animationId;
+
+        // Custom Toggle Styling Sync
+        function updateToggleStyles() {
+            const toggles = [
+                { id: 'showW1', color: 'bg-cyan-500', prefix: 'w1' },
+                { id: 'showW2', color: 'bg-pink-500', prefix: 'w2' },
+                { id: 'showSum', color: 'bg-yellow-500', prefix: 'sum' },
+                { id: 'showNodes', color: 'bg-white', prefix: 'node' }
+            ];
+
+            toggles.forEach(t => {
+                const isChecked = document.getElementById(t.id).checked;
+                const bg = document.querySelector(`.${t.prefix}-bg`);
+                const dot = document.querySelector(`.${t.prefix}-dot`);
+                
+                if (isChecked) {
+                    bg.classList.remove('bg-slate-700');
+                    bg.classList.add(t.color);
+                    dot.classList.add('translate-x-5');
+                } else {
+                    bg.classList.remove(t.color);
+                    bg.classList.add('bg-slate-700');
+                    dot.classList.remove('translate-x-5');
+                }
+            });
+        }
+
+        [showW1, showW2, showSum, showNodes].forEach(el => {
+            el.addEventListener('change', updateToggleStyles);
+        });
+        updateToggleStyles(); // Init toggles
+
+        // Resize Canvas
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Drawing Function
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Get current values
+            const A = parseFloat(ampSlider.value);
+            const lambda = parseFloat(waveSlider.value);
+            const omega = parseFloat(freqSlider.value) * 0.1; // Scale down for visible speed
+            
+            // Update labels
+            ampValue.innerText = A;
+            waveValue.innerText = lambda;
+            freqValue.innerText = freqSlider.value;
+
+            const k = (2 * Math.PI) / lambda;
+            const centerY = canvas.height / 2;
+            const width = canvas.width;
+
+            // Draw center reference line
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Function to draw a wave
+            function drawWave(yFunc, color, shadowColor, lineWidth = 2) {
+                ctx.beginPath();
+                ctx.moveTo(0, centerY - yFunc(0));
+                for (let x = 1; x < width; x++) {
+                    ctx.lineTo(x, centerY - yFunc(x));
+                }
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = shadowColor;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset
+            }
+
+            // Wave 1: y1 = A * sin(kx - wt)  [Moving Right]
+            const y1 = (x) => A * Math.sin(k * x - omega * time);
+            if (showW1.checked) {
+                drawWave(y1, '#06b6d4', '#0891b2', 2); // Cyan
+            }
+
+            // Wave 2: y2 = A * sin(kx + wt)  [Moving Left]
+            const y2 = (x) => A * Math.sin(k * x + omega * time);
+            if (showW2.checked) {
+                drawWave(y2, '#ec4899', '#db2777', 2); // Pink
+            }
+
+            // Superposition: y_total = y1 + y2
+            // Math equation: 2A * sin(kx) * cos(wt)
+            const yTotal = (x) => y1(x) + y2(x);
+            if (showSum.checked) {
+                drawWave(yTotal, '#fde047', '#eab308', 4); // Yellow thicker line
+            }
+
+            // Draw Nodes
+            if (showNodes.checked) {
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffffff';
+                
+                // x = n * lambda / 2
+                for (let n = 0; (n * lambda / 2) <= width; n++) {
+                    let nodeX = n * lambda / 2;
+                    ctx.beginPath();
+                    ctx.arc(nodeX, centerY, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    // Node text
+                    ctx.font = '10px Inter';
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.shadowBlur = 0;
+                    ctx.fillText(`n=${n}`, nodeX - 8, centerY + 20);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowBlur = 15;
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            // Update time
+            if (isPlaying) {
+                time += 1;
+            }
+
+            animationId = requestAnimationFrame(draw);
+        }
+
+        // Play/Pause Control
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.innerText = isPlaying ? "Pause" : "Play";
+            playPauseBtn.className = isPlaying 
+                ? "bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm transition-colors shadow-[0_0_10px_rgba(37,99,235,0.5)]"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-sm transition-colors shadow-[0_0_10px_rgba(5,150,105,0.5)]";
+        });
+
+        // Start animation
+        draw();
+    </script>
+</body>
+</html>

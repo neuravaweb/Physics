@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Phase Difference</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Custom Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ec4899; /* Pink */
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #334155; /* Slate 700 */
+            border-radius: 4px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        .math-block {
+            font-family: 'Cambria Math', 'Times New Roman', serif;
+            letter-spacing: 1px;
+        }
+
+        .fraction {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .fraction > span {
+            display: block;
+            padding: 0.1em;
+        }
+        .fraction span.fdn {
+            border-top: 1px solid currentColor;
+        }
+        
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            border-radius: 1rem;
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.1);
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-5xl w-full">
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+                Understanding Phase Difference
+            </h1>
+            <p class="text-slate-400 max-w-2xl mx-auto">
+                Phase (<span class="text-yellow-400 font-bold font-serif">ϕ</span>) describes how far along a cycle a wave is. 
+                Watch how the physical distance between two points (<span class="text-pink-400 font-bold font-serif">Δx</span>) perfectly maps to an angular phase difference (<span class="text-pink-400 font-bold font-serif">Δϕ</span>) on a circle.
+            </p>
+        </header>
+
+        <!-- Main Animation Canvas -->
+        <div id="canvas-container" class="mb-8">
+            <canvas id="waveCanvas" width="1000" height="400"></canvas>
+        </div>
+
+        <!-- Interactive Controls & Math Output -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- Controls -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <h2 class="text-xl font-semibold mb-6 flex items-center text-slate-200">
+                    <svg class="w-5 h-5 mr-2 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Interactive Control
+                </h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm text-slate-400 mb-2">
+                        Distance between points (<span class="text-pink-400 font-semibold">Δx</span>):
+                    </label>
+                    <input type="range" id="phaseSlider" min="0" max="360" step="1" value="120">
+                    <div class="flex justify-between text-xs text-slate-500 mt-2 font-mono">
+                        <span>0</span>
+                        <span>λ/4</span>
+                        <span>λ/2</span>
+                        <span>3λ/4</span>
+                        <span>1λ</span>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex gap-3">
+                    <button id="btn-third" class="flex-1 py-2 px-4 rounded-lg bg-pink-500/10 text-pink-400 border border-pink-500/30 hover:bg-pink-500/20 transition-colors font-medium">
+                        Set to λ / 3
+                    </button>
+                    <button id="btn-half" class="flex-1 py-2 px-4 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors font-medium">
+                        Set to λ / 2
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Math Calculation -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                <h2 class="text-xl font-semibold mb-4 text-slate-200">The Mathematics</h2>
+                
+                <div class="math-block text-lg space-y-4 relative z-10">
+                    <!-- Base Equation -->
+                    <div class="flex items-center text-slate-300">
+                        <span class="mr-3">1. Equation:</span>
+                        <span class="text-pink-400 font-bold">Δϕ</span> = 
+                        <div class="fraction mx-2 text-cyan-400">
+                            <span>2π</span>
+                            <span class="fdn">λ</span>
+                        </div>
+                        <span class="text-pink-400 font-bold">Δx</span>
+                    </div>
+
+                    <!-- Substitution -->
+                    <div class="flex items-center text-slate-300">
+                        <span class="mr-3">2. Substitute:</span>
+                        <span class="text-pink-400 font-bold">Δϕ</span> = 
+                        <div class="fraction mx-2 text-cyan-400">
+                            <span>2π</span>
+                            <span class="fdn">λ</span>
+                        </div>
+                        ( <span id="math-sub" class="text-pink-400 font-bold mx-1">...</span> )
+                    </div>
+
+                    <!-- Result -->
+                    <div class="flex items-center text-slate-100 bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 mt-4">
+                        <span class="mr-3 text-slate-300">3. Result:</span>
+                        <span class="text-pink-400 font-bold">Δϕ</span> = 
+                        <span id="math-result-rad" class="text-xl font-bold text-yellow-400 mx-3">...</span> radians
+                    </div>
+                    <div class="text-right text-slate-400 text-sm">
+                        (or <span id="math-result-deg" class="font-bold text-pink-400">...</span>°)
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('phaseSlider');
+        const mathSub = document.getElementById('math-sub');
+        const mathResultRad = document.getElementById('math-result-rad');
+        const mathResultDeg = document.getElementById('math-result-deg');
+        const btnThird = document.getElementById('btn-third');
+        const btnHalf = document.getElementById('btn-half');
+
+        // Animation Constants
+        const R = 80;               // Radius of phasor circle (amplitude)
+        const lambda = 400;         // Wavelength in pixels
+        const cx = 150;             // Center X of phasor circle
+        const cy = 200;             // Center Y
+        const waveStartX = 320;     // X coordinate where wave drawing starts
+        const speed = 0.03;         // Animation speed
+
+        // State Variables
+        let time = 0;
+        let deltaDeg = 120; // Default: 120 degrees (lambda/3)
+
+        // Utility: Greatest Common Divisor to simplify fractions
+        function gcd(a, b) {
+            return b ? gcd(b, a % b) : a;
+        }
+
+        // Utility: Format degrees into beautiful HTML fractions for distance (lambda)
+        function formatDistanceFraction(deg) {
+            if (deg === 0) return "0";
+            if (deg === 360) return "λ";
+            
+            let num = deg;
+            let den = 360;
+            let div = gcd(num, den);
+            num /= div;
+            den /= div;
+            
+            let numStr = num === 1 ? "λ" : `${num}λ`;
+            return `<div class="fraction"><span>${numStr}</span><span class="fdn">${den}</span></div>`;
+        }
+
+        // Utility: Format degrees into beautiful HTML fractions for radians (pi)
+        function formatRadianFraction(deg) {
+            if (deg === 0) return "0";
+            
+            let num = deg * 2;
+            let den = 360;
+            let div = gcd(num, den);
+            num /= div;
+            den /= div;
+            
+            if (num === den) return "2π";
+            
+            let numStr = "";
+            if (num === 1 && den === 1) numStr = "π";
+            else if (den === 1) numStr = `${num}π`;
+            else if (num === 1) numStr = "π";
+            else numStr = `${num}π`;
+
+            if (den === 1) return numStr;
+            return `<div class="fraction"><span>${numStr}</span><span class="fdn">${den}</span></div>`;
+        }
+
+        // Update Math text in DOM
+        function updateMathDisplay(deg) {
+            mathSub.innerHTML = formatDistanceFraction(deg);
+            mathResultRad.innerHTML = formatRadianFraction(deg);
+            mathResultDeg.innerText = deg;
+        }
+
+        // Handle high DPI displays for crisp rendering
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            // Internal coordinate system remains 1000x400
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Main Drawing Loop
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, 1000, 400);
+
+            // Fetch state
+            deltaDeg = parseInt(slider.value);
+            const deltaRad = (deltaDeg * Math.PI) / 180;
+            const deltaX = (deltaDeg / 360) * lambda;
+
+            // Mathematical Phase Variables
+            // Vector A acts as reference. Wave travels right.
+            // Equation: y(x,t) = R * sin(t - kx)
+            const phiA = time; 
+            const phiB = time - deltaRad; 
+
+            // Y positions
+            const yA = cy - R * Math.sin(phiA);
+            const yB = cy - R * Math.sin(phiB);
+
+            // X positions on wave
+            const xA_canvas = waveStartX;
+            const xB_canvas = waveStartX + deltaX;
+
+            // --- 1. DRAW GRID AND AXES ---
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#334155'; // Slate 700
+            
+            // Central horizontal axis
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(1000, cy);
+            ctx.stroke();
+
+            // Circle axes
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - R - 20);
+            ctx.lineTo(cx, cy + R + 20);
+            ctx.moveTo(cx - R - 20, cy);
+            ctx.lineTo(cx + R + 20, cy);
+            ctx.stroke();
+
+            // Wave start vertical axis
+            ctx.beginPath();
+            ctx.moveTo(waveStartX, cy - R - 40);
+            ctx.lineTo(waveStartX, cy + R + 40);
+            ctx.stroke();
+
+
+            // --- 2. DRAW WAVE ---
+            ctx.beginPath();
+            ctx.strokeStyle = '#06b6d4'; // Cyan 500
+            ctx.lineWidth = 3;
+            // Add a subtle glow
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#06b6d4';
+            
+            for (let x = 0; x <= 1000 - waveStartX; x++) {
+                // y = R * sin(t - k*x)
+                const waveY = cy - R * Math.sin(time - (x / lambda) * 2 * Math.PI);
+                if (x === 0) ctx.moveTo(waveStartX + x, waveY);
+                else ctx.lineTo(waveStartX + x, waveY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // reset
+
+
+            // --- 3. DRAW PHASOR CIRCLE ---
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#475569'; // Slate 600
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Phase Difference Arc (Inner)
+            if (deltaDeg > 0) {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                // Canvas arc uses clockwise, our math phi is CCW. Hence -phi
+                // We draw arc from Vector A to Vector B
+                ctx.arc(cx, cy, 25, -phiA, -phiB, true);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(236, 72, 153, 0.3)'; // Pink transparent
+                ctx.fill();
+            }
+
+
+            // --- 4. DRAW CONNECTING LINES & VECTORS ---
+
+            // Draw connecting horizontal dashed lines
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            
+            // Line A (Yellow)
+            ctx.beginPath();
+            ctx.moveTo(cx + R * Math.cos(phiA), yA);
+            ctx.lineTo(xA_canvas, yA);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+            ctx.stroke();
+
+            // Line B (Pink)
+            ctx.beginPath();
+            ctx.moveTo(cx + R * Math.cos(phiB), yB);
+            ctx.lineTo(xB_canvas, yB);
+            ctx.strokeStyle = 'rgba(236, 72, 153, 0.5)';
+            ctx.stroke();
+            
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw Vector A (Reference - Yellow)
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + R * Math.cos(phiA), yA);
+            ctx.strokeStyle = '#fbbf24'; // Yellow 400
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw Vector B (Shifted - Pink)
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + R * Math.cos(phiB), yB);
+            ctx.strokeStyle = '#ec4899'; // Pink 500
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+
+            // --- 5. DRAW POINTS ---
+            
+            // Draw Point A (Yellow)
+            ctx.beginPath();
+            ctx.arc(xA_canvas, yA, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Point B (Pink)
+            ctx.beginPath();
+            ctx.arc(xB_canvas, yB, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ec4899';
+            ctx.fill();
+            ctx.stroke();
+
+            
+            // --- 6. DRAW DISTANCE (Δx) BRACKET ---
+            if (deltaX > 0) {
+                const bracketY = cy - R - 35;
+                ctx.beginPath();
+                ctx.moveTo(xA_canvas, bracketY);
+                ctx.lineTo(xB_canvas, bracketY);
+                // Tick marks
+                ctx.moveTo(xA_canvas, bracketY - 5);
+                ctx.lineTo(xA_canvas, bracketY + 5);
+                ctx.moveTo(xB_canvas, bracketY - 5);
+                ctx.lineTo(xB_canvas, bracketY + 5);
+                ctx.strokeStyle = '#94a3b8'; // Slate 400
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Bracket Label
+                ctx.fillStyle = '#ec4899';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Δx', xA_canvas + deltaX / 2, bracketY - 10);
+            }
+
+            // Labels for circle vectors
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('Point A', cx + (R+20)*Math.cos(phiA), cy - (R+20)*Math.sin(phiA));
+            ctx.fillStyle = '#ec4899';
+            ctx.fillText('Point B', cx + (R+20)*Math.cos(phiB), cy - (R+20)*Math.sin(phiB));
+
+
+            // Advance time for animation
+            time += speed;
+
+            // Loop
+            requestAnimationFrame(draw);
+        }
+
+        // Event Listeners
+        slider.addEventListener('input', (e) => {
+            updateMathDisplay(parseInt(e.target.value));
+        });
+
+        btnThird.addEventListener('click', () => {
+            slider.value = 120;
+            updateMathDisplay(120);
+        });
+
+        btnHalf.addEventListener('click', () => {
+            slider.value = 180;
+            updateMathDisplay(180);
+        });
+
+        // Initialize
+        updateMathDisplay(parseInt(slider.value));
+        draw();
+
+    </script>
+</body>
+</html>

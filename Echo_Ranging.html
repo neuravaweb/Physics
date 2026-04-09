@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Ranging Animation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Custom glow effects for the SVG */
+        .glow {
+            filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.8));
+        }
+        .glow-red {
+            filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.8));
+        }
+        
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease-out;
+        }
+        .fade-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Pulse animation for the person shouting */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .speaker-pulse {
+            animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 lg:p-8">
+
+    <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Header / Title (Mobile spanning all columns) -->
+        <div class="lg:col-span-3 mb-2">
+            <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+                Echo Ranging: The Round Trip
+            </h1>
+            <p class="text-slate-400 text-lg">
+                Visualize how sound travels to calculate distance based on the echo delay.
+            </p>
+        </div>
+
+        <!-- Left/Center: Animation Canvas -->
+        <div class="lg:col-span-2 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col relative">
+            
+            <!-- SVG Simulation -->
+            <div class="relative w-full aspect-video bg-slate-900 overflow-hidden">
+                <svg viewBox="0 0 1000 500" class="w-full h-full preserve-3d">
+                    <!-- Background Environment -->
+                    <defs>
+                        <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#0f172a" />
+                            <stop offset="100%" stop-color="#1e293b" />
+                        </linearGradient>
+                        <linearGradient id="cliffGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#334155" />
+                            <stop offset="100%" stop-color="#1e293b" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="1000" height="500" fill="url(#sky)" />
+                    
+                    <!-- Ground -->
+                    <rect x="0" y="400" width="1000" height="100" fill="#020617" />
+                    <line x1="0" y1="400" x2="1000" y2="400" stroke="#334155" stroke-width="4" />
+
+                    <!-- Distance Measurement Line -->
+                    <g opacity="0.6">
+                        <line x1="150" y1="450" x2="850" y2="450" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8,8" />
+                        <line x1="150" y1="440" x2="150" y2="460" stroke="#94a3b8" stroke-width="3" />
+                        <line x1="850" y1="440" x2="850" y2="460" stroke="#94a3b8" stroke-width="3" />
+                        <text x="500" y="480" fill="#94a3b8" font-family="Outfit" font-size="18" text-anchor="middle" font-weight="600">
+                            Distance (d) = 171.5 m
+                        </text>
+                    </g>
+
+                    <!-- Cliff / Wall -->
+                    <path d="M850 400 L850 100 L870 80 L900 120 L930 70 L1000 100 L1000 400 Z" fill="url(#cliffGrad)" stroke="#475569" stroke-width="2"/>
+                    <path d="M850 100 L850 400" stroke="#64748b" stroke-width="4" opacity="0.5"/>
+
+                    <!-- Person/Origin -->
+                    <g transform="translate(150, 340)">
+                        <!-- Simple Stylized Person -->
+                        <circle cx="0" cy="-30" r="15" fill="#38bdf8" />
+                        <path d="M-15 20 L-10 -10 L10 -10 L15 20 Z" fill="#0ea5e9" rounded="true" />
+                        <rect x="-6" y="20" width="4" height="40" fill="#0284c7" />
+                        <rect x="2" y="20" width="4" height="40" fill="#0284c7" />
+                    </g>
+
+                    <!-- Text Bubbles -->
+                    <g id="bubble-hello" transform="translate(160, 260)" opacity="0" class="transition-opacity duration-300">
+                        <path d="M0 0 L20 -20 L80 -20 L80 -60 L-20 -60 L-20 -20 L-10 -20 Z" fill="#f8fafc" />
+                        <text x="30" y="-35" fill="#0f172a" font-family="Outfit" font-weight="bold" font-size="16" text-anchor="middle">HELLO!</text>
+                    </g>
+
+                    <g id="bubble-echo" transform="translate(160, 260)" opacity="0" class="transition-opacity duration-300">
+                        <path d="M0 0 L20 -20 L80 -20 L80 -60 L-20 -60 L-20 -20 L-10 -20 Z" fill="#22d3ee" />
+                        <text x="30" y="-35" fill="#0f172a" font-family="Outfit" font-weight="bold" font-size="16" text-anchor="middle">HELLO!</text>
+                    </g>
+
+                    <!-- Moving Sound Wave -->
+                    <g id="sound-wave" transform="translate(150, 310)" opacity="0">
+                        <path d="M0,-40 A40,40 0 0,1 0,40" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" class="glow"/>
+                        <path d="M15,-55 A55,55 0 0,1 15,55" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round" opacity="0.7" class="glow"/>
+                        <path d="M30,-70 A70,70 0 0,1 30,70" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.4" class="glow"/>
+                    </g>
+                    
+                    <!-- Impact visual at cliff -->
+                    <circle id="impact-flash" cx="850" cy="310" r="0" fill="none" stroke="#f43f5e" stroke-width="4" opacity="0" class="glow-red"/>
+
+                </svg>
+            </div>
+
+            <!-- Dashboard / Controls below canvas -->
+            <div class="p-6 bg-slate-800 border-t border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                
+                <div class="flex items-center gap-4">
+                    <button id="playBtn" class="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-lg transition-colors shadow-lg shadow-cyan-500/20">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        Start Echo
+                    </button>
+                    <button id="resetBtn" class="flex items-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors">
+                        <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Timer Display -->
+                <div class="flex items-center gap-6">
+                    <div class="text-center">
+                        <div class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Physics Time</div>
+                        <div class="text-3xl font-bold math-font text-white w-32" id="time-display">0.00 s</div>
+                    </div>
+                    <div class="text-center hidden sm:block">
+                        <div class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Wave Distance</div>
+                        <div class="text-3xl font-bold math-font text-cyan-400 w-32" id="dist-display">0 m</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right: Explanation & Math Panel -->
+        <div class="lg:col-span-1 bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6 flex flex-col h-full">
+            
+            <h2 class="text-xl font-bold text-white border-b border-slate-700 pb-4 mb-4 flex items-center gap-2">
+                <i data-lucide="calculator" class="w-5 h-5 text-cyan-400"></i>
+                The Calculation
+            </h2>
+
+            <div class="prose prose-invert max-w-none text-slate-300 text-sm leading-relaxed mb-6">
+                <p>
+                    An echo represents a <strong class="text-white">round trip</strong>. If the person hears the echo after <span class="text-cyan-400 font-bold">1 second</span>, the sound took <span class="text-rose-400 font-bold">0.5 seconds</span> to reach the cliff and <span class="text-rose-400 font-bold">0.5 seconds</span> to return.
+                </p>
+            </div>
+
+            <!-- Mathematical Formula Box -->
+            <div class="bg-slate-900 rounded-xl p-5 border border-slate-700 font-mono text-sm shadow-inner mb-6 space-y-4">
+                
+                <!-- Knowns -->
+                <div class="text-slate-400 mb-2 border-b border-slate-800 pb-2">
+                    <span class="text-purple-400">v</span> = 343 m/s <span class="text-slate-500">// Speed of sound</span><br>
+                    <span class="text-cyan-400">t<sub>total</sub></span> = 1.0 s <span class="text-slate-500">// Total round trip</span><br>
+                    <span id="math-t-half" class="text-slate-500 transition-colors duration-300">
+                        <span class="text-rose-400">t<sub>one-way</sub></span> = 1.0 / 2 = 0.5 s
+                    </span>
+                </div>
+
+                <!-- Formula step 1 -->
+                <div class="text-lg">
+                    <span class="text-emerald-400 font-bold">d</span> = <span class="text-purple-400">v</span> × <span class="text-rose-400">t<sub>one-way</sub></span>
+                </div>
+                
+                <!-- Formula step 2 -->
+                <div id="math-step-2" class="text-lg opacity-50 transition-opacity duration-300">
+                    <span class="text-emerald-400 font-bold">d</span> = 343 × 0.5
+                </div>
+
+                <!-- Final Answer -->
+                <div id="math-result" class="text-2xl font-bold text-emerald-400 opacity-50 transition-opacity duration-300 mt-2">
+                    d = 171.5 m
+                </div>
+            </div>
+
+            <!-- Event Timeline -->
+            <div class="mt-auto flex flex-col gap-3 relative">
+                <!-- Line connecting timeline nodes -->
+                <div class="absolute left-3 top-4 bottom-4 w-0.5 bg-slate-700"></div>
+
+                <div class="flex items-center gap-4 relative z-10">
+                    <div id="step-0" class="w-6 h-6 rounded-full bg-cyan-500 border-4 border-slate-800 transition-colors shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>
+                    <div class="flex-1 text-sm font-semibold text-white">0.0s: Sound Emitted</div>
+                </div>
+                
+                <div class="flex items-center gap-4 relative z-10">
+                    <div id="step-1" class="w-6 h-6 rounded-full bg-slate-700 border-4 border-slate-800 transition-colors"></div>
+                    <div class="flex-1 text-sm font-semibold text-slate-400 transition-colors" id="text-step-1">0.5s: Hits the Cliff</div>
+                </div>
+
+                <div class="flex items-center gap-4 relative z-10">
+                    <div id="step-2" class="w-6 h-6 rounded-full bg-slate-700 border-4 border-slate-800 transition-colors"></div>
+                    <div class="flex-1 text-sm font-semibold text-slate-400 transition-colors" id="text-step-2">1.0s: Echo Heard</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Safely Initialize Icons to avoid ReferenceErrors if the CDN is slow or blocked
+        function initIcons() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+        initIcons();
+
+        // Constants and Physics Configuration
+        const V_SOUND = 343; // m/s
+        const ONE_WAY_TIME = 0.5; // seconds
+        const ONE_WAY_DIST = V_SOUND * ONE_WAY_TIME; // 171.5 m
+        
+        // Simulation Configuration
+        const SIM_DURATION_MS = 4000; // 4 seconds of animation represents 1 second of physics
+        const START_X = 150; // px
+        const END_X = 850; // px
+        const PIXELS_PER_METER = (END_X - START_X) / ONE_WAY_DIST;
+
+        // DOM Elements
+        const wave = document.getElementById('sound-wave');
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timeDisplay = document.getElementById('time-display');
+        const distDisplay = document.getElementById('dist-display');
+        const bubbleHello = document.getElementById('bubble-hello');
+        const bubbleEcho = document.getElementById('bubble-echo');
+        const impactFlash = document.getElementById('impact-flash');
+        
+        // Math/Timeline UI Elements
+        const step0 = document.getElementById('step-0');
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const textStep1 = document.getElementById('text-step-1');
+        const textStep2 = document.getElementById('text-step-2');
+        const mathStep2 = document.getElementById('math-step-2');
+        const mathResult = document.getElementById('math-result');
+
+        // State
+        let isAnimating = false;
+        let animationStart = null;
+        let animationFrameId = null;
+
+        function updateUI(physicsTime, distanceTraveledPx, direction) {
+            // Update Text Displays
+            timeDisplay.innerText = physicsTime.toFixed(2) + ' s';
+            
+            let currentDistMeters = distanceTraveledPx / PIXELS_PER_METER;
+            distDisplay.innerText = currentDistMeters.toFixed(1) + ' m';
+
+            // Positioning wave
+            if (direction === 'forward') {
+                wave.setAttribute('transform', `translate(${START_X + distanceTraveledPx}, 310) scale(1, 1)`);
+                // Update styling for forward
+                Array.from(wave.children).forEach(path => {
+                    path.setAttribute('stroke', '#22d3ee'); // cyan
+                    path.classList.remove('glow-red');
+                    path.classList.add('glow');
+                });
+            } else {
+                wave.setAttribute('transform', `translate(${END_X - distanceTraveledPx}, 310) scale(-1, 1)`);
+                // Update styling for backward
+                Array.from(wave.children).forEach(path => {
+                    path.setAttribute('stroke', '#f43f5e'); // rose
+                    path.classList.remove('glow');
+                    path.classList.add('glow-red');
+                });
+            }
+
+            // --- Milestone triggers ---
+
+            // T = 0.0
+            if (physicsTime > 0.05 && direction === 'forward') {
+                bubbleHello.style.opacity = '1';
+                setTimeout(() => { if(isAnimating) bubbleHello.style.opacity = '0'; }, 800);
+            }
+
+            // T = 0.5 (Hits Wall)
+            if (physicsTime >= 0.5 && direction === 'backward' && step1.classList.contains('bg-slate-700')) {
+                // UI changes for wall hit
+                step1.classList.replace('bg-slate-700', 'bg-rose-500');
+                step1.classList.add('shadow-[0_0_10px_rgba(244,63,94,0.5)]');
+                textStep1.classList.replace('text-slate-400', 'text-white');
+                
+                // Emphasize the math half-time step
+                mathStep2.classList.replace('opacity-50', 'opacity-100');
+                
+                // Flash impact on wall
+                impactFlash.style.opacity = '1';
+                let r = 0;
+                let flashInterval = setInterval(() => {
+                    r += 5;
+                    impactFlash.setAttribute('r', r);
+                    impactFlash.style.opacity = 1 - (r/100);
+                    if(r > 100) {
+                        clearInterval(flashInterval);
+                        impactFlash.style.opacity = '0';
+                        impactFlash.setAttribute('r', 0);
+                    }
+                }, 16);
+            }
+
+            // T = 1.0 (Returns)
+            if (physicsTime >= 1.0) {
+                step2.classList.replace('bg-slate-700', 'bg-emerald-500');
+                step2.classList.add('shadow-[0_0_10px_rgba(16,185,129,0.5)]');
+                textStep2.classList.replace('text-slate-400', 'text-white');
+                
+                mathResult.classList.replace('opacity-50', 'opacity-100');
+                bubbleEcho.style.opacity = '1';
+                
+                // Stop simulation
+                stopAnimation();
+                timeDisplay.innerText = '1.00 s';
+                distDisplay.innerText = '343.0 m';
+                wave.style.opacity = '0';
+            }
+        }
+
+        function animationLoop(timestamp) {
+            if (!animationStart) animationStart = timestamp;
+            let elapsed = timestamp - animationStart;
+            
+            // Map elapsed time to physics time (0 to 1.0 seconds)
+            let progress = Math.min(elapsed / SIM_DURATION_MS, 1.0);
+            let physicsTime = progress * (ONE_WAY_TIME * 2); // 0 to 1.0
+
+            if (physicsTime <= 0.5) {
+                // Forward journey
+                let progressHalf = physicsTime / 0.5; // 0 to 1
+                let distancePx = progressHalf * (END_X - START_X);
+                updateUI(physicsTime, distancePx, 'forward');
+            } else if (physicsTime <= 1.0) {
+                // Backward journey
+                let progressHalf = (physicsTime - 0.5) / 0.5; // 0 to 1
+                let distancePx = progressHalf * (END_X - START_X);
+                updateUI(physicsTime, distancePx, 'backward');
+            }
+
+            if (isAnimating && physicsTime < 1.0) {
+                animationFrameId = requestAnimationFrame(animationLoop);
+            }
+        }
+
+        function startAnimation() {
+            if (isAnimating) return;
+            resetAnimation(); // ensure clean state
+            isAnimating = true;
+            wave.style.opacity = '1';
+            
+            // Switch button UI
+            playBtn.innerHTML = '<i data-lucide="pause" class="w-5 h-5"></i> Running...';
+            playBtn.classList.replace('bg-cyan-500', 'bg-slate-600');
+            playBtn.classList.replace('hover:bg-cyan-400', 'hover:bg-slate-500');
+            initIcons();
+            
+            animationStart = null;
+            animationFrameId = requestAnimationFrame(animationLoop);
+        }
+
+        function stopAnimation() {
+            isAnimating = false;
+            cancelAnimationFrame(animationFrameId);
+            
+            // Reset button UI
+            playBtn.innerHTML = '<i data-lucide="play" class="w-5 h-5"></i> Restart Echo';
+            playBtn.classList.replace('bg-slate-600', 'bg-cyan-500');
+            playBtn.classList.replace('hover:bg-slate-500', 'hover:bg-cyan-400');
+            initIcons();
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            
+            // Reset Wave
+            wave.style.opacity = '0';
+            wave.setAttribute('transform', `translate(${START_X}, 310) scale(1, 1)`);
+            Array.from(wave.children).forEach(path => {
+                path.setAttribute('stroke', '#22d3ee');
+                path.classList.remove('glow-red');
+                path.classList.add('glow');
+            });
+
+            // Reset UI Values
+            timeDisplay.innerText = '0.00 s';
+            distDisplay.innerText = '0.0 m';
+            bubbleHello.style.opacity = '0';
+            bubbleEcho.style.opacity = '0';
+            impactFlash.style.opacity = '0';
+
+            // Reset Timeline & Math
+            step1.className = 'w-6 h-6 rounded-full bg-slate-700 border-4 border-slate-800 transition-colors';
+            step2.className = 'w-6 h-6 rounded-full bg-slate-700 border-4 border-slate-800 transition-colors';
+            textStep1.className = 'flex-1 text-sm font-semibold text-slate-400 transition-colors';
+            textStep2.className = 'flex-1 text-sm font-semibold text-slate-400 transition-colors';
+            
+            mathStep2.classList.replace('opacity-100', 'opacity-50');
+            mathResult.classList.replace('opacity-100', 'opacity-50');
+            
+            playBtn.innerHTML = '<i data-lucide="play" class="w-5 h-5"></i> Start Echo';
+            initIcons();
+        }
+
+        // Event Listeners
+        playBtn.addEventListener('click', () => {
+            if (isAnimating) {
+                // Not allowing pause midway to keep concept fluid, just disabled or restart
+            } else {
+                startAnimation();
+            }
+        });
+
+        resetBtn.addEventListener('click', resetAnimation);
+
+    </script>
+</body>
+</html>

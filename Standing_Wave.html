@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standing Wave Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* tailwind slate-900 */
+            color: #e2e8f0; /* tailwind slate-200 */
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+        
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        .math-block {
+            font-family: "Courier New", Courier, monospace;
+            background: rgba(15, 23, 42, 0.6);
+            border-left: 4px solid #38bdf8;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 lg:p-8">
+
+    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Header & Explanation Panel -->
+        <div class="col-span-1 lg:col-span-3 flex flex-col md:flex-row justify-between items-end mb-2">
+            <div>
+                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+                    Standing Wave Modes
+                </h1>
+                <p class="text-slate-400 text-sm md:text-base">
+                    Visualize how traveling waves interfere to create stationary nodes and oscillating antinodes.
+                </p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-3">
+                <button id="togglePlay" class="px-5 py-2 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30 transition shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                    Pause Animation
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="col-span-1 lg:col-span-2 relative bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl flex items-center justify-center h-[400px] lg:h-[500px]">
+            <canvas id="waveCanvas"></canvas>
+            
+            <!-- Legend overlay -->
+            <div class="absolute top-4 right-4 bg-slate-900/80 p-3 rounded-lg border border-slate-700 text-xs text-slate-300 backdrop-blur-sm">
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="w-4 h-0.5 bg-cyan-400 shadow-[0_0_5px_#22d3ee]"></div>
+                    <span>Standing Wave</span>
+                </div>
+                <div class="flex items-center gap-2 mb-1 opacity-0 transition-opacity duration-300" id="legend-traveling">
+                    <div class="w-4 h-0.5 border-t border-dashed border-pink-500"></div>
+                    <span>Right-traveling</span>
+                    <div class="w-4 h-0.5 border-t border-dashed border-blue-500 ml-1"></div>
+                    <span>Left-traveling</span>
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span>Node (0 amplitude)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-400"></div>
+                    <span>Antinode (Max amplitude)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls and Math Panel -->
+        <div class="col-span-1 flex flex-col gap-6">
+            
+            <!-- Dynamic Math Section -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                <h2 class="text-xl font-semibold text-slate-100 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    The Math
+                </h2>
+                
+                <p class="text-sm text-slate-300 mb-4">
+                    A standing wave with <span id="text-antinodes" class="font-bold text-cyan-400">four</span> antinodes means that <span id="text-halfwaves" class="font-bold text-cyan-400">four</span> half-wavelengths (λ/2) fit perfectly along the length of the string.
+                </p>
+
+                <div class="math-block p-4 rounded-lg text-lg space-y-2 text-slate-200">
+                    <div>L = <span id="math-n" class="text-cyan-400 font-bold">4</span>(<span class="text-slate-400">λ / 2</span>) = <span id="math-coef" class="text-green-400 font-bold">2</span>λ</div>
+                    <div class="pt-2 border-t border-slate-700/50 text-slate-400 text-sm">Given L = 0.80 m:</div>
+                    <div>0.80 = <span id="math-coef-2" class="text-green-400 font-bold">2</span>λ</div>
+                    <div class="text-xl font-bold mt-2 text-yellow-300">λ = <span id="math-result">0.40</span> m</div>
+                </div>
+            </div>
+
+            <!-- Interactive Controls -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl flex-1">
+                <h2 class="text-xl font-semibold text-slate-100 mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Parameters
+                </h2>
+                
+                <div class="space-y-6">
+                    <!-- Mode Slider -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-slate-300">Number of Antinodes (n)</label>
+                            <span id="n-value" class="text-cyan-400 font-bold bg-slate-900 px-2 py-1 rounded">4</span>
+                        </div>
+                        <input type="range" id="n-slider" min="1" max="8" value="4" step="1">
+                        <p class="text-xs text-slate-500 mt-1">Changes the harmonic mode.</p>
+                    </div>
+
+                    <!-- String Length Display (Fixed as per problem) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1 text-sm font-medium text-slate-300">
+                            <span>String Length (L)</span>
+                            <span class="text-slate-400">0.80 m</span>
+                        </div>
+                        <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-slate-500 w-full h-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Toggles -->
+                    <div class="pt-4 border-t border-slate-700 space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="show-envelope" class="sr-only" checked>
+                                <div class="block bg-slate-700 w-10 h-6 rounded-full group-hover:bg-slate-600 transition"></div>
+                                <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition shadow-sm transform translate-x-4 bg-cyan-400"></div>
+                            </div>
+                            <span class="text-sm text-slate-300">Show Wave Envelope</span>
+                        </label>
+                        
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="show-traveling" class="sr-only">
+                                <div class="block bg-slate-700 w-10 h-6 rounded-full group-hover:bg-slate-600 transition"></div>
+                                <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition shadow-sm"></div>
+                            </div>
+                            <span class="text-sm text-slate-300">Show Traveling Waves</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Custom Checkbox UI logic ---
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                const dot = this.parentElement.querySelector('.dot');
+                if(this.checked) {
+                    dot.classList.add('translate-x-4', 'bg-cyan-400');
+                    dot.classList.remove('bg-white');
+                } else {
+                    dot.classList.remove('translate-x-4', 'bg-cyan-400');
+                    dot.classList.add('bg-white');
+                }
+            });
+        });
+
+        // --- Physics & Canvas Logic ---
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Physics constants and state
+        const L = 0.80; // String length in meters
+        let n = 4;      // Number of antinodes
+        let A = 60;     // Visual Amplitude in pixels
+        let time = 0;   // Animation time counter
+        let isPlaying = true;
+        const waveSpeed = 0.05; // Visual speed multiplier
+        
+        // DOM Elements
+        const nSlider = document.getElementById('n-slider');
+        const nValue = document.getElementById('n-value');
+        const mathN = document.getElementById('math-n');
+        const mathCoef = document.getElementById('math-coef');
+        const mathCoef2 = document.getElementById('math-coef-2');
+        const mathResult = document.getElementById('math-result');
+        const textAntinodes = document.getElementById('text-antinodes');
+        const textHalfwaves = document.getElementById('text-halfwaves');
+        
+        const showEnvelopeToggle = document.getElementById('show-envelope');
+        const showTravelingToggle = document.getElementById('show-traveling');
+        const legendTraveling = document.getElementById('legend-traveling');
+        const playBtn = document.getElementById('togglePlay');
+
+        // Number to text mapping
+        const numText = ["", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+
+        // Handle Resizing
+        function resizeCanvas() {
+            // Get internal dimensions of container
+            const rect = canvas.parentElement.getBoundingClientRect();
+            // Deal with device pixel ratio for sharp rendering on retina displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Re-adjust visual amplitude based on screen height
+            A = rect.height * 0.15; 
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Update Math Panel based on 'n'
+        function updateMath() {
+            nValue.textContent = n;
+            mathN.textContent = n;
+            
+            const coef = n / 2;
+            const coefStr = Number.isInteger(coef) ? coef.toString() : coef.toFixed(1);
+            mathCoef.textContent = coefStr;
+            mathCoef2.textContent = coefStr;
+            
+            const lambda = L / coef;
+            mathResult.textContent = lambda.toFixed(2);
+
+            textAntinodes.textContent = numText[n] || n;
+            textHalfwaves.textContent = numText[n] || n;
+        }
+
+        // Interactivity bindings
+        nSlider.addEventListener('input', (e) => {
+            n = parseInt(e.target.value);
+            updateMath();
+        });
+
+        showTravelingToggle.addEventListener('change', (e) => {
+            legendTraveling.style.opacity = e.target.checked ? "1" : "0";
+        });
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playBtn.textContent = isPlaying ? "Pause Animation" : "Play Animation";
+            playBtn.classList.toggle('text-cyan-400');
+            playBtn.classList.toggle('text-slate-400');
+            playBtn.classList.toggle('shadow-[0_0_15px_rgba(6,182,212,0.2)]');
+        });
+
+        // Drawing Function
+        function draw() {
+            // Clear canvas
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const centerY = h / 2;
+            const paddingX = w * 0.1; 
+            const drawWidth = w - (paddingX * 2); 
+            
+            // Physics variables dynamically calculated
+            const lambda = (2 * L) / n;
+            const k = (2 * Math.PI) / lambda; // Wave number
+            // omega = k * v, we'll abstract omega directly for visual time
+            const omega = waveSpeed * 100; // Arbitrary angular frequency for smooth looks
+
+            // Draw axis and rulers
+            ctx.beginPath();
+            ctx.moveTo(paddingX, centerY);
+            ctx.lineTo(w - paddingX, centerY);
+            ctx.strokeStyle = "rgba(100, 116, 139, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Draw ruler marks
+            ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "center";
+            for (let i = 0; i <= 4; i++) {
+                const fraction = i / 4;
+                const markX = paddingX + fraction * drawWidth;
+                const physicalX = (fraction * L).toFixed(2);
+                
+                ctx.beginPath();
+                ctx.moveTo(markX, centerY - 5);
+                ctx.lineTo(markX, centerY + 5);
+                ctx.stroke();
+                
+                ctx.fillText(physicalX + "m", markX, centerY + 20);
+            }
+
+            // Draw Envelope (Optional)
+            if (showEnvelopeToggle.checked) {
+                ctx.beginPath();
+                for (let px = 0; px <= drawWidth; px++) {
+                    const physicalX = (px / drawWidth) * L;
+                    // Envelope is simply Amplitude * sin(kx)
+                    const envelopeY = A * Math.sin(k * physicalX);
+                    if (px === 0) ctx.moveTo(paddingX + px, centerY - envelopeY);
+                    else ctx.lineTo(paddingX + px, centerY - envelopeY);
+                }
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                for (let px = 0; px <= drawWidth; px++) {
+                    const physicalX = (px / drawWidth) * L;
+                    const envelopeY = -A * Math.sin(k * physicalX);
+                    if (px === 0) ctx.moveTo(paddingX + px, centerY - envelopeY);
+                    else ctx.lineTo(paddingX + px, centerY - envelopeY);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]); // reset
+            }
+
+            // Draw Traveling Waves (Optional)
+            if (showTravelingToggle.checked) {
+                // Wave Right: A/2 * sin(kx - wt)
+                ctx.beginPath();
+                for (let px = 0; px <= drawWidth; px++) {
+                    const physicalX = (px / drawWidth) * L;
+                    const y = (A / 2) * Math.sin(k * physicalX - omega * time);
+                    if (px === 0) ctx.moveTo(paddingX + px, centerY - y);
+                    else ctx.lineTo(paddingX + px, centerY - y);
+                }
+                ctx.strokeStyle = "rgba(236, 72, 153, 0.6)"; // Pink
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+
+                // Wave Left: A/2 * sin(kx + wt)
+                ctx.beginPath();
+                for (let px = 0; px <= drawWidth; px++) {
+                    const physicalX = (px / drawWidth) * L;
+                    const y = (A / 2) * Math.sin(k * physicalX + omega * time);
+                    if (px === 0) ctx.moveTo(paddingX + px, centerY - y);
+                    else ctx.lineTo(paddingX + px, centerY - y);
+                }
+                ctx.strokeStyle = "rgba(59, 130, 246, 0.6)"; // Blue
+                ctx.stroke();
+                ctx.setLineDash([]); // reset
+            }
+
+            // Draw Standing Wave: y = A * sin(kx) * cos(wt)
+            ctx.beginPath();
+            for (let px = 0; px <= drawWidth; px++) {
+                const physicalX = (px / drawWidth) * L;
+                const standingY = A * Math.sin(k * physicalX) * Math.cos(omega * time);
+                if (px === 0) ctx.moveTo(paddingX + px, centerY - standingY);
+                else ctx.lineTo(paddingX + px, centerY - standingY);
+            }
+            
+            // Standing wave styling (Neon Cyan)
+            ctx.strokeStyle = "#22d3ee";
+            ctx.lineWidth = 3;
+            ctx.shadowColor = "#06b6d4";
+            ctx.shadowBlur = 10;
+            ctx.stroke();
+            ctx.shadowBlur = 0; // reset
+
+            // Draw Nodes and Antinodes
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.font = "bold 12px sans-serif";
+            
+            // Nodes (0 amplitude points)
+            for (let m = 0; m <= n; m++) {
+                const physicalX = m * (lambda / 2);
+                const pxX = paddingX + (physicalX / L) * drawWidth;
+                
+                // Draw dot
+                ctx.beginPath();
+                ctx.arc(pxX, centerY, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = "#ef4444"; // Red for nodes
+                ctx.fill();
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Label above
+                ctx.fillStyle = "#ef4444";
+                ctx.fillText("N", pxX, centerY - A - 25);
+            }
+
+            // Antinodes (Max amplitude points)
+            for (let m = 0; m < n; m++) {
+                const physicalX = (m + 0.5) * (lambda / 2);
+                const pxX = paddingX + (physicalX / L) * drawWidth;
+                
+                // Track current height of the standing wave at this antinode
+                const currentY = A * Math.sin(k * physicalX) * Math.cos(omega * time);
+                
+                // Draw dot on the wave
+                ctx.beginPath();
+                ctx.arc(pxX, centerY - currentY, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = "#4ade80"; // Green for antinodes
+                ctx.fill();
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Label below
+                ctx.fillStyle = "#4ade80";
+                ctx.fillText("A", pxX, centerY + A + 25);
+            }
+
+            // Advance time
+            if (isPlaying) {
+                time += waveSpeed;
+            }
+            
+            requestAnimationFrame(draw);
+        }
+
+        // Initialize math and start loop
+        updateMath();
+        draw();
+
+    </script>
+</body>
+</html>

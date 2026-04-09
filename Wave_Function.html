@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Equation Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .math-text { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        canvas { display: block; }
+        
+        /* Custom Scrollbar for the sidebar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer; background: #374151;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen w-screen overflow-hidden flex flex-col md:flex-row">
+
+    <!-- Sidebar / Controls -->
+    <div class="w-full md:w-[400px] h-1/2 md:h-full bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 flex flex-col shadow-2xl z-10">
+        
+        <div class="p-6 overflow-y-auto flex-grow">
+            <h1 class="text-2xl font-bold mb-2 text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                Wave Function Explorer
+            </h1>
+            <p class="text-sm text-gray-400 mb-6 leading-relaxed">
+                For a function to describe a traveling wave, it must satisfy the 1D wave equation:
+                <br><br>
+                <span class="block text-center text-lg bg-gray-800 rounded p-2 text-blue-200">
+                    <span class="math-text">&part;<sup>2</sup>y / &part;x<sup>2</sup> = (1/v<sup>2</sup>) &part;<sup>2</sup>y / &part;t<sup>2</sup></span>
+                </span>
+                <br>
+                Mathematically, any function of the form <span class="math-text">f(x &plusmn; vt)</span> is a valid solution.
+            </p>
+
+            <div class="space-y-4">
+                <h2 class="text-xs uppercase tracking-widest text-gray-500 font-semibold">Select Function</h2>
+                
+                <!-- Function A -->
+                <button onclick="selectFunction('A')" id="btn-A" class="w-full text-left p-4 rounded-lg border-2 border-gray-700 bg-gray-800/50 hover:bg-gray-700 transition-all">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-semibold text-red-400">a) Invalid</span>
+                        <span class="math-text text-sm">y(x,t) = A cos(kx<sup>2</sup> &minus; &omega;t)</span>
+                    </div>
+                </button>
+
+                <!-- Function B -->
+                <button onclick="selectFunction('B')" id="btn-B" class="w-full text-left p-4 rounded-lg border-2 border-green-500 bg-gray-800 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)]">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-semibold text-green-400">b) Valid</span>
+                        <span class="math-text text-sm">y(x,t) = A(x &minus; vt)<sup>2</sup></span>
+                    </div>
+                </button>
+
+                <!-- Function C -->
+                <button onclick="selectFunction('C')" id="btn-C" class="w-full text-left p-4 rounded-lg border-2 border-gray-700 bg-gray-800/50 hover:bg-gray-700 transition-all">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-semibold text-green-400">c) Valid</span>
+                        <span class="math-text text-sm">y(x,t) = A log(x + vt)</span>
+                    </div>
+                </button>
+            </div>
+
+            <div class="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Explanation
+                </h3>
+                <p id="explanation-text" class="text-sm text-gray-300 leading-relaxed">
+                    <!-- Injected by JS -->
+                </p>
+            </div>
+        </div>
+
+        <!-- Controls Dock -->
+        <div class="p-6 bg-gray-900 border-t border-gray-800 mt-auto">
+            <div class="flex items-center gap-4 mb-4">
+                <button id="playBtn" onclick="togglePlay()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-full p-3 transition-colors outline-none focus:ring-2 focus:ring-blue-400">
+                    <svg id="playIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    <svg id="pauseIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
+                <div class="flex-grow">
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Time (t)</span>
+                        <span id="timeDisplay">0.00s</span>
+                    </div>
+                    <input type="range" id="timeSlider" min="-5" max="5" step="0.01" value="0" oninput="manualTime(this.value)">
+                </div>
+            </div>
+            <div class="text-xs text-gray-500 text-center">
+                Observe the solid wave. The faint background wave shows the initial shape at t=0.
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas Area -->
+    <div class="flex-grow relative bg-[#0a0a10] overflow-hidden" id="canvasContainer">
+        <canvas id="simCanvas" class="absolute inset-0"></canvas>
+        <div class="absolute top-4 right-4 text-xs text-gray-500/50 pointer-events-none text-right">
+            Physical X Range: [-10, 10]<br>
+            Grid lines = 1 unit
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const timeSlider = document.getElementById('timeSlider');
+        
+        // Explanations data
+        const explanations = {
+            'A': "<b>Invalid.</b> The <span class='math-text'>x<sup>2</sup></span> term means the spatial derivative will generate extra <span class='math-text'>x</span> variables via the chain rule, which will not match the temporal derivative. Notice how the wave fails to maintain a constant shape—it compresses and distorts as time progresses.",
+            'B': "<b>Valid.</b> Taking the 2nd derivative with respect to <span class='math-text'>x</span> yields <span class='math-text'>2A</span>. Taking the 2nd derivative with respect to <span class='math-text'>t</span> yields <span class='math-text'>2Av<sup>2</sup></span>. Plugging these into the equation simplifies to <span class='math-text'>2A = 2A</span>. The parabola perfectly maintains its shape as it translates right.",
+            'C': "<b>Valid.</b> Both spatial and temporal second derivatives yield proportional terms <span class='math-text'>-(x+vt)<sup>-2</sup></span> (with the temporal one picking up a <span class='math-text'>v<sup>2</sup></span> that cancels out). The logarithmic curve simply translates leftwards maintaining its exact shape."
+        };
+
+        // State variables
+        let currentMode = 'B';
+        let time = 0;
+        let isPlaying = true;
+        let animationId;
+        let lastTime = performance.now();
+
+        // Physical coordinates
+        const minX = -10, maxX = 10;
+        const minY = -5, maxY = 5;
+
+        // Wave parameters
+        const params = {
+            v: 3,     // Velocity for valid waves
+            A: 1,     // Base Amplitude
+            k: 0.5,   // Wave number for A
+            w: 3      // Angular freq for A
+        };
+
+        // Resize handler
+        function resize() {
+            const rect = container.getBoundingClientRect();
+            // Use device pixel ratio for sharp rendering on retina displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            ctx.scale(dpr, dpr);
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Coordinate mappings
+        function mapX(x) {
+            const rect = container.getBoundingClientRect();
+            return ((x - minX) / (maxX - minX)) * rect.width;
+        }
+        function mapY(y) {
+            const rect = container.getBoundingClientRect();
+            return rect.height - ((y - minY) / (maxY - minY)) * rect.height;
+        }
+        function screenToX(px) {
+            const rect = container.getBoundingClientRect();
+            return minX + (px / rect.width) * (maxX - minX);
+        }
+
+        // Functions
+        function evaluateFunc(mode, x, t) {
+            switch(mode) {
+                case 'A': return params.A * 3 * Math.cos(params.k * x * x - params.w * t);
+                case 'B': return 0.2 * Math.pow(x - params.v * t, 2) - 4; // -4 to center it vertically
+                case 'C': return params.A * Math.log(x + params.v * t);
+            }
+            return 0;
+        }
+
+        // UI Interactions
+        function selectFunction(mode) {
+            currentMode = mode;
+            time = 0; // reset time to show initial state clearly
+            
+            // Update buttons styling
+            ['A', 'B', 'C'].forEach(id => {
+                const btn = document.getElementById(`btn-${id}`);
+                btn.className = "w-full text-left p-4 rounded-lg border-2 transition-all " + 
+                    (id === mode 
+                        ? (id === 'A' 
+                            ? "border-red-500 bg-gray-800 shadow-[0_0_15px_rgba(239,68,68,0.15)]" 
+                            : "border-green-500 bg-gray-800 shadow-[0_0_15px_rgba(34,197,94,0.15)]")
+                        : "border-gray-700 bg-gray-800/50 hover:bg-gray-700");
+            });
+
+            // Update explanation
+            document.getElementById('explanation-text').innerHTML = explanations[mode];
+            if(!isPlaying) draw();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playIcon').classList.toggle('hidden', isPlaying);
+            document.getElementById('pauseIcon').classList.toggle('hidden', !isPlaying);
+            if(isPlaying) {
+                lastTime = performance.now();
+                loop(performance.now());
+            } else {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function manualTime(val) {
+            if(isPlaying) togglePlay();
+            time = parseFloat(val);
+            draw();
+        }
+
+        // Drawing operations
+        function drawGrid() {
+            const rect = container.getBoundingClientRect();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            // Vertical lines
+            for(let x = Math.ceil(minX); x <= maxX; x++) {
+                let px = mapX(x);
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, rect.height);
+            }
+            // Horizontal lines
+            for(let y = Math.ceil(minY); y <= maxY; y++) {
+                let py = mapY(y);
+                ctx.moveTo(0, py);
+                ctx.lineTo(rect.width, py);
+            }
+            ctx.stroke();
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(mapX(0), 0);
+            ctx.lineTo(mapX(0), rect.height);
+            ctx.moveTo(0, mapY(0));
+            ctx.lineTo(rect.width, mapY(0));
+            ctx.stroke();
+        }
+
+        function drawWave(t, isGhost = false) {
+            const rect = container.getBoundingClientRect();
+            const points = rect.width;
+            
+            ctx.beginPath();
+            let isFirst = true;
+
+            for(let px = 0; px <= points; px += 2) {
+                let x = screenToX(px);
+                let y = evaluateFunc(currentMode, x, t);
+
+                // Handle asymptote/out of bounds for Log function
+                if (!isFinite(y) || isNaN(y)) {
+                    isFirst = true;
+                    continue;
+                }
+
+                let py = mapY(y);
+                
+                // Prevent extreme drawing artifacts by clamping
+                if(py < -5000 || py > 5000) {
+                    isFirst = true;
+                    continue;
+                }
+
+                if(isFirst) {
+                    ctx.moveTo(px, py);
+                    isFirst = false;
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+
+            if (isGhost) {
+                ctx.strokeStyle = currentMode === 'A' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+            } else {
+                ctx.strokeStyle = currentMode === 'A' ? '#ef4444' : '#22c55e'; // Red 500 or Green 500
+                ctx.lineWidth = 4;
+                ctx.setLineDash([]);
+                // Glow effect
+                ctx.shadowColor = ctx.strokeStyle;
+                ctx.shadowBlur = 15;
+            }
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow for next draws
+        }
+
+        function draw() {
+            const rect = container.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            
+            drawGrid();
+            
+            // Draw ghost trace of t=0
+            drawWave(0, true);
+            
+            // Draw current wave
+            drawWave(time, false);
+
+            // Update UI elements
+            timeDisplay.innerText = `${time.toFixed(2)}s`;
+            if (isPlaying) {
+                timeSlider.value = time;
+            }
+        }
+
+        function loop(timestamp) {
+            if(!isPlaying) return;
+            
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            time += dt;
+            // Loop time between -5 and 5
+            if (time > 5) time = -5;
+            
+            draw();
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // Initialize
+        selectFunction('B'); // Start with the valid parabola
+        resize();
+        lastTime = performance.now();
+        animationId = requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

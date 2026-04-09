@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Equation Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        .glow-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 lg:p-8">
+
+    <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Header & Main Visualization Area -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <div class="glow-card rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-600"></div>
+                <h1 class="text-3xl font-bold mb-2 flex items-center gap-3">
+                    <i class="fa-solid fa-water text-cyan-400"></i> Traveling Wave Simulator
+                </h1>
+                <p class="text-slate-400 mb-6">Visualizing the kinematic properties of a transverse wave.</p>
+                
+                <!-- Dynamic Equation Display -->
+                <div class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700 shadow-inner mb-6">
+                    <p class="text-sm text-slate-400 mb-1">Standard Equation: <span class="math-font text-cyan-200">y(x,t) = A sin(kx - ωt)</span></p>
+                    <div class="text-2xl md:text-3xl font-bold math-font text-cyan-400 tracking-wider" id="equation-display">
+                        y(x,t) = 0.05 sin(2πx - 50πt)
+                    </div>
+                </div>
+
+                <!-- Canvas Container -->
+                <div class="relative w-full aspect-video bg-slate-950 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+                    <canvas id="waveCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+                    
+                    <!-- Viewport scale indicators -->
+                    <div class="absolute bottom-2 right-4 text-xs font-mono text-slate-500">x = 0 to 3 meters</div>
+                    <div class="absolute top-2 left-4 text-xs font-mono text-slate-500">y = ±0.1 meters</div>
+                    
+                    <!-- Playback Controls overlay -->
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button id="btn-pause" class="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors border border-slate-600">
+                            <i class="fa-solid fa-pause w-5"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex items-center justify-between text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg">
+                    <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div> Wave Shape</span>
+                    <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899]"></div> Medium Particle (moves only up & down)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar Controls & Data -->
+        <div class="flex flex-col gap-6">
+            
+            <!-- Derived Properties Data Cards -->
+            <div class="glow-card rounded-2xl p-6 border-t-4 border-t-pink-500 flex-grow">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-pink-400"></i> Kinematic Properties
+                </h2>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- Amplitude -->
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Amplitude (A)</p>
+                            <p class="text-lg font-bold math-font text-white" id="val-A">0.05 m</p>
+                        </div>
+                        <i class="fa-solid fa-arrows-up-down text-2xl text-slate-600"></i>
+                    </div>
+
+                    <!-- Wavelength -->
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Wavelength (λ = 2π/k)</p>
+                            <p class="text-lg font-bold math-font text-white" id="val-lambda">1.00 m</p>
+                        </div>
+                        <i class="fa-solid fa-ruler-horizontal text-2xl text-slate-600"></i>
+                    </div>
+
+                    <!-- Frequency -->
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Frequency (f = ω/2π)</p>
+                            <p class="text-lg font-bold math-font text-white" id="val-f">25.00 Hz</p>
+                        </div>
+                        <i class="fa-solid fa-wave-square text-2xl text-slate-600"></i>
+                    </div>
+
+                    <!-- Wave Speed -->
+                    <div class="bg-gradient-to-br from-cyan-900/50 to-blue-900/50 p-4 rounded-xl border border-cyan-700/50 flex justify-between items-center shadow-[inset_0_0_20px_rgba(6,182,212,0.1)]">
+                        <div>
+                            <p class="text-xs text-cyan-300 font-semibold uppercase tracking-wider mb-1">Wave Speed (v = fλ)</p>
+                            <p class="text-2xl font-bold math-font text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]" id="val-v">25.00 m/s</p>
+                        </div>
+                        <i class="fa-solid fa-forward-fast text-3xl text-cyan-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Adjustments -->
+            <div class="glow-card rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-emerald-400"></i> Adjust Parameters
+                    </h2>
+                    <button id="btn-reset" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-200 transition-colors">Reset to Target</button>
+                </div>
+
+                <div class="space-y-5">
+                    <!-- Amplitude Slider -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Amplitude (A)</span>
+                            <span class="math-font text-cyan-300" id="lbl-A">0.05</span>
+                        </div>
+                        <input type="range" id="slider-A" min="0.01" max="0.1" step="0.01" value="0.05">
+                    </div>
+
+                    <!-- Wave Number Slider -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Wave No. (k/π)</span>
+                            <span class="math-font text-cyan-300"><span id="lbl-k">2</span>π</span>
+                        </div>
+                        <input type="range" id="slider-k" min="0.5" max="10" step="0.5" value="2">
+                    </div>
+
+                    <!-- Angular Frequency Slider -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Ang. Freq (ω/π)</span>
+                            <span class="math-font text-cyan-300"><span id="lbl-w">50</span>π</span>
+                        </div>
+                        <input type="range" id="slider-w" min="5" max="100" step="5" value="50">
+                    </div>
+                    
+                    <div class="pt-4 border-t border-slate-700">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-400">Simulation Speed Factor</span>
+                            <span class="math-font text-slate-300" id="lbl-speed">0.02x</span>
+                        </div>
+                        <input type="range" id="slider-speed" min="0.001" max="0.1" step="0.001" value="0.02">
+                        <p class="text-[10px] text-slate-500 mt-2 leading-tight">
+                            Note: A 25 Hz wave moves too fast for monitors to render cleanly in real-time. We slow down time visually so you can observe the mechanics.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Canvas Setup
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Target physics parameters from the prompt: y(x,t) = 0.05sin(2πx - 50πt)
+        const targetState = {
+            A: 0.05,     // Amplitude (m)
+            k_pi: 2,     // Wave number coefficient of PI
+            w_pi: 50     // Angular frequency coefficient of PI
+        };
+
+        // Current application state
+        let state = { ...targetState };
+        
+        // Time management
+        let time = 0;
+        let isPlaying = true;
+        let timeScale = 0.02; // Slow motion factor
+        
+        // Physics Environment settings
+        const viewWidthMeters = 3; // Show 3 meters on X axis
+        const viewHeightMeters = 0.2; // Show -0.1 to 0.1 on Y axis
+
+        // UI Elements
+        const sliders = {
+            A: document.getElementById('slider-A'),
+            k: document.getElementById('slider-k'),
+            w: document.getElementById('slider-w'),
+            speed: document.getElementById('slider-speed')
+        };
+        const labels = {
+            A: document.getElementById('lbl-A'),
+            k: document.getElementById('lbl-k'),
+            w: document.getElementById('lbl-w'),
+            speed: document.getElementById('lbl-speed')
+        };
+        const derived = {
+            A: document.getElementById('val-A'),
+            lambda: document.getElementById('val-lambda'),
+            f: document.getElementById('val-f'),
+            v: document.getElementById('val-v')
+        };
+        const eqDisplay = document.getElementById('equation-display');
+
+        // Resize handler for sharp rendering
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // UI Update functions
+        function formatEq(val) {
+            return Number.isInteger(val) ? val : val.toFixed(2);
+        }
+
+        function updateUI() {
+            // Calculate true math values
+            const k = state.k_pi * Math.PI;
+            const w = state.w_pi * Math.PI;
+            
+            // Kinematic property derivations
+            const lambda = (2 * Math.PI) / k; // Wavelength
+            const f = w / (2 * Math.PI);      // Frequency
+            const v = f * lambda;             // Wave speed
+
+            // Update Labels
+            labels.A.innerText = state.A.toFixed(2);
+            labels.k.innerText = formatEq(state.k_pi);
+            labels.w.innerText = formatEq(state.w_pi);
+            labels.speed.innerText = timeScale.toFixed(3) + 'x';
+
+            // Update Derived Value Cards
+            derived.A.innerText = `${state.A.toFixed(2)} m`;
+            derived.lambda.innerText = `${lambda.toFixed(2)} m`;
+            derived.f.innerText = `${f.toFixed(2)} Hz`;
+            derived.v.innerText = `${v.toFixed(2)} m/s`;
+
+            // Update Equation Text
+            eqDisplay.innerHTML = `y(x,t) = ${state.A.toFixed(2)} sin(${formatEq(state.k_pi)}πx - ${formatEq(state.w_pi)}πt)`;
+        }
+
+        // Add event listeners to sliders
+        sliders.A.addEventListener('input', (e) => { state.A = parseFloat(e.target.value); updateUI(); });
+        sliders.k.addEventListener('input', (e) => { state.k_pi = parseFloat(e.target.value); updateUI(); });
+        sliders.w.addEventListener('input', (e) => { state.w_pi = parseFloat(e.target.value); updateUI(); });
+        sliders.speed.addEventListener('input', (e) => { timeScale = parseFloat(e.target.value); updateUI(); });
+
+        // Reset Button
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            state = { ...targetState };
+            sliders.A.value = state.A;
+            sliders.k.value = state.k_pi;
+            sliders.w.value = state.w_pi;
+            sliders.speed.value = 0.02;
+            timeScale = 0.02;
+            updateUI();
+        });
+
+        // Play/Pause Button
+        const btnPause = document.getElementById('btn-pause');
+        btnPause.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            btnPause.innerHTML = isPlaying ? '<i class="fa-solid fa-pause w-5"></i>' : '<i class="fa-solid fa-play w-5 pl-1"></i>';
+            if (isPlaying) lastTime = performance.now();
+        });
+
+        // Drawing Logic
+        let lastTime = performance.now();
+
+        function drawWave() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw grid & axes
+            const centerY = h / 2;
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            // X-axis
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(w, centerY);
+            
+            // Grid lines every 0.5 meters
+            const pixelsPerMeterX = w / viewWidthMeters;
+            for(let m = 0; m <= viewWidthMeters; m += 0.5) {
+                const px = m * pixelsPerMeterX;
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, h);
+                
+                if (m > 0) {
+                    ctx.fillStyle = '#64748b';
+                    ctx.font = '10px monospace';
+                    ctx.fillText(`${m}m`, px + 5, centerY + 15);
+                }
+            }
+            ctx.stroke();
+
+            // Mathematical values
+            const k = state.k_pi * Math.PI;
+            const omega = state.w_pi * Math.PI;
+            const pixelsPerMeterY = h / viewHeightMeters;
+
+            // Draw wave
+            ctx.beginPath();
+            ctx.strokeStyle = '#22d3ee'; // Cyan-400
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#06b6d4';
+            ctx.shadowBlur = 10;
+
+            for (let px = 0; px <= w; px += 2) {
+                const x_meters = px / pixelsPerMeterX;
+                const y_meters = state.A * Math.sin(k * x_meters - omega * time);
+                const py = centerY - (y_meters * pixelsPerMeterY); // minus because canvas Y is inverted
+                
+                if (px === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            // Reset shadow for particles
+            ctx.shadowBlur = 0;
+
+            // Draw tracking particles (showing transverse motion)
+            // We'll place particles at x = 0.5m, 1.5m, 2.5m
+            const particleXs = [0.5, 1.5, 2.5];
+            
+            particleXs.forEach(x_meters => {
+                const y_meters = state.A * Math.sin(k * x_meters - omega * time);
+                const px = x_meters * pixelsPerMeterX;
+                const py = centerY - (y_meters * pixelsPerMeterY);
+
+                // Draw vertical line mapping particle to axis
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)'; // Pink dashed
+                ctx.setLineDash([4, 4]);
+                ctx.moveTo(px, centerY);
+                ctx.lineTo(px, py);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw Particle
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#ec4899'; // Pink-500
+                ctx.fill();
+                ctx.shadowColor = '#ec4899';
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+        }
+
+        // Animation Loop
+        function animate(currentTime) {
+            if (isPlaying) {
+                const dt = (currentTime - lastTime) / 1000; // Delta time in seconds
+                time += dt * timeScale;
+            }
+            lastTime = currentTime;
+
+            drawWave();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        updateUI();
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>

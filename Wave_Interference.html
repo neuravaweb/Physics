@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Sources & Superposition Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for range inputs and scrollbars to match the dark aesthetic */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.6);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Ensure the canvas container maintains a square aspect ratio */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen w-screen overflow-hidden flex flex-col md:flex-row font-sans selection:bg-sky-500/30">
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 p-4 md:p-8 flex flex-col items-center justify-center relative z-10 overflow-hidden">
+        
+        <!-- Header Info (Mobile / Top) -->
+        <div class="mb-6 w-full max-w-4xl text-center md:text-left">
+            <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-indigo-400 mb-2">
+                Wave Superposition
+            </h1>
+            <p class="text-slate-400 text-sm md:text-base max-w-2xl">
+                Observe the algebraic sum of multiple emitting sources. Click anywhere on the grid below to place a new wave source.
+            </p>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="canvas-container group">
+            <canvas id="displayCanvas" class="cursor-crosshair border border-slate-800 bg-slate-900 transition-all duration-300 group-hover:border-slate-600"></canvas>
+            
+            <!-- Floating overlay hint -->
+            <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                <span class="bg-slate-900/80 text-sky-300 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-sky-500/30 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
+                    Click to add source
+                </span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-80 lg:w-96 glass-panel border-t md:border-t-0 md:border-l border-slate-800 z-20 flex flex-col h-1/2 md:h-full overflow-y-auto">
+        <div class="p-6 flex flex-col gap-6">
+            
+            <!-- Equation Breakdown -->
+            <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-800 shadow-inner">
+                <h2 class="text-xs uppercase tracking-widest text-slate-500 font-bold mb-3">Governing Equation</h2>
+                <div class="font-mono text-sm text-sky-200 mb-2 bg-slate-950 p-2 rounded border border-slate-800 text-center">
+                    u(r,t) = &Sigma; <span class="text-indigo-300">A</span> / |r-r₀|<sup class="text-amber-400">&alpha;</sup> &middot; sin(k|r-r₀| - &omega;t)
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed mt-3">
+                    The resulting amplitude is the sum of individual amplitudes. <br>
+                    <span class="text-amber-400">&alpha; (Alpha)</span> dictates spatial attenuation (drop-off with distance).
+                </p>
+            </div>
+
+            <!-- Global Controls -->
+            <div class="space-y-5">
+                <h2 class="text-xs uppercase tracking-widest text-slate-500 font-bold">Wave Parameters</h2>
+                
+                <!-- Attenuation Alpha -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-300" for="alphaSlider">Spatial Attenuation (&alpha;)</label>
+                        <span id="alphaVal" class="text-amber-400 font-mono">0.5</span>
+                    </div>
+                    <input type="range" id="alphaSlider" min="0" max="1.5" step="0.1" value="0.5">
+                    <p class="text-[10px] text-slate-500">0 = Infinite reach, >0 = Drops off with distance.</p>
+                </div>
+
+                <!-- Wavelength -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-300" for="wavelengthSlider">Wavelength (&lambda;)</label>
+                        <span id="wavelengthVal" class="text-sky-400 font-mono">40</span>
+                    </div>
+                    <input type="range" id="wavelengthSlider" min="15" max="100" step="1" value="40">
+                </div>
+
+                <!-- Frequency / Speed -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-300" for="speedSlider">Frequency (&omega;)</label>
+                        <span id="speedVal" class="text-emerald-400 font-mono">1.0</span>
+                    </div>
+                    <input type="range" id="speedSlider" min="0" max="3" step="0.1" value="1.0">
+                </div>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Visualization Settings -->
+            <div class="space-y-4">
+                <h2 class="text-xs uppercase tracking-widest text-slate-500 font-bold">Visualization</h2>
+                
+                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-900 rounded-lg">
+                    <button id="btnAmplitude" class="py-2 text-sm font-medium rounded bg-slate-800 text-white shadow-sm transition-colors">
+                        Amplitude
+                    </button>
+                    <button id="btnIntensity" class="py-2 text-sm font-medium rounded text-slate-400 hover:text-slate-200 transition-colors">
+                        Intensity
+                    </button>
+                </div>
+                <p id="viewDesc" class="text-xs text-slate-400 h-8">
+                    Shows wave crests (cyan) and troughs (magenta).
+                </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-auto pt-4 grid grid-cols-2 gap-3">
+                <button id="btnTogglePlay" class="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white py-2.5 rounded-lg text-sm font-semibold transition-all">
+                    <svg id="iconPause" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    <span id="playText">Pause</span>
+                </button>
+                <button id="btnClear" class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Clear All
+                </button>
+            </div>
+            
+        </div>
+    </aside>
+
+    <script>
+        // DOM Elements
+        const displayCanvas = document.getElementById('displayCanvas');
+        const displayCtx = displayCanvas.getContext('2d');
+        
+        // UI Elements
+        const alphaSlider = document.getElementById('alphaSlider');
+        const wavelengthSlider = document.getElementById('wavelengthSlider');
+        const speedSlider = document.getElementById('speedSlider');
+        const alphaVal = document.getElementById('alphaVal');
+        const wavelengthVal = document.getElementById('wavelengthVal');
+        const speedVal = document.getElementById('speedVal');
+        const btnTogglePlay = document.getElementById('btnTogglePlay');
+        const btnClear = document.getElementById('btnClear');
+        const btnAmplitude = document.getElementById('btnAmplitude');
+        const btnIntensity = document.getElementById('btnIntensity');
+        const viewDesc = document.getElementById('viewDesc');
+        const iconPause = document.getElementById('iconPause');
+        const playText = document.getElementById('playText');
+
+        // Simulation parameters
+        // The render canvas is lower resolution for performance, scaled up smoothly on display.
+        const RENDER_SIZE = 250; 
+        const DISPLAY_SIZE = 800;
+        
+        displayCanvas.width = DISPLAY_SIZE;
+        displayCanvas.height = DISPLAY_SIZE;
+
+        // Offscreen canvas for fast pixel manipulation
+        const renderCanvas = document.createElement('canvas');
+        renderCanvas.width = RENDER_SIZE;
+        renderCanvas.height = RENDER_SIZE;
+        const renderCtx = renderCanvas.getContext('2d', { willReadFrequently: true });
+        const imageData = renderCtx.createImageData(RENDER_SIZE, RENDER_SIZE);
+        const data = imageData.data;
+
+        // State
+        let sources = [];
+        let time = 0;
+        let isPlaying = true;
+        let viewMode = 'amplitude'; // 'amplitude' or 'intensity'
+        let animationId;
+
+        // Initialize with two sources for an immediate interesting pattern
+        sources.push({ x: RENDER_SIZE * 0.4, y: RENDER_SIZE * 0.5 });
+        sources.push({ x: RENDER_SIZE * 0.6, y: RENDER_SIZE * 0.5 });
+
+        // Physics variables connected to UI
+        let alpha = parseFloat(alphaSlider.value);
+        let wavelength = parseFloat(wavelengthSlider.value);
+        let speed = parseFloat(speedSlider.value) * 0.2; // scale for smooth visual motion
+        let k = (2 * Math.PI) / wavelength;
+        let baseAmplitude = 2.5;
+
+        // --- Event Listeners ---
+
+        // Controls
+        alphaSlider.addEventListener('input', (e) => {
+            alpha = parseFloat(e.target.value);
+            alphaVal.textContent = alpha.toFixed(1);
+        });
+
+        wavelengthSlider.addEventListener('input', (e) => {
+            wavelength = parseFloat(e.target.value);
+            k = (2 * Math.PI) / wavelength;
+            wavelengthVal.textContent = wavelength;
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            speed = parseFloat(e.target.value) * 0.2;
+            speedVal.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        // View Mode Toggles
+        btnAmplitude.addEventListener('click', () => {
+            viewMode = 'amplitude';
+            btnAmplitude.classList.replace('text-slate-400', 'text-white');
+            btnAmplitude.classList.replace('hover:text-slate-200', 'bg-slate-800');
+            btnAmplitude.classList.add('bg-slate-800', 'shadow-sm');
+            
+            btnIntensity.classList.replace('text-white', 'text-slate-400');
+            btnIntensity.classList.replace('bg-slate-800', 'hover:text-slate-200');
+            btnIntensity.classList.remove('shadow-sm');
+            viewDesc.innerHTML = 'Shows wave crests <span class="text-sky-400 font-bold">Cyan</span> and troughs <span class="text-fuchsia-400 font-bold">Magenta</span>.';
+        });
+
+        btnIntensity.addEventListener('click', () => {
+            viewMode = 'intensity';
+            btnIntensity.classList.replace('text-slate-400', 'text-white');
+            btnIntensity.classList.replace('hover:text-slate-200', 'bg-slate-800');
+            btnIntensity.classList.add('bg-slate-800', 'shadow-sm');
+            
+            btnAmplitude.classList.replace('text-white', 'text-slate-400');
+            btnAmplitude.classList.replace('bg-slate-800', 'hover:text-slate-200');
+            btnAmplitude.classList.remove('shadow-sm');
+            viewDesc.innerHTML = 'Shows combined energy. Nodal lines (interference) appear <span class="text-slate-500 font-bold">Dark</span>.';
+        });
+
+        // Add source on canvas click
+        displayCanvas.addEventListener('mousedown', (e) => {
+            const rect = displayCanvas.getBoundingClientRect();
+            
+            // Calculate coordinates relative to the canvas CSS size
+            const scaleX = displayCanvas.width / rect.width;
+            const scaleY = displayCanvas.height / rect.height;
+            
+            const displayX = (e.clientX - rect.left) * scaleX;
+            const displayY = (e.clientY - rect.top) * scaleY;
+
+            // Map from display resolution to render resolution
+            const renderX = (displayX / DISPLAY_SIZE) * RENDER_SIZE;
+            const renderY = (displayY / DISPLAY_SIZE) * RENDER_SIZE;
+
+            sources.push({ x: renderX, y: renderY });
+            
+            // Render immediately if paused
+            if(!isPlaying) drawFrame();
+        });
+
+        btnClear.addEventListener('click', () => {
+            sources = [];
+            if(!isPlaying) drawFrame();
+        });
+
+        btnTogglePlay.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playText.textContent = "Pause";
+                iconPause.innerHTML = '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>';
+            } else {
+                playText.textContent = "Play";
+                iconPause.innerHTML = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>';
+            }
+        });
+
+        // --- Core Rendering Logic ---
+        
+        function computeField() {
+            let offset = 0;
+            const numSources = sources.length;
+            
+            // Fallback scale to prevent infinite amplitude at r=0
+            // and control how fast attenuation takes effect relative to wavelength
+            const distScale = wavelength / (2 * Math.PI); 
+
+            for (let y = 0; y < RENDER_SIZE; y++) {
+                for (let x = 0; x < RENDER_SIZE; x++) {
+                    let superposition = 0;
+
+                    for (let i = 0; i < numSources; i++) {
+                        const s = sources[i];
+                        const dx = x - s.x;
+                        const dy = y - s.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Attenuation factor: |r - r0|^alpha
+                        // We add 1 to normalized distance to avoid div by zero / massive peaks at center
+                        const attenuation = Math.pow((dist / distScale) + 1, alpha);
+                        
+                        // u(r,t) = A / r^alpha * sin(kr - wt)
+                        superposition += (baseAmplitude / attenuation) * Math.sin(k * dist - time);
+                    }
+
+                    // Map to colors based on view mode
+                    if (viewMode === 'amplitude') {
+                        // Soft clip between -1 and 1
+                        const val = Math.tanh(superposition);
+                        
+                        if (val > 0) {
+                            // Positive amplitude -> Cyan
+                            data[offset++] = 0;                 // R
+                            data[offset++] = val * 150 + 20;    // G
+                            data[offset++] = val * 255 + 30;    // B
+                            data[offset++] = 255;               // A
+                        } else {
+                            // Negative amplitude -> Magenta/Red
+                            const absVal = -val;
+                            data[offset++] = absVal * 255 + 30; // R
+                            data[offset++] = 0;                 // G
+                            data[offset++] = absVal * 100 + 20; // B
+                            data[offset++] = 255;               // A
+                        }
+                    } else {
+                        // Intensity mode: u^2
+                        // Brightness indicates energy.
+                        const intensity = superposition * superposition;
+                        // Normalize intensity slightly based on source count to prevent instant washout
+                        const normI = Math.min(1, intensity / Math.max(1, numSources * 0.4));
+                        
+                        // Plasma-like gradient: Black -> Deep Purple -> Orange -> White
+                        data[offset++] = normI * 255;               // R
+                        data[offset++] = normI * normI * 200;       // G
+                        data[offset++] = Math.pow(normI, 3) * 150;  // B
+                        data[offset++] = 255;                       // A
+                    }
+                }
+            }
+            renderCtx.putImageData(imageData, 0, 0);
+        }
+
+        function drawFrame() {
+            // 1. Calculate wave field into the offscreen buffer
+            computeField();
+
+            // 2. Draw offscreen buffer onto display canvas (upscaling)
+            displayCtx.imageSmoothingEnabled = true; // smooths out the pixelated render buffer
+            displayCtx.imageSmoothingQuality = 'high';
+            displayCtx.drawImage(renderCanvas, 0, 0, DISPLAY_SIZE, DISPLAY_SIZE);
+
+            // 3. Draw source indicators directly on the high-res display canvas
+            const scale = DISPLAY_SIZE / RENDER_SIZE;
+            for(let i=0; i<sources.length; i++) {
+                const s = sources[i];
+                displayCtx.beginPath();
+                displayCtx.arc(s.x * scale, s.y * scale, 5, 0, 2 * Math.PI);
+                displayCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                displayCtx.fill();
+                
+                // Add a subtle glowing ring around the source
+                displayCtx.beginPath();
+                displayCtx.arc(s.x * scale, s.y * scale, 12, 0, 2 * Math.PI);
+                displayCtx.lineWidth = 1;
+                displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                displayCtx.stroke();
+            }
+        }
+
+        function loop() {
+            if (isPlaying) {
+                time += speed;
+                drawFrame();
+            }
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // Start the simulation
+        loop();
+
+        // Ensure canvas sizes correctly on window resize
+        window.addEventListener('resize', () => {
+            if(!isPlaying) drawFrame(); // Redraw if paused to ensure clarity
+        });
+
+    </script>
+</body>
+</html>
