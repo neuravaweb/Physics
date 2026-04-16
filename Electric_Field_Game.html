@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Field Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        canvas { touch-action: none; cursor: crosshair; }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 h-screen flex flex-col md:flex-row overflow-hidden font-sans">
+
+    <!-- Canvas Area (Left/Top) -->
+    <main class="flex-grow relative h-full bg-slate-950 flex flex-col">
+        <div class="absolute top-4 left-4 z-10 bg-slate-800/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-lg select-none pointer-events-none">
+            <h1 class="text-lg font-bold text-blue-400">Electric Field Golf</h1>
+            <p class="text-xs text-slate-400">Shape the field to guide the particle to the goal.</p>
+        </div>
+        
+        <!-- Game State Overlay Message -->
+        <div id="gameStateMsg" class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none hidden">
+            <div class="bg-slate-900/90 backdrop-blur-sm p-8 rounded-2xl border-2 shadow-2xl text-center transform transition-all scale-110">
+                <h2 id="msgTitle" class="text-4xl font-black mb-2 uppercase tracking-widest"></h2>
+                <p id="msgSub" class="text-slate-300"></p>
+            </div>
+        </div>
+
+        <canvas id="simCanvas" class="w-full h-full block"></canvas>
+        
+        <!-- Legend overlays -->
+        <div class="absolute bottom-4 left-4 z-10 bg-slate-800/80 backdrop-blur p-3 rounded-lg border border-slate-700 text-xs flex flex-col gap-1 select-none pointer-events-none">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div> Source (+)</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-500 rounded-full"></div> Source (-)</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-yellow-400 rounded-full"></div> Test Particle</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-emerald-400 rounded-full"></div> Target Goal</div>
+        </div>
+    </main>
+
+    <!-- Controls Sidebar (Right/Bottom) -->
+    <aside class="w-full md:w-96 bg-slate-900 border-l border-slate-700 flex flex-col h-1/2 md:h-full overflow-y-auto no-scrollbar shrink-0 shadow-2xl z-20">
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-700">
+            <div class="flex-1 py-3 text-sm font-semibold text-center text-blue-400 border-b-2 border-blue-500 bg-slate-800/50 uppercase tracking-wider">Level <span id="levelDisplay">1</span></div>
+        </div>
+
+        <div class="p-5 space-y-6 flex-grow">
+            
+            <!-- Game Controls -->
+            <div class="space-y-3">
+                <button id="launchBtn" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    LAUNCH PARTICLE
+                </button>
+                <div class="flex gap-2">
+                    <button id="resetBtn" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        Reset Setup
+                    </button>
+                    <button id="nextLvlBtn" class="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition transform active:scale-95 hidden items-center justify-center gap-2">
+                        Next Level
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Physics Configuration -->
+            <div class="space-y-4">
+                <h2 class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Field Setup</h2>
+                
+                <!-- Charge 1 -->
+                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm text-slate-300">Left Charge ($q_1$) at $-a$</label>
+                        <span id="q1Val" class="text-sm font-mono text-blue-400">+1 q</span>
+                    </div>
+                    <input type="range" id="q1Slider" min="-5" max="5" step="0.5" value="1" class="w-full accent-blue-500">
+                </div>
+
+                <!-- Charge 2 -->
+                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm text-slate-300">Right Charge ($q_2$) at $+a$</label>
+                        <span id="q2Val" class="text-sm font-mono text-blue-400">-1 q</span>
+                    </div>
+                    <input type="range" id="q2Slider" min="-5" max="5" step="0.5" value="-1" class="w-full accent-blue-500">
+                </div>
+
+                <!-- Separation -->
+                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm text-slate-300">Separation Distance ($a$)</label>
+                        <span id="aVal" class="text-sm font-mono text-blue-400">3.0 units</span>
+                    </div>
+                    <input type="range" id="aSlider" min="0" max="8" step="0.1" value="3" class="w-full accent-blue-500">
+                </div>
+            </div>
+
+            <!-- Display Options -->
+            <div class="space-y-2">
+                <h2 class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Visuals</h2>
+                
+                <label class="flex items-center gap-3 p-2 bg-slate-800 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-700/50 transition">
+                    <input type="checkbox" id="showGridToggle" checked class="w-4 h-4 rounded text-blue-500 bg-slate-900 border-slate-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+                    <span class="text-sm text-slate-300">Show Background Vector Field</span>
+                </label>
+            </div>
+
+            <!-- Instructions Panel -->
+            <div class="bg-blue-950/50 border border-blue-900/50 rounded-lg p-4 space-y-2">
+                <h3 class="text-sm font-bold text-blue-400 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg> 
+                    How to Play
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    1. The <span class="text-yellow-400 font-bold">yellow particle</span> is positively charged.<br>
+                    2. Adjust $q_1$, $q_2$ and distance to change the field.<br>
+                    3. Click <b>Launch</b> to release the particle.<br>
+                    4. Guide it into the <span class="text-emerald-400 font-bold">green goal</span>. Avoid crashing!
+                </p>
+            </div>
+
+        </div>
+    </aside>
+
+    <script>
+        // --- Core Application State ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let state = {
+            q1: 1.0,
+            q2: -1.0,
+            a: 3.0,
+            showGrid: true,
+        };
+
+        // Game State Engine
+        let game = {
+            status: 'setup', // setup, playing, won, lost
+            level: 1,
+            target: { x: 8, y: 3, r: 1.5 },
+            spawn: { x: -8, y: 0 },
+            particle: { x: -8, y: 0, vx: 0, vy: 0, path: [] },
+            maxTrail: 300,
+            time: 0
+        };
+
+        const k = 10; // Electric constant mapping for game physics
+        let ppu = 1; // Pixels per unit
+        let cx = 0, cy = 0; // Canvas center
+        let dragging = null; // 'q1' or 'q2'
+
+        // --- DOM Elements ---
+        const els = {
+            q1Slider: document.getElementById('q1Slider'), q1Val: document.getElementById('q1Val'),
+            q2Slider: document.getElementById('q2Slider'), q2Val: document.getElementById('q2Val'),
+            aSlider: document.getElementById('aSlider'), aVal: document.getElementById('aVal'),
+            showGridToggle: document.getElementById('showGridToggle'),
+            launchBtn: document.getElementById('launchBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            nextBtn: document.getElementById('nextLvlBtn'),
+            levelDisplay: document.getElementById('levelDisplay'),
+            gameStateMsg: document.getElementById('gameStateMsg'),
+            msgTitle: document.getElementById('msgTitle'),
+            msgSub: document.getElementById('msgSub')
+        };
+
+        // --- Level Design ---
+        function loadLevel(lvl) {
+            game.level = lvl;
+            game.status = 'setup';
+            game.particle.path = [];
+            game.particle.vx = 0;
+            game.particle.vy = 0;
+            els.levelDisplay.innerText = lvl;
+            hideMessage();
+            els.nextBtn.style.display = 'none';
+            els.launchBtn.style.display = 'flex';
+            els.launchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> LAUNCH PARTICLE`;
+
+            // Setup presets based on level
+            if (lvl === 1) {
+                game.spawn = { x: -8, y: 3 };
+                game.target = { x: 8, y: 3, r: 1.5 };
+                state.q1 = 1; state.q2 = -1; state.a = 2;
+            } else if (lvl === 2) {
+                game.spawn = { x: -8, y: -4 };
+                game.target = { x: 8, y: 4, r: 1.5 };
+                state.q1 = 2; state.q2 = 2; state.a = 4;
+            } else if (lvl === 3) {
+                game.spawn = { x: -6, y: 0 };
+                game.target = { x: 6, y: 0, r: 1.0 };
+                state.q1 = -2; state.q2 = -2; state.a = 3;
+            } else {
+                // Procedural levels
+                game.spawn = { x: -8, y: (Math.random() - 0.5) * 10 };
+                game.target = { x: 5 + Math.random()*5, y: (Math.random() - 0.5) * 10, r: 1.0 + Math.random() };
+                state.q1 = Math.round((Math.random() * 8 - 4) * 2) / 2;
+                state.q2 = Math.round((Math.random() * 8 - 4) * 2) / 2;
+                state.a = 2 + Math.random() * 4;
+            }
+            
+            els.q1Slider.value = state.q1;
+            els.q2Slider.value = state.q2;
+            els.aSlider.value = state.a;
+            
+            resetParticle();
+            updateStateFromInputs();
+        }
+
+        function resetParticle() {
+            game.particle.x = game.spawn.x;
+            game.particle.y = game.spawn.y;
+            game.particle.vx = 0;
+            game.particle.vy = 0;
+            game.particle.path = [];
+            game.status = 'setup';
+            hideMessage();
+            els.launchBtn.style.display = 'flex';
+            els.launchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> LAUNCH PARTICLE`;
+            els.nextBtn.style.display = 'none';
+            enableControls(true);
+        }
+
+        // --- Physics Engine ---
+
+        function calculateField(x, y) {
+            const dx1 = x - (-state.a), dy1 = y;
+            const r1Sq = dx1*dx1 + dy1*dy1;
+            const r1 = Math.sqrt(r1Sq);
+
+            const dx2 = x - state.a, dy2 = y;
+            const r2Sq = dx2*dx2 + dy2*dy2;
+            const r2 = Math.sqrt(r2Sq);
+
+            const eps = 0.001;
+            let ex = 0, ey = 0;
+            
+            if (r1 > eps) {
+                const e1Mag = (k * state.q1) / r1Sq;
+                ex += e1Mag * (dx1 / r1);
+                ey += e1Mag * (dy1 / r1);
+            }
+            if (r2 > eps) {
+                const e2Mag = (k * state.q2) / r2Sq;
+                ex += e2Mag * (dx2 / r2);
+                ey += e2Mag * (dy2 / r2);
+            }
+
+            return { ex, ey, mag: Math.sqrt(ex*ex + ey*ey) };
+        }
+
+        function updatePhysics(dt) {
+            if (game.status !== 'playing') return;
+
+            const p = game.particle;
+            const f = calculateField(p.x, p.y);
+            
+            // F = qE. Assume test charge q=+1, mass m=1.
+            // Scale acceleration so simulation is viewable and playable
+            const accelScale = 3.0; 
+            const ax = f.ex * accelScale;
+            const ay = f.ey * accelScale;
+
+            // Euler integration
+            p.vx += ax * dt;
+            p.vy += ay * dt;
+            
+            // Apply a tiny bit of friction to stabilize extreme speeds
+            p.vx *= 0.995;
+            p.vy *= 0.995;
+
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+
+            // Save path for trail
+            game.time += dt;
+            if (game.time > 0.05) { // Add point roughly every 50ms
+                p.path.push({x: p.x, y: p.y});
+                if (p.path.length > game.maxTrail) p.path.shift();
+                game.time = 0;
+            }
+
+            checkCollisions();
+        }
+
+        function checkCollisions() {
+            const p = game.particle;
+            
+            // Target Hit
+            if (Math.hypot(p.x - game.target.x, p.y - game.target.y) < game.target.r) {
+                endGame('won', "GOAL REACHED!", "Excellent field design.");
+                return;
+            }
+
+            // Out of bounds
+            if (Math.abs(p.x) > 15 || Math.abs(p.y) > 15) {
+                endGame('lost', "OUT OF BOUNDS", "Particle drifted into the void.");
+                return;
+            }
+
+            // Crashed into Source Charge
+            const rCharge = 0.8; // Collision radius around sources
+            if (Math.hypot(p.x - (-state.a), p.y) < rCharge || Math.hypot(p.x - state.a, p.y) < rCharge) {
+                endGame('lost', "CRASH!", "Particle collided with a source charge.");
+                return;
+            }
+        }
+
+        function endGame(status, title, sub) {
+            game.status = status;
+            els.launchBtn.style.display = 'none';
+            els.gameStateMsg.style.display = 'flex';
+            els.msgTitle.innerText = title;
+            els.msgSub.innerText = sub;
+
+            const box = els.gameStateMsg.firstElementChild;
+            if (status === 'won') {
+                box.className = "bg-emerald-900/90 backdrop-blur-sm p-8 rounded-2xl border-2 border-emerald-500 shadow-2xl text-center transform transition-all scale-100";
+                els.msgTitle.className = "text-4xl font-black mb-2 uppercase tracking-widest text-white";
+                els.nextBtn.style.display = 'flex';
+            } else {
+                box.className = "bg-red-900/90 backdrop-blur-sm p-8 rounded-2xl border-2 border-red-500 shadow-2xl text-center transform transition-all scale-100";
+                els.msgTitle.className = "text-4xl font-black mb-2 uppercase tracking-widest text-white";
+            }
+        }
+
+        function hideMessage() {
+            els.gameStateMsg.style.display = 'none';
+        }
+
+        // --- Rendering ---
+        const toPxX = (x) => cx + x * ppu;
+        const toPxY = (y) => cy - y * ppu;
+        const toWorldX = (px) => (px - cx) / ppu;
+        const toWorldY = (py) => (cy - py) / ppu;
+
+        function drawGridVectors() {
+            const spacing = 1.5;
+            const halfW = toWorldX(canvas.width);
+            const halfH = Math.abs(toWorldY(canvas.height));
+
+            ctx.lineWidth = 1;
+            for (let x = -Math.ceil(halfW); x <= Math.ceil(halfW); x += spacing) {
+                for (let y = -Math.ceil(halfH); y <= Math.ceil(halfH); y += spacing) {
+                    if (Math.hypot(x - (-state.a), y) < 0.5 || Math.hypot(x - state.a, y) < 0.5) continue;
+
+                    const f = calculateField(x, y);
+                    if (f.mag < 0.001) continue;
+
+                    const displayMag = Math.min(Math.log10(1 + f.mag * 5) * 0.5, 1);
+                    const arrowLen = displayMag * spacing * 0.6 * ppu;
+                    const opacity = Math.min(0.1 + f.mag * 0.5, 0.4); // slightly dimmer for game
+
+                    const px = toPxX(x);
+                    const py = toPxY(y);
+                    const angle = Math.atan2(f.ey, f.ex);
+                    
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(148, 163, 184, ${opacity})`;
+                    ctx.moveTo(px, py);
+                    const endX = px + Math.cos(angle)*arrowLen;
+                    const endY = py - Math.sin(angle)*arrowLen;
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    const headLen = arrowLen * 0.3;
+                    const canvasAngle = Math.atan2(endY - py, endX - px);
+                    ctx.beginPath();
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.moveTo(endX, endY);
+                    ctx.lineTo(endX - headLen * Math.cos(canvasAngle - Math.PI / 6), endY - headLen * Math.sin(canvasAngle - Math.PI / 6));
+                    ctx.lineTo(endX - headLen * Math.cos(canvasAngle + Math.PI / 6), endY - headLen * Math.sin(canvasAngle + Math.PI / 6));
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawCharge(worldX, worldY, q) {
+            const px = toPxX(worldX);
+            const py = toPxY(worldY);
+            const radius = 18;
+            
+            const isDraggingThis = (dragging === (worldX < 0 ? 'q1' : 'q2'));
+            const isEditable = game.status === 'setup';
+
+            ctx.beginPath();
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+            
+            if (q > 0) {
+                ctx.fillStyle = isDraggingThis ? '#fca5a5' : '#ef4444';
+                ctx.strokeStyle = '#b91c1c';
+            } else if (q < 0) {
+                ctx.fillStyle = isDraggingThis ? '#93c5fd' : '#3b82f6';
+                ctx.strokeStyle = '#1d4ed8';
+            } else {
+                ctx.fillStyle = '#94a3b8';
+                ctx.strokeStyle = '#475569';
+            }
+
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+
+            ctx.lineWidth = 2;
+            if (!isEditable) ctx.setLineDash([2, 2]); // Dotted border when locked
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let sign = q > 0 ? '+' : (q < 0 ? '-' : '0');
+            ctx.fillText(sign, px, py + 1);
+        }
+
+        function drawTarget() {
+            const px = toPxX(game.target.x);
+            const py = toPxY(game.target.y);
+            const r = game.target.r * ppu;
+
+            // Pulse effect
+            const pulse = 1 + 0.1 * Math.sin(Date.now() / 200);
+
+            ctx.beginPath();
+            ctx.arc(px, py, r * pulse, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(52, 211, 153, 0.1)'; // emerald
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Center dot
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#34d399';
+            ctx.fill();
+        }
+
+        function drawParticle() {
+            const p = game.particle;
+
+            // Draw Trail
+            if (p.path.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(toPxX(p.path[0].x), toPxY(p.path[0].y));
+                for (let i = 1; i < p.path.length; i++) {
+                    ctx.lineTo(toPxX(p.path[i].x), toPxY(p.path[i].y));
+                }
+                ctx.strokeStyle = 'rgba(250, 204, 21, 0.5)'; // yellow trail
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Draw Particle
+            const px = toPxX(p.x);
+            const py = toPxY(p.y);
+            
+            ctx.beginPath();
+            ctx.arc(px, py, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#fde047'; // bright yellow
+            ctx.fill();
+            
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#facc15';
+            ctx.strokeStyle = '#ca8a04';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw Plus sign inside
+            ctx.fillStyle = '#854d0e';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('+', px, py + 1);
+        }
+
+        function render() {
+            const rect = canvas.getBoundingClientRect();
+            if(canvas.width !== rect.width || canvas.height !== rect.height) {
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+            }
+
+            cx = canvas.width / 2;
+            cy = canvas.height / 2;
+            ppu = canvas.width / 24; // 24 world units across
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (state.showGrid) drawGridVectors();
+
+            // Draw Origin Axes faintly
+            ctx.beginPath();
+            ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+            ctx.strokeStyle = 'rgba(71, 85, 105, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            drawTarget();
+            drawCharge(-state.a, 0, state.q1);
+            drawCharge(state.a, 0, state.q2);
+            drawParticle();
+
+            // Spawn point marker if in setup
+            if (game.status === 'setup') {
+                const spx = toPxX(game.spawn.x);
+                const spy = toPxY(game.spawn.y);
+                ctx.beginPath();
+                ctx.arc(spx, spy, 10, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(250, 204, 21, 0.3)';
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // --- Main Game Loop ---
+        let lastTime = 0;
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            // Cap dt to prevent huge jumps if tab is inactive
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.05); 
+            lastTime = timestamp;
+
+            updatePhysics(dt);
+            render();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- Interactions & Controls ---
+
+        function formatVal(val, prefix="") {
+            const num = parseFloat(val);
+            return (num > 0 && prefix ? "+" : "") + num.toFixed(1);
+        }
+
+        function updateStateFromInputs() {
+            if (game.status !== 'setup') return; // Lock inputs during play
+
+            state.q1 = parseFloat(els.q1Slider.value);
+            state.q2 = parseFloat(els.q2Slider.value);
+            state.a = parseFloat(els.aSlider.value);
+            state.showGrid = els.showGridToggle.checked;
+
+            els.q1Val.textContent = formatVal(state.q1, "+") + " q";
+            els.q2Val.textContent = formatVal(state.q2, "+") + " q";
+            els.aVal.textContent = state.a.toFixed(1) + " units";
+        }
+
+        function enableControls(enable) {
+            els.q1Slider.disabled = !enable;
+            els.q2Slider.disabled = !enable;
+            els.aSlider.disabled = !enable;
+            [els.q1Slider, els.q2Slider, els.aSlider].forEach(el => {
+                if (enable) el.classList.remove('opacity-50', 'cursor-not-allowed');
+                else el.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+        }
+
+        // Buttons
+        els.launchBtn.addEventListener('click', () => {
+            if (game.status === 'setup') {
+                game.status = 'playing';
+                els.launchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line></svg> SIMULATING...`;
+                enableControls(false);
+            }
+        });
+
+        els.resetBtn.addEventListener('click', resetParticle);
+        els.nextBtn.addEventListener('click', () => loadLevel(game.level + 1));
+
+        // Sliders
+        [els.q1Slider, els.q2Slider, els.aSlider].forEach(slider => {
+            slider.addEventListener('input', updateStateFromInputs);
+        });
+        els.showGridToggle.addEventListener('change', updateStateFromInputs);
+
+        // Canvas Dragging Logic (Only allowed in setup mode)
+        function getMouseWorldCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+            const px = clientX - rect.left;
+            const py = clientY - rect.top;
+            return { x: toWorldX(px), y: toWorldY(py) };
+        }
+
+        function handlePointerDown(e) {
+            if (game.status !== 'setup') return;
+            const m = getMouseWorldCoords(e);
+            const clickRadius = 1.0; 
+
+            if (Math.hypot(m.x - state.a, m.y - 0) < clickRadius) dragging = 'q2';
+            else if (Math.hypot(m.x - (-state.a), m.y - 0) < clickRadius) dragging = 'q1';
+            
+            if (dragging) e.preventDefault();
+        }
+
+        function handlePointerMove(e) {
+            if (!dragging || game.status !== 'setup') return;
+            e.preventDefault();
+            const m = getMouseWorldCoords(e);
+
+            if (dragging === 'q2') {
+                state.a = Math.max(0, Math.min(8, m.x));
+                els.aSlider.value = state.a;
+            } else if (dragging === 'q1') {
+                state.a = Math.max(0, Math.min(8, -m.x));
+                els.aSlider.value = state.a;
+            }
+            updateStateFromInputs();
+        }
+
+        function handlePointerUp() { dragging = null; }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+        canvas.addEventListener('touchstart', handlePointerDown, {passive: false});
+        window.addEventListener('touchmove', handlePointerMove, {passive: false});
+        window.addEventListener('touchend', handlePointerUp);
+
+        // Initialize Game
+        loadLevel(1);
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Levitation: Proton in E-Field</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #app-container { display: flex; height: 100vh; width: 100vw; }
+        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
+        #controls-panel { width: 380px; background-color: #1e293b; border-left: 1px solid #334155; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; box-shadow: -4px 0 15px rgba(0,0,0,0.5); z-index: 10; }
+        
+        /* Custom Range Slider */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #475569; border-radius: 2px; }
+        input[type=range]:focus { outline: none; }
+        
+        .value-display { font-family: 'Courier New', Courier, monospace; background: #0f172a; padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #334155; font-size: 0.9rem; color: #38bdf8; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        
+        .vector-legend { display: flex; align-items: center; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        
+        button { transition: all 0.2s; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        <div id="status-overlay" class="absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg bg-slate-800/80 backdrop-blur border border-slate-600 transition-colors duration-300">
+            Status: Initializing
+        </div>
+        <div class="absolute bottom-4 left-4 text-sm text-slate-400">
+            Simulation bounded to viewport.
+        </div>
+    </div>
+
+    <div id="controls-panel">
+        <div>
+            <h1 class="text-2xl font-bold text-white mb-1">Field Levitation</h1>
+            <p class="text-sm text-slate-400">Balance the forces to levitate a proton.</p>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+            <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">Physics Constants</h2>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <span class="text-slate-400">Particle:</span> <span>Proton (p⁺)</span>
+                <span class="text-slate-400">Mass (m):</span> <span class="font-mono">1.67 × 10⁻²⁷ kg</span>
+                <span class="text-slate-400">Charge (q):</span> <span class="font-mono">+1.60 × 10⁻¹⁹ C</span>
+                <span class="text-slate-400">Gravity (g):</span> <span class="font-mono">9.81 m/s² down</span>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-700 text-sm">
+                <span class="text-slate-400">Required E-Field to Balance Gravity:</span><br>
+                <span class="font-mono text-green-400 block mt-1">E = 1.022 × 10⁻⁷ V/m (Upward)</span>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+            <h2 class="text-lg font-semibold mb-4 text-slate-200 border-b border-slate-700 pb-2">External Electric Field</h2>
+            
+            <div class="mb-5">
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm text-slate-300">Magnitude (|E|)</label>
+                    <span id="mag-display" class="value-display">0.000 × 10⁻⁷ V/m</span>
+                </div>
+                <input type="range" id="e-mag" min="0" max="2.5" step="0.001" value="0">
+                <div class="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>0</span>
+                    <span>1.02 (Levitate)</span>
+                    <span>2.5</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm text-slate-300">Direction (Angle)</label>
+                    <span id="angle-display" class="value-display">90° (Up)</span>
+                </div>
+                <input type="range" id="e-angle" min="0" max="360" step="1" value="90">
+                <div class="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>0° (Right)</span>
+                    <span>90° (Up)</span>
+                    <span>180°</span>
+                    <span>270°</span>
+                    <span>360°</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+             <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">Vector Legend</h2>
+             <div class="vector-legend"><span class="legend-dot bg-orange-500"></span> Gravitational Force (F_g)</div>
+             <div class="vector-legend"><span class="legend-dot bg-blue-500"></span> Electric Force (F_e)</div>
+             <div class="vector-legend"><span class="legend-dot bg-green-500"></span> Net Force (F_net)</div>
+        </div>
+
+        <div class="flex gap-3 mt-auto">
+            <button id="btn-toggle-hold" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-lg font-medium border border-slate-500">
+                Hold Particle
+            </button>
+            <button id="btn-reset" class="flex-1 bg-red-600/80 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-medium border border-red-400">
+                Reset Position
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Physics Constants (Real World) ---
+    const MASS = 1.672e-27; // kg (Proton)
+    const CHARGE = 1.602e-19; // C (Proton)
+    const G = 9.81; // m/s^2
+    const F_GRAVITY = MASS * G; // N
+    const E_BALANCE = F_GRAVITY / CHARGE; // ~1.023e-7 V/m
+
+    // --- Simulation State ---
+    let canvas, ctx;
+    let width, height;
+    let lastTime = 0;
+    
+    // Proton state (Screen coordinates & velocity)
+    let particle = {
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        radius: 12,
+        isHeld: false
+    };
+
+    // External Field State
+    let field = {
+        magnitudeMultiplier: 0, // 0 to 2.5 (represents * 10^-7 V/m)
+        angleDeg: 90
+    };
+
+    // Visual Scaling Factors
+    // We map the constant force of gravity to a visual arrow length and an arbitrary pixel acceleration.
+    const VISUAL_FG_LENGTH = 80; // pixels
+    const ACCEL_SCALE = 500; // purely visual multiplier for movement speed
+
+    // DOM Elements
+    const elMagSlider = document.getElementById('e-mag');
+    const elAngleSlider = document.getElementById('e-angle');
+    const elMagDisplay = document.getElementById('mag-display');
+    const elAngleDisplay = document.getElementById('angle-display');
+    const elBtnHold = document.getElementById('btn-toggle-hold');
+    const elBtnReset = document.getElementById('btn-reset');
+    const elStatus = document.getElementById('status-overlay');
+
+    function init() {
+        canvas = document.getElementById('simCanvas');
+        ctx = canvas.getContext('2d');
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        resetParticle();
+
+        // Event Listeners
+        elMagSlider.addEventListener('input', updateFieldParams);
+        elAngleSlider.addEventListener('input', updateFieldParams);
+        
+        elBtnHold.addEventListener('click', () => {
+            particle.isHeld = !particle.isHeld;
+            if(particle.isHeld) {
+                particle.vx = 0;
+                particle.vy = 0;
+                elBtnHold.textContent = "Release Particle";
+                elBtnHold.classList.replace('bg-slate-700', 'bg-emerald-600');
+            } else {
+                elBtnHold.textContent = "Hold Particle";
+                elBtnHold.classList.replace('bg-emerald-600', 'bg-slate-700');
+            }
+        });
+
+        elBtnReset.addEventListener('click', resetParticle);
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+    }
+
+    function resizeCanvas() {
+        const container = document.getElementById('canvas-container');
+        width = container.clientWidth;
+        height = container.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+
+    function resetParticle() {
+        particle.x = width / 2;
+        particle.y = height / 4; // Start near top
+        particle.vx = 0;
+        particle.vy = 0;
+    }
+
+    function updateFieldParams() {
+        field.magnitudeMultiplier = parseFloat(elMagSlider.value);
+        field.angleDeg = parseFloat(elAngleSlider.value);
+        
+        elMagDisplay.textContent = `${field.magnitudeMultiplier.toFixed(3)} × 10⁻⁷ V/m`;
+        
+        let dirLabel = "";
+        if (field.angleDeg === 90) dirLabel = " (Up)";
+        else if (field.angleDeg === 270) dirLabel = " (Down)";
+        else if (field.angleDeg === 0 || field.angleDeg === 360) dirLabel = " (Right)";
+        else if (field.angleDeg === 180) dirLabel = " (Left)";
+        
+        elAngleDisplay.textContent = `${field.angleDeg}°${dirLabel}`;
+    }
+
+    function drawArrow(x, y, vx, vy, color, label) {
+        const headlen = 10;
+        const angle = Math.atan2(vy, vx);
+        const endX = x + vx;
+        const endY = y + vy;
+
+        // Don't draw if vector is near zero
+        if (Math.abs(vx) < 0.1 && Math.abs(vy) < 0.1) return;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.lineTo(endX, endY);
+        ctx.fillStyle = color;
+        ctx.fill();
+        
+        if (label) {
+            ctx.fillStyle = color;
+            ctx.font = "14px Arial font-bold";
+            // Position label slightly past the arrowhead
+            const lblX = endX + 15 * Math.cos(angle);
+            const lblY = endY + 15 * Math.sin(angle) + 5;
+            ctx.fillText(label, lblX, lblY);
+        }
+    }
+
+    function drawFieldLines(eX, eY) {
+        if (Math.abs(eX) < 0.1 && Math.abs(eY) < 0.1) return;
+        
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.15)";
+        ctx.lineWidth = 1;
+        
+        // Find perpendicular vector for spacing lines
+        const mag = Math.sqrt(eX*eX + eY*eY);
+        const nx = -eY / mag;
+        const ny = eX / mag;
+        
+        const spacing = 40;
+        const diag = Math.sqrt(width*width + height*height);
+        
+        // Center of canvas
+        const cx = width / 2;
+        const cy = height / 2;
+        
+        for (let i = -diag/2; i < diag/2; i += spacing) {
+            const startX = cx + nx * i - (eX/mag) * diag;
+            const startY = cy + ny * i - (eY/mag) * diag;
+            const endX = cx + nx * i + (eX/mag) * diag;
+            const endY = cy + ny * i + (eY/mag) * diag;
+            
+            ctx.beginPath();
+            ctx.setLineDash([15, 15]);
+            
+            // Animate dashes based on time to show flow
+            const offset = (Date.now() / 20) % 30;
+            ctx.lineDashOffset = -offset;
+            
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]); // Reset
+    }
+
+    function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        let dt = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+        
+        // Cap dt to prevent massive jumps if tab is inactive
+        if (dt > 0.1) dt = 0.1;
+
+        updatePhysics(dt);
+        render();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updatePhysics(dt) {
+        // --- 1. Calculate Real-world equivalent force ratios ---
+        // Gravity Vector (Visually always straight down)
+        const vFg = { x: 0, y: VISUAL_FG_LENGTH };
+        
+        // Current E Field magnitude (scaled to 10^-7 V/m)
+        const currentE = field.magnitudeMultiplier * 1e-7;
+        
+        // Ratio of Electric Force to Gravitational Force
+        // F_e / F_g = (q * E) / (m * g) = E / E_balance
+        const forceRatio = currentE / E_BALANCE;
+        
+        // Electric Force Vector Calculation
+        // Math angle: 0=Right, 90=Up. Canvas: Y goes down.
+        const angleRad = field.angleDeg * (Math.PI / 180);
+        const vFe = {
+            x: forceRatio * VISUAL_FG_LENGTH * Math.cos(angleRad),
+            y: -forceRatio * VISUAL_FG_LENGTH * Math.sin(angleRad) // Negative because Canvas Y is down, Math Up is positive
+        };
+
+        // Net Force Vector
+        const vFnet = {
+            x: vFg.x + vFe.x,
+            y: vFg.y + vFe.y
+        };
+
+        // --- 2. Update Movement (if not held) ---
+        if (!particle.isHeld) {
+            // Acceleration is proportional to Net Force visual vector
+            const ax = (vFnet.x / VISUAL_FG_LENGTH) * ACCEL_SCALE;
+            const ay = (vFnet.y / VISUAL_FG_LENGTH) * ACCEL_SCALE;
+
+            particle.vx += ax * dt;
+            particle.vy += ay * dt;
+            
+            // Apply a tiny bit of air friction for stability
+            particle.vx *= 0.99;
+            particle.vy *= 0.99;
+
+            particle.x += particle.vx * dt;
+            particle.y += particle.vy * dt;
+
+            // Boundary Collisions (Bounce)
+            const damping = 0.6;
+            if (particle.y > height - particle.radius) {
+                particle.y = height - particle.radius;
+                particle.vy = -particle.vy * damping;
+            } else if (particle.y < particle.radius) {
+                particle.y = particle.radius;
+                particle.vy = -particle.vy * damping;
+            }
+
+            if (particle.x > width - particle.radius) {
+                particle.x = width - particle.radius;
+                particle.vx = -particle.vx * damping;
+            } else if (particle.x < particle.radius) {
+                particle.x = particle.radius;
+                particle.vx = -particle.vx * damping;
+            }
+        }
+
+        // --- 3. Update Status UI ---
+        // Analyze vertical net force to determine status
+        const netForceMagnitude = Math.sqrt(vFnet.x*vFnet.x + vFnet.y*vFnet.y);
+        const yForceRatio = vFnet.y / VISUAL_FG_LENGTH; // Positive means net force is down
+        
+        if (particle.isHeld) {
+            elStatus.textContent = "Status: Held";
+            elStatus.className = "absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg backdrop-blur border text-white bg-slate-800/80 border-slate-600";
+        } else if (netForceMagnitude < 1.0) { 
+            // Close enough to zero to call it levitating
+            elStatus.textContent = "Status: Levitating / Constant Velocity";
+            elStatus.className = "absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg backdrop-blur border text-green-400 bg-green-900/30 border-green-700 shadow-[0_0_15px_rgba(74,222,128,0.2)]";
+        } else if (yForceRatio > 0.05) {
+            elStatus.textContent = "Status: Accelerating Down";
+            elStatus.className = "absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg backdrop-blur border text-orange-400 bg-orange-900/30 border-orange-700";
+        } else if (yForceRatio < -0.05) {
+            elStatus.textContent = "Status: Accelerating Up";
+            elStatus.className = "absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg backdrop-blur border text-blue-400 bg-blue-900/30 border-blue-700";
+        } else {
+             elStatus.textContent = "Status: Drifting Sideways";
+             elStatus.className = "absolute top-4 left-4 text-xl font-bold px-4 py-2 rounded-lg backdrop-blur border text-slate-300 bg-slate-800/80 border-slate-600";
+        }
+
+        // Store vectors for drawing
+        particle.vectors = { vFg, vFe, vFnet };
+    }
+
+    function render() {
+        // Clear Canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw Field background lines if Field > 0
+        if (particle.vectors && particle.vectors.vFe) {
+           drawFieldLines(particle.vectors.vFe.x, particle.vectors.vFe.y);
+        }
+
+        // Draw Proton (Red circle with +)
+        const px = particle.x;
+        const py = particle.y;
+        const r = particle.radius;
+
+        // Glow
+        const gradient = ctx.createRadialGradient(px, py, r*0.5, px, py, r*2.5);
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.8)'); // Red glow
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(px, py, r*2.5, 0, Math.PI*2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = '#ef4444'; // Tailwind red-500
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fca5a5';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Plus sign
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px - r/2, py); ctx.lineTo(px + r/2, py); // Horizontal
+        ctx.moveTo(px, py - r/2); ctx.lineTo(px, py + r/2); // Vertical
+        ctx.stroke();
+
+        // Draw Vectors
+        if (particle.vectors) {
+            // Fg (Orange/Amber)
+            drawArrow(px, py, particle.vectors.vFg.x, particle.vectors.vFg.y, '#f97316', 'Fg');
+            
+            // Fe (Blue)
+            drawArrow(px, py, particle.vectors.vFe.x, particle.vectors.vFe.y, '#3b82f6', 'Fe');
+            
+            // Fnet (Green) - Drawn slightly thicker
+            ctx.lineWidth = 4;
+            drawArrow(px, py, particle.vectors.vFnet.x, particle.vectors.vFnet.y, '#22c55e', 'Fnet');
+        }
+    }
+
+    // Run Initialization
+    window.onload = init;
+
+</script>
+</body>
+</html>

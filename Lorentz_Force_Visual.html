@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Lorentz Force (v × B) Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; }
+        canvas { display: block; }
+        
+        /* Custom range slider styling fallback */
+        input[type=range] {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+            background: #334155;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            margin-top: -5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="text-slate-200 font-sans select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full"></div>
+
+    <!-- Floating 3D Labels -->
+    <div id="labels">
+        <div id="vLabel" class="absolute text-red-400 font-bold font-mono text-xl pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] transform -translate-x-1/2 -translate-y-1/2">v</div>
+        <div id="bLabel" class="absolute text-blue-400 font-bold font-mono text-xl pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] transform -translate-x-1/2 -translate-y-1/2">B</div>
+        <div id="fLabel" class="absolute text-green-400 font-bold font-mono text-xl pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] transform -translate-x-1/2 -translate-y-1/2">F</div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="absolute top-4 left-4 w-80 max-w-[90vw] max-h-[90vh] overflow-y-auto bg-slate-900/85 backdrop-blur-md p-5 rounded-xl shadow-2xl border border-slate-700">
+        <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400 mb-1">Lorentz Force</h1>
+        <p class="text-xs text-slate-400 mb-4 pb-3 border-b border-slate-700">Visualize the cross product <span class="font-mono text-white">F = q(v × B)</span></p>
+
+        <!-- Velocity Controls -->
+        <div class="mb-5">
+            <div class="flex justify-between text-red-400 font-semibold text-sm mb-2">
+                <span>Velocity (v)</span>
+                <span id="vComp" class="text-xs font-mono text-slate-400">(0.0, 0.0, 0.0)</span>
+            </div>
+            <div class="grid grid-cols-[35px_1fr_35px] gap-2 items-center text-xs">
+                <span class="text-slate-400 text-right">Mag</span>
+                <input type="range" id="vMag" min="0" max="5" step="0.1" value="3" class="w-full accent-red-500">
+                <span id="vMagDisplay" class="text-right font-mono">3.0</span>
+
+                <span class="text-slate-400 text-right">Yaw</span>
+                <input type="range" id="vYaw" min="0" max="360" step="1" value="0" class="w-full accent-red-500">
+                <span id="vYawDisplay" class="text-right font-mono">0°</span>
+
+                <span class="text-slate-400 text-right">Pitch</span>
+                <input type="range" id="vPitch" min="-90" max="90" step="1" value="0" class="w-full accent-red-500">
+                <span id="vPitchDisplay" class="text-right font-mono">0°</span>
+            </div>
+        </div>
+
+        <!-- Magnetic Field Controls -->
+        <div class="mb-5">
+            <div class="flex justify-between text-blue-400 font-semibold text-sm mb-2">
+                <span>Magnetic Field (B)</span>
+                <span id="bComp" class="text-xs font-mono text-slate-400">(0.0, 0.0, 0.0)</span>
+            </div>
+            <div class="grid grid-cols-[35px_1fr_35px] gap-2 items-center text-xs">
+                <span class="text-slate-400 text-right">Mag</span>
+                <input type="range" id="bMag" min="0" max="5" step="0.1" value="3" class="w-full accent-blue-500">
+                <span id="bMagDisplay" class="text-right font-mono">3.0</span>
+
+                <span class="text-slate-400 text-right">Yaw</span>
+                <input type="range" id="bYaw" min="0" max="360" step="1" value="270" class="w-full accent-blue-500">
+                <span id="bYawDisplay" class="text-right font-mono">270°</span>
+
+                <span class="text-slate-400 text-right">Pitch</span>
+                <input type="range" id="bPitch" min="-90" max="90" step="1" value="0" class="w-full accent-blue-500">
+                <span id="bPitchDisplay" class="text-right font-mono">0°</span>
+            </div>
+        </div>
+
+        <!-- Particle Charge Controls -->
+        <div class="mb-5">
+            <div class="flex justify-between text-yellow-400 font-semibold text-sm mb-2">
+                <span>Charge (q)</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="text-slate-400">-2</span>
+                <input type="range" id="qVal" min="-2" max="2" step="0.5" value="1" class="w-full accent-yellow-400">
+                <span class="text-slate-400">+2</span>
+                <span id="qValDisplay" class="w-8 text-right font-mono font-bold text-yellow-400">1.0</span>
+            </div>
+        </div>
+
+        <!-- Live Readouts -->
+        <div class="p-3 bg-slate-950/50 rounded-lg border border-slate-700/50 shadow-inner">
+            <h2 class="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Physics Engine</h2>
+            <div class="text-xs space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Angle (<span class="text-red-400">v</span>, <span class="text-blue-400">B</span>):</span>
+                    <span id="angleOut" class="font-mono text-white bg-slate-800 px-1.5 py-0.5 rounded">90.0°</span>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-800">
+                    <span class="text-slate-400">Resulting Force |<span class="text-green-400">F</span>|:</span>
+                    <span id="fMagOut" class="font-mono font-bold text-green-400 text-sm">9.00</span>
+                </div>
+                <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-slate-500">Max Potential |F| (at 90°):</span>
+                    <span id="maxFOut" class="font-mono text-slate-400">9.00</span>
+                </div>
+                <div class="pt-2 text-[10px] text-slate-500 leading-tight">
+                    * The green Force vector length is scaled down (0.3x) strictly for visual clarity on screen.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Overlay -->
+    <div class="absolute bottom-4 right-4 bg-slate-900/60 backdrop-blur px-3 py-1.5 rounded-full text-slate-400 text-xs pointer-events-none border border-slate-700/50">
+        <span class="hidden sm:inline">🖱️</span> Drag to rotate • Scroll to zoom
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // Constants
+        const FORCE_VISUAL_SCALE = 0.3;
+        
+        // Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(8, 8, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 15);
+        scene.add(dirLight);
+
+        // Coordinate Axes (Faint)
+        const axisMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.5 });
+        const createAxis = (p1, p2) => new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1, p2]), axisMat);
+        scene.add(createAxis(new THREE.Vector3(-10, 0, 0), new THREE.Vector3(10, 0, 0)));
+        scene.add(createAxis(new THREE.Vector3(0, -10, 0), new THREE.Vector3(0, 10, 0)));
+        scene.add(createAxis(new THREE.Vector3(0, 0, -10), new THREE.Vector3(0, 0, 10)));
+
+        // Helper Function to Create Thick 3D Arrows
+        function createThickArrow(colorHex) {
+            const group = new THREE.Group();
+            const shaftMat = new THREE.MeshPhongMaterial({ color: colorHex, shininess: 80 });
+            const headMat = new THREE.MeshPhongMaterial({ color: colorHex, shininess: 80 });
+
+            const shaftGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 12);
+            shaftGeo.translate(0, 0.5, 0); 
+            const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+            group.add(shaft);
+
+            const headGeo = new THREE.ConeGeometry(0.2, 0.5, 12);
+            headGeo.translate(0, 0.25, 0);
+            const head = new THREE.Mesh(headGeo, headMat);
+            group.add(head);
+
+            group.shaft = shaft;
+            group.head = head;
+            scene.add(group);
+            return group;
+        }
+
+        // Helper to update thick arrow transformations
+        function updateThickArrow(group, vector) {
+            const len = vector.length();
+            if (len < 0.01) {
+                group.visible = false;
+                return;
+            }
+            group.visible = true;
+
+            const dir = vector.clone().normalize();
+            const axis = new THREE.Vector3(0, 1, 0);
+            group.quaternion.setFromUnitVectors(axis, dir);
+
+            const headLen = Math.min(len * 0.35, 0.7);
+            const shaftLen = Math.max(0.01, len - headLen);
+
+            group.shaft.scale.set(1, shaftLen, 1);
+            group.head.position.set(0, shaftLen, 0);
+            
+            const headScale = Math.min(1, len * 0.5);
+            group.head.scale.set(headScale, headScale, headScale);
+        }
+
+        // Initialize Vectors & Visualization Geometry
+        let vVec = new THREE.Vector3();
+        let bVec = new THREE.Vector3();
+        let fVec = new THREE.Vector3();
+
+        const vArrow = createThickArrow(0xf87171); // Red
+        const bArrow = createThickArrow(0x60a5fa); // Blue
+        const fArrow = createThickArrow(0x4ade80); // Green
+
+        // Parallelogram Plane (to visualize orthogonality)
+        const planeMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, side: THREE.DoubleSide, transparent: true, opacity: 0.15, depthWrite: false });
+        const planeGeo = new THREE.BufferGeometry();
+        planeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3));
+        const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+        scene.add(planeMesh);
+
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.4 });
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+        const lineLoop = new THREE.LineLoop(lineGeo, lineMat);
+        scene.add(lineLoop);
+
+        // Spherical to Cartesian Conversion (Custom Yaw/Pitch logic)
+        function getVectorFromSpherical(mag, yawDeg, pitchDeg) {
+            const yaw = yawDeg * Math.PI / 180;
+            const pitch = pitchDeg * Math.PI / 180;
+            // X-Z is the horizontal plane, Y is up/down
+            const x = mag * Math.cos(pitch) * Math.cos(yaw);
+            const y = mag * Math.sin(pitch);
+            const z = mag * Math.cos(pitch) * Math.sin(-yaw); // -yaw maps intuitively to 3D space
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // HTML Elements References
+        const els = {
+            vMag: document.getElementById('vMag'), vYaw: document.getElementById('vYaw'), vPitch: document.getElementById('vPitch'),
+            bMag: document.getElementById('bMag'), bYaw: document.getElementById('bYaw'), bPitch: document.getElementById('bPitch'),
+            qVal: document.getElementById('qVal')
+        };
+        const readouts = {
+            vComp: document.getElementById('vComp'), bComp: document.getElementById('bComp'),
+            angleOut: document.getElementById('angleOut'), fMagOut: document.getElementById('fMagOut'), maxFOut: document.getElementById('maxFOut')
+        };
+
+        // Main Update Logic
+        function updateScene() {
+            // Read UI
+            const vMag = parseFloat(els.vMag.value);
+            const vYaw = parseFloat(els.vYaw.value);
+            const vPitch = parseFloat(els.vPitch.value);
+            
+            const bMag = parseFloat(els.bMag.value);
+            const bYaw = parseFloat(els.bYaw.value);
+            const bPitch = parseFloat(els.bPitch.value);
+            
+            const q = parseFloat(els.qVal.value);
+
+            // Calculate Vectors
+            vVec = getVectorFromSpherical(vMag, vYaw, vPitch);
+            bVec = getVectorFromSpherical(bMag, bYaw, bPitch);
+            
+            // F = q(v x B)
+            fVec.crossVectors(vVec, bVec).multiplyScalar(q);
+
+            // Update 3D Arrows
+            updateThickArrow(vArrow, vVec);
+            updateThickArrow(bArrow, bVec);
+            updateThickArrow(fArrow, fVec.clone().multiplyScalar(FORCE_VISUAL_SCALE)); // Visually scale down
+
+            // Update Orthogonal Parallelogram (The Plane of v and B)
+            const pVerts = new Float32Array([
+                0,0,0,  vVec.x,vVec.y,vVec.z,  bVec.x,bVec.y,bVec.z,
+                vVec.x,vVec.y,vVec.z,  vVec.x+bVec.x,vVec.y+bVec.y,vVec.z+bVec.z,  bVec.x,bVec.y,bVec.z
+            ]);
+            planeGeo.setAttribute('position', new THREE.BufferAttribute(pVerts, 3));
+            planeGeo.computeVertexNormals();
+
+            const lVerts = new Float32Array([
+                0,0,0,  vVec.x,vVec.y,vVec.z,  vVec.x+bVec.x,vVec.y+bVec.y,vVec.z+bVec.z,  bVec.x,bVec.y,bVec.z
+            ]);
+            lineGeo.setAttribute('position', new THREE.BufferAttribute(lVerts, 3));
+
+            // Update HTML Readouts
+            readouts.vComp.innerText = `(${vVec.x.toFixed(1)}, ${vVec.y.toFixed(1)}, ${vVec.z.toFixed(1)})`;
+            readouts.bComp.innerText = `(${bVec.x.toFixed(1)}, ${bVec.y.toFixed(1)}, ${bVec.z.toFixed(1)})`;
+
+            const angleRad = (vMag > 0 && bMag > 0) ? vVec.angleTo(bVec) : 0;
+            const angleDeg = (angleRad * 180 / Math.PI).toFixed(1);
+            
+            // Highlight orthogonality
+            if (Math.abs(angleDeg - 90.0) < 0.2) {
+                readouts.angleOut.innerText = angleDeg + '° (Max!)';
+                readouts.angleOut.className = "font-mono font-bold text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded";
+            } else {
+                readouts.angleOut.innerText = angleDeg + '°';
+                readouts.angleOut.className = "font-mono text-white bg-slate-800 px-1.5 py-0.5 rounded";
+            }
+
+            readouts.fMagOut.innerText = fVec.length().toFixed(2);
+            readouts.maxFOut.innerText = Math.abs(q * vMag * bMag).toFixed(2);
+        }
+
+        // Attach Event Listeners to Sliders
+        Object.keys(els).forEach(key => {
+            const el = els[key];
+            el.addEventListener('input', (e) => {
+                let displayVal = parseFloat(e.target.value).toFixed(key === 'qVal' || key.includes('Yaw') || key.includes('Pitch') ? 0 : 1);
+                if (key.includes('Yaw') || key.includes('Pitch')) displayVal += '°';
+                if (key === 'qVal') displayVal = (e.target.value > 0 ? '+' : '') + displayVal + '.0'; // Format charge cleanly
+                
+                const displayEl = document.getElementById(key + 'Display');
+                if (displayEl) displayEl.innerText = displayVal;
+                
+                updateScene();
+            });
+        });
+
+        // 3D HTML Labels Projection Helper
+        function updateLabels() {
+            const mapLabel = (id, vector) => {
+                const el = document.getElementById(id);
+                if (vector.length() < 0.01) {
+                    el.style.display = 'none';
+                    return;
+                }
+                
+                const pos = vector.clone();
+                // Push label slightly past the tip of the vector
+                pos.add(pos.clone().normalize().multiplyScalar(0.6)); 
+                pos.project(camera);
+
+                // Hide if behind the camera
+                if (pos.z > 1) {
+                    el.style.display = 'none';
+                    return;
+                }
+
+                el.style.display = 'block';
+                const x = (pos.x * .5 + .5) * window.innerWidth;
+                const y = (pos.y * -.5 + .5) * window.innerHeight;
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+            };
+
+            mapLabel('vLabel', vVec);
+            mapLabel('bLabel', bVec);
+            mapLabel('fLabel', fVec.clone().multiplyScalar(FORCE_VISUAL_SCALE));
+        }
+
+        // Window Resize Handling
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+
+        // Render Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            updateLabels(); // Constantly update label screenspace positions
+        }
+
+        // Initialize & Run
+        updateScene();
+        animate();
+
+    </script>
+</body>
+</html>

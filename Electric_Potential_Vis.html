@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Potential Scalar Sum Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Tailwind slate-900 */
+            color: #f8fafc; /* Tailwind slate-50 */
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        canvas {
+            touch-action: none; /* Prevent scrolling when dragging charges on mobile */
+            cursor: grab;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.25);
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        input[type="range"] {
+            accent-color: #3b82f6;
+        }
+        .equation-box {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row items-center justify-center p-4 gap-6">
+
+    <!-- Controls Sidebar -->
+    <div class="w-full md:w-80 flex flex-col gap-4 order-2 md:order-1">
+        <div class="bg-slate-800 p-5 rounded-xl shadow-lg border border-slate-700">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400"><path d="M11 2v6h-3l5 8 1-4h3l-5-8z"/><path d="M4 13a8.1 8.1 0 0 0 16 0"/></svg>
+                Charge Controls
+            </h2>
+            <p class="text-sm text-slate-400 mb-6">Adjust magnitudes. Drag circles on the canvas to move them.</p>
+
+            <!-- Sliders -->
+            <div id="sliders-container" class="space-y-5">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-5 rounded-xl shadow-lg border border-slate-700">
+            <h3 class="text-md font-semibold text-slate-300 mb-2">Visualization Settings</h3>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="toggle-lines" class="w-4 h-4 text-blue-600 rounded bg-slate-700 border-slate-600" checked>
+                <span class="text-sm">Show Equipotential Lines</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Canvas & Visualization Area -->
+    <div class="relative flex flex-col items-center order-1 md:order-2 w-full max-w-2xl">
+        
+        <div class="relative">
+            <!-- The Physics Canvas -->
+            <canvas id="fieldCanvas" width="500" height="500" class="w-full max-w-[500px] h-auto aspect-square bg-black border border-slate-600"></canvas>
+            
+            <!-- Real-time Scalar Math Overlay -->
+            <div class="equation-box absolute bottom-4 left-4 right-4 p-4 rounded-lg border border-slate-600 shadow-xl">
+                <div class="text-xs text-slate-400 mb-1 uppercase tracking-wider font-semibold">Scalar Sum at Center (0,0)</div>
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm sm:text-base font-mono">
+                    <div class="flex items-center gap-2">
+                        <span>V<sub>Total</sub> =</span>
+                        <span id="v1-text" class="font-bold">0</span> + 
+                        <span id="v2-text" class="font-bold">0</span> + 
+                        <span id="v3-text" class="font-bold">0</span> + 
+                        <span id="v4-text" class="font-bold">0</span>
+                    </div>
+                    <div class="text-xl sm:text-2xl font-bold bg-slate-900 px-3 py-1 rounded text-green-400 border border-slate-700">
+                        = <span id="v-total-text">0.00</span> V
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center max-w-lg text-sm text-slate-400">
+            <strong>Concept:</strong> Electric potential is a scalar quantity (a simple number, not a vector). The total potential at the center is simply the algebraic sum of the potentials from each charge: <span class="font-mono text-slate-300">V = kΣ(q/r)</span>. Notice how equipotential lines merge when potentials add up or cancel out.
+        </div>
+
+    </div>
+
+<script>
+/**
+ * Electric Potential Visualization
+ * Uses Canvas pixel manipulation to calculate and draw scalar fields and contour lines.
+ */
+
+const canvas = document.getElementById('fieldCanvas');
+const ctx = canvas.getContext('2d');
+const width = canvas.width;
+const height = canvas.height;
+
+// Center coordinates
+const cx = width / 2;
+const cy = height / 2;
+
+// Visualization Parameters
+const k = 1000; // Coulomb's constant equivalent for scaling
+const colorScale = 0.8; // Maps potential V to RGB intensity
+const contourFrequency = 0.15; // Frequency of equipotential lines
+const softening = 2; // Prevents division by zero at r=0
+
+// Charge State
+// q is charge magnitude. 1 is positive, -1 is negative.
+let charges = [
+    { id: 1, x: cx - 120, y: cy - 120, q: 5, color: '#ef4444', label: 'Q1' },
+    { id: 2, x: cx + 120, y: cy - 120, q: -5, color: '#3b82f6', label: 'Q2' },
+    { id: 3, x: cx - 120, y: cy + 120, q: 5, color: '#ef4444', label: 'Q3' },
+    { id: 4, x: cx + 120, y: cy + 120, q: -5, color: '#3b82f6', label: 'Q4' }
+];
+
+let showLines = true;
+let draggingCharge = null;
+let needsRender = true;
+
+// Pre-allocate image data for performance
+const imageData = ctx.createImageData(width, height);
+const data = imageData.data;
+
+// DOM Elements
+const slidersContainer = document.getElementById('sliders-container');
+const toggleLines = document.getElementById('toggle-lines');
+const vTexts = [
+    document.getElementById('v1-text'),
+    document.getElementById('v2-text'),
+    document.getElementById('v3-text'),
+    document.getElementById('v4-text')
+];
+const vTotalText = document.getElementById('v-total-text');
+
+// Initialize UI
+function initUI() {
+    charges.forEach((charge, index) => {
+        const div = document.createElement('div');
+        div.className = 'bg-slate-900/50 p-3 rounded-lg border border-slate-700/50';
+        div.innerHTML = `
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-sm font-semibold flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full" style="background-color: ${charge.q >= 0 ? '#ef4444' : '#3b82f6'}" id="indicator-${index}"></span>
+                    ${charge.label}
+                </label>
+                <span class="text-sm font-mono bg-slate-800 px-2 py-0.5 rounded" id="val-${index}">${charge.q > 0 ? '+'+charge.q : charge.q} μC</span>
+            </div>
+            <input type="range" min="-10" max="10" step="0.5" value="${charge.q}" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" id="slider-${index}">
+        `;
+        slidersContainer.appendChild(div);
+
+        const slider = document.getElementById(`slider-${index}`);
+        const valText = document.getElementById(`val-${index}`);
+        const indicator = document.getElementById(`indicator-${index}`);
+
+        slider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            charges[index].q = val;
+            valText.textContent = `${val > 0 ? '+'+val : val} μC`;
+            indicator.style.backgroundColor = val > 0 ? '#ef4444' : (val < 0 ? '#3b82f6' : '#94a3b8');
+            charges[index].color = val > 0 ? '#ef4444' : (val < 0 ? '#3b82f6' : '#94a3b8');
+            needsRender = true;
+        });
+    });
+
+    toggleLines.addEventListener('change', (e) => {
+        showLines = e.target.checked;
+        needsRender = true;
+    });
+}
+
+// Math Utility
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+// Compute the field and draw pixels
+function renderField() {
+    // Loop over every pixel in the canvas
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            
+            let V = 0;
+            // Sum electric potential from all charges (V = k * sum(q/r))
+            for (let i = 0; i < charges.length; i++) {
+                const c = charges[i];
+                const r = distance(x, y, c.x, c.y) + softening;
+                V += (k * c.q) / r;
+            }
+
+            // Map Potential to Color
+            let r = 0, g = 0, b = 0;
+            
+            if (V > 0) {
+                // Positive potential -> Red
+                r = Math.min(255, V * colorScale);
+            } else {
+                // Negative potential -> Blue
+                b = Math.min(255, -V * colorScale);
+            }
+
+            // Equipotential Lines (using modulo/sine wave pattern on the scalar field)
+            if (showLines) {
+                // Create sharp lines using a sine power function
+                const contour = Math.pow(Math.sin(V * contourFrequency), 20);
+                if (contour > 0.5) {
+                    // Blend white for equipotential lines
+                    const lineIntensity = (contour - 0.5) * 2; // 0 to 1
+                    r = r * (1 - lineIntensity) + 255 * lineIntensity;
+                    g = g * (1 - lineIntensity) + 255 * lineIntensity;
+                    b = b * (1 - lineIntensity) + 255 * lineIntensity;
+                }
+            }
+
+            // Set pixel data
+            const index = (y * width + x) * 4;
+            data[index] = r;         // Red
+            data[index + 1] = g;     // Green
+            data[index + 2] = b;     // Blue
+            data[index + 3] = 255;   // Alpha
+        }
+    }
+    // Paint pixels to canvas
+    ctx.putImageData(imageData, 0, 0);
+}
+
+// Draw UI overlays (Charges and Center Point)
+function renderOverlays() {
+    // Draw charges
+    charges.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = c.color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Charge Label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let symbol = c.q > 0 ? '+' : (c.q < 0 ? '-' : '');
+        ctx.fillText(symbol, c.x, c.y);
+    });
+
+    // Draw Center Point Crosshair
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, cy);
+    ctx.lineTo(cx + 10, cy);
+    ctx.moveTo(cx, cy - 10);
+    ctx.lineTo(cx, cy + 10);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    
+    // Label center
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Center (0,0)', cx + 12, cy - 12);
+}
+
+// Update the Math text box
+function updateMath() {
+    let totalV = 0;
+    
+    charges.forEach((c, index) => {
+        const r = distance(cx, cy, c.x, c.y) + softening;
+        const vPart = (k * c.q) / r;
+        totalV += vPart;
+        
+        // Update individual components
+        const el = vTexts[index];
+        el.textContent = vPart.toFixed(1);
+        el.className = `font-bold ${vPart > 0 ? 'text-red-400' : (vPart < 0 ? 'text-blue-400' : 'text-slate-400')}`;
+    });
+
+    // Update total
+    vTotalText.textContent = totalV.toFixed(2);
+    vTotalText.className = totalV > 0 ? 'text-red-400' : (totalV < 0 ? 'text-blue-400' : 'text-slate-300');
+}
+
+// Main Animation Loop
+function animate() {
+    if (needsRender) {
+        renderField();
+        renderOverlays();
+        updateMath();
+        needsRender = false;
+    }
+    requestAnimationFrame(animate);
+}
+
+// --- Interaction Handling (Mouse & Touch) ---
+
+function getPointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    // Use scaling to handle canvas responsive css sizing
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    }
+
+    return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+    };
+}
+
+function onDown(e) {
+    const pos = getPointerPos(e);
+    // Find if we clicked on a charge (radius 14, allow some padding for touch)
+    draggingCharge = charges.find(c => distance(pos.x, pos.y, c.x, c.y) < 25);
+}
+
+function onMove(e) {
+    if (draggingCharge) {
+        e.preventDefault(); // Prevent scrolling on touch devices
+        const pos = getPointerPos(e);
+        // Constrain within canvas
+        draggingCharge.x = Math.max(15, Math.min(width - 15, pos.x));
+        draggingCharge.y = Math.max(15, Math.min(height - 15, pos.y));
+        needsRender = true;
+    }
+}
+
+function onUp() {
+    draggingCharge = null;
+}
+
+// Event Listeners
+canvas.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+
+canvas.addEventListener('touchstart', onDown, {passive: false});
+window.addEventListener('touchmove', onMove, {passive: false});
+window.addEventListener('touchend', onUp);
+
+// Start
+initUI();
+animate();
+
+</script>
+</body>
+</html>

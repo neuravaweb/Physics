@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyclotron Path Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-200 p-6 font-sans flex flex-col items-center">
+    
+    <div class="max-w-6xl w-full">
+        <!-- Header -->
+        <header class="mb-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                    Cyclotron Path Simulator
+                </h1>
+                <p class="text-slate-400 mt-1">Explore charged particle trajectories in a uniform magnetic field.</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="btn-play-pause" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700">
+                    <i id="icon-pause" data-lucide="pause" class="w-[18px] h-[18px]"></i>
+                    <i id="icon-play" data-lucide="play" class="w-[18px] h-[18px] hidden"></i>
+                    <span id="text-play-pause">Pause</span>
+                </button>
+                <button id="btn-clear" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 text-rose-400">
+                    <i data-lucide="rotate-ccw" class="w-[18px] h-[18px]"></i> Clear
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Control Panel -->
+            <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-6 shadow-xl">
+                
+                <!-- Particle Selection -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+                        Particle Type
+                    </label>
+                    <div class="space-y-2" id="particle-buttons">
+                        <!-- Buttons injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Voltage Control -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+                            Acc. Voltage (V)
+                        </label>
+                        <span id="val-voltage" class="text-sm text-indigo-400 font-mono">2000 V</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        id="slider-voltage"
+                        min="500" max="10000" step="100" 
+                        value="2000" 
+                        class="w-full accent-indigo-500 cursor-pointer"
+                    />
+                </div>
+
+                <!-- Magnetic Field Control -->
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+                            Magnetic Field (B)
+                        </label>
+                        <span id="val-bfield" class="text-sm text-cyan-400 font-mono">0.100 T</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        id="slider-bfield"
+                        min="-0.25" max="0.25" step="0.01" 
+                        value="0.1" 
+                        class="w-full accent-cyan-500 cursor-pointer"
+                    />
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>Out of screen (•)</span>
+                        <span>Into screen (×)</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-auto pt-4 border-t border-slate-800 space-y-3">
+                    <button id="btn-fire" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
+                        <i data-lucide="crosshair" class="w-5 h-5"></i> Fire Particle
+                    </button>
+                    <button id="btn-save" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="plus" class="w-[18px] h-[18px]"></i> Keep Path for Comparison
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas & Metrics -->
+            <div class="lg:col-span-3 flex flex-col gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative">
+                    <canvas id="simulation-canvas" width="800" height="600" class="w-full h-auto block"></canvas>
+                    
+                    <!-- Overlay Metrics -->
+                    <div class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-700 p-4 rounded-xl shadow-lg pointer-events-none">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Live Telemetry</h3>
+                        <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                            <div class="text-slate-400">Velocity (v)</div>
+                            <div id="metric-v" class="text-right font-mono text-white">0 km/s</div>
+                            
+                            <div class="text-slate-400">Radius (r)</div>
+                            <div id="metric-r" class="text-right font-mono text-cyan-400">0 cm</div>
+                            
+                            <div class="text-slate-400">K. Energy (K)</div>
+                            <div id="metric-k" class="text-right font-mono text-indigo-400">0 eV</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 rounded-xl p-4 flex gap-3 text-sm text-slate-400 items-start">
+                    <i data-lucide="info" class="shrink-0 text-indigo-400 w-5 h-5"></i>
+                    <p>
+                        <strong>How it works:</strong> The particle starts at rest and is accelerated by an electric potential (V). 
+                        It then enters a uniform magnetic field (B) perpendicular to its velocity, resulting in a Lorentz force that 
+                        acts as a centripetal force, creating a circular trajectory defined by <code>r = mv / qB</code>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- Physics Constants & Configuration ---
+        const PPM = 800; // Pixels per meter for canvas mapping
+        const TIME_SCALE = 1.5e-6; // 1 real second = 1.5 microseconds in simulation (for visual speed)
+        const X_START = 50; 
+        const X_BOUNDARY = 250;
+
+        const PARTICLES = {
+            proton:   { id: 'proton', name: 'Proton (p⁺)', m: 1.67e-27, q: 1.6e-19, color: '#ef4444' }, // Red
+            deuteron: { id: 'deuteron', name: 'Deuteron (d⁺)', m: 3.34e-27, q: 1.6e-19, color: '#a855f7' }, // Purple
+            alpha:    { id: 'alpha', name: 'Alpha (He²⁺)', m: 6.64e-27, q: 3.2e-19, color: '#3b82f6' }, // Blue
+            carbon:   { id: 'carbon', name: 'Carbon (C⁺)', m: 1.99e-26, q: 1.6e-19, color: '#10b981' }, // Green
+        };
+
+        // --- State ---
+        let state = {
+            voltage: 2000,
+            bField: 0.1,
+            particleId: 'proton',
+            savedPaths: [],
+            isPlaying: true,
+            activeParticles: []
+        };
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const sliderVoltage = document.getElementById('slider-voltage');
+        const sliderBField = document.getElementById('slider-bfield');
+        const valVoltage = document.getElementById('val-voltage');
+        const valBField = document.getElementById('val-bfield');
+        
+        const metricV = document.getElementById('metric-v');
+        const metricR = document.getElementById('metric-r');
+        const metricK = document.getElementById('metric-k');
+        
+        const btnPlayPause = document.getElementById('btn-play-pause');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+        const textPlayPause = document.getElementById('text-play-pause');
+        const btnClear = document.getElementById('btn-clear');
+        const btnFire = document.getElementById('btn-fire');
+        const btnSave = document.getElementById('btn-save');
+        const particleButtonsContainer = document.getElementById('particle-buttons');
+
+        // --- Initialization ---
+        function init() {
+            renderParticleButtons();
+            updateMetrics();
+            setupEventListeners();
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- UI Updates ---
+        function renderParticleButtons() {
+            particleButtonsContainer.innerHTML = '';
+            Object.values(PARTICLES).forEach(p => {
+                const btn = document.createElement('button');
+                const isSelected = state.particleId === p.id;
+                
+                btn.className = `w-full text-left px-3 py-2 rounded-lg border transition-all flex items-center gap-3 ${
+                    isSelected 
+                        ? 'border-indigo-500 bg-indigo-500/10 text-white' 
+                        : 'border-slate-700 hover:border-slate-500 text-slate-300'
+                }`;
+                btn.onclick = () => {
+                    state.particleId = p.id;
+                    renderParticleButtons();
+                    updateMetrics();
+                };
+
+                const dot = document.createElement('div');
+                dot.className = 'w-3 h-3 rounded-full';
+                dot.style.backgroundColor = p.color;
+
+                const text = document.createTextNode(p.name);
+
+                btn.appendChild(dot);
+                btn.appendChild(text);
+                particleButtonsContainer.appendChild(btn);
+            });
+        }
+
+        function updateMetrics() {
+            const currentParticle = PARTICLES[state.particleId];
+            
+            // Calculate physics
+            const v_physical = Math.sqrt(Math.abs(2 * currentParticle.q * state.voltage / currentParticle.m));
+            const r_physical = (currentParticle.m * v_physical) / Math.abs(currentParticle.q * state.bField);
+
+            // Update UI values
+            valVoltage.textContent = `${state.voltage} V`;
+            valBField.textContent = `${state.bField.toFixed(3)} T`;
+
+            // Update Telemetry
+            metricV.textContent = `${(v_physical / 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} km/s`;
+            metricR.textContent = Math.abs(state.bField) < 0.001 ? '∞' : `${(r_physical * 100).toFixed(2)} cm`;
+            metricK.textContent = `${state.voltage.toLocaleString()} eV`;
+        }
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            sliderVoltage.addEventListener('input', (e) => {
+                state.voltage = Number(e.target.value);
+                updateMetrics();
+            });
+
+            sliderBField.addEventListener('input', (e) => {
+                state.bField = Number(e.target.value);
+                updateMetrics();
+            });
+
+            btnPlayPause.addEventListener('click', () => {
+                state.isPlaying = !state.isPlaying;
+                if (state.isPlaying) {
+                    iconPlay.classList.add('hidden');
+                    iconPause.classList.remove('hidden');
+                    textPlayPause.textContent = 'Pause';
+                } else {
+                    iconPlay.classList.remove('hidden');
+                    iconPause.classList.add('hidden');
+                    textPlayPause.textContent = 'Play';
+                }
+            });
+
+            btnClear.addEventListener('click', () => {
+                state.savedPaths = [];
+                state.activeParticles = [];
+            });
+
+            btnFire.addEventListener('click', () => {
+                state.activeParticles.push({
+                    id: Math.random(),
+                    ...PARTICLES[state.particleId],
+                    V: state.voltage,
+                    B: state.bField,
+                    t: 0,
+                    dead: false,
+                });
+            });
+
+            btnSave.addEventListener('click', () => {
+                state.savedPaths.push({
+                    ...PARTICLES[state.particleId],
+                    V: state.voltage,
+                    B: state.bField,
+                });
+            });
+        }
+
+        // --- Rendering Logic ---
+        let lastTime = performance.now();
+
+        function drawGrid(width, height, currentB) {
+            // Draw standard background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw B-field region background
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(X_BOUNDARY, 0, width - X_BOUNDARY, height);
+
+            // Draw B-field markers
+            if (Math.abs(currentB) >= 0.01) {
+                const spacing = 40;
+                ctx.fillStyle = `rgba(148, 163, 184, ${Math.min(0.6, Math.abs(currentB) * 3)})`;
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const symbol = currentB > 0 ? '×' : '•';
+                
+                for (let x = X_BOUNDARY + 20; x < width; x += spacing) {
+                    for (let y = 20; y < height; y += spacing) {
+                        ctx.fillText(symbol, x, y);
+                    }
+                }
+            }
+
+            // Draw Acceleration Plates
+            const y0 = height / 2;
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(X_START - 10, y0 - 40, 10, 80);
+            ctx.fillRect(X_BOUNDARY - 5, y0 - 40, 5, 80);
+            
+            // Labels
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('+V', X_START - 5, y0 - 50);
+            ctx.fillText('0V', X_BOUNDARY - 2, y0 - 50);
+            ctx.fillText('Ion Source', X_START - 5, y0 + 55);
+            ctx.fillText('Uniform B-Field', X_BOUNDARY + 60, 30);
+        }
+
+        function drawPath(pData, isCurrent = false) {
+            const { m, q, V, B, color } = pData;
+            const y0 = canvas.height / 2;
+            const v = Math.sqrt(Math.abs(2 * q * V / m));
+            
+            ctx.beginPath();
+            ctx.moveTo(X_START, y0);
+            ctx.lineTo(X_BOUNDARY, y0);
+
+            if (Math.abs(B) < 0.001) {
+                ctx.lineTo(canvas.width, y0);
+            } else {
+                const r_px = ((m * v) / Math.abs(q * B)) * PPM;
+                const bendDir = -Math.sign(q * B);
+                const cy = y0 + bendDir * r_px;
+                const startAngle = bendDir === -1 ? Math.PI / 2 : (3 * Math.PI) / 2;
+                const endAngle = startAngle + bendDir * Math.PI;
+                const ccw = bendDir === -1;
+                
+                ctx.arc(X_BOUNDARY, cy, r_px, startAngle, endAngle, ccw);
+            }
+
+            ctx.strokeStyle = isCurrent ? '#ffffff' : color;
+            ctx.lineWidth = isCurrent ? 2 : 1.5;
+            
+            if (isCurrent) {
+                ctx.setLineDash([6, 6]);
+                ctx.globalAlpha = 0.3;
+            } else {
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 0.5;
+            }
+            
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1.0;
+        }
+
+        function renderLoop(time) {
+            const dt_ms = time - lastTime;
+            lastTime = time;
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            const y0 = height / 2;
+            
+            // 1. Draw static background
+            drawGrid(width, height, state.bField);
+
+            // 2. Draw saved theoretical paths
+            state.savedPaths.forEach(p => drawPath(p, false));
+
+            // 3. Draw active projected path
+            const currentConfig = { 
+                ...PARTICLES[state.particleId], 
+                V: state.voltage, 
+                B: state.bField 
+            };
+            drawPath(currentConfig, true);
+
+            // 4. Update and Draw Active Particles
+            const dt_physical = state.isPlaying ? (dt_ms / 1000) * TIME_SCALE : 0;
+            
+            state.activeParticles.forEach(p => {
+                if (p.dead) return;
+                
+                p.t += dt_physical;
+                
+                const v = Math.sqrt(Math.abs(2 * p.q * p.V / p.m));
+                const d_m = (X_BOUNDARY - X_START) / PPM;
+                const a = (v * v) / (2 * d_m);
+                const t_accel = v / a;
+
+                let cx, cy, r_px, startAngle, currentAngle, ccw, bendDir;
+
+                // Path trace
+                ctx.beginPath();
+                ctx.moveTo(X_START, y0);
+
+                if (p.t <= t_accel) {
+                    // Accelerating phase
+                    const current_x_m = 0.5 * a * p.t * p.t;
+                    p.x = X_START + current_x_m * PPM;
+                    p.y = y0;
+                    ctx.lineTo(p.x, p.y);
+                } else {
+                    // Magnetic phase
+                    ctx.lineTo(X_BOUNDARY, y0);
+                    const t_mag = p.t - t_accel;
+                    
+                    if (Math.abs(p.B) < 0.001) {
+                        p.x = X_BOUNDARY + (v * t_mag) * PPM;
+                        p.y = y0;
+                        ctx.lineTo(p.x, p.y);
+                    } else {
+                        const r_m = (p.m * v) / Math.abs(p.q * p.B);
+                        r_px = r_m * PPM;
+                        bendDir = -Math.sign(p.q * p.B);
+                        cy = y0 + bendDir * r_px;
+                        startAngle = bendDir === -1 ? Math.PI / 2 : (3 * Math.PI) / 2;
+                        ccw = bendDir === -1;
+                        
+                        const omega = v / r_m; 
+                        currentAngle = startAngle + bendDir * omega * t_mag;
+                        
+                        p.x = X_BOUNDARY + r_px * Math.cos(currentAngle);
+                        p.y = cy + r_px * Math.sin(currentAngle);
+                        
+                        ctx.arc(X_BOUNDARY, cy, r_px, startAngle, currentAngle, ccw);
+                        
+                        // Check if half circle completed
+                        if (omega * t_mag >= Math.PI) p.dead = true;
+                    }
+                }
+                
+                // Draw Trail
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw Particle Glow Dot
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Kill if out of bounds
+                if (p.x < 0 || p.x > width || p.y < -100 || p.y > height + 100) {
+                    p.dead = true;
+                }
+            });
+
+            // Cleanup dead particles
+            state.activeParticles = state.activeParticles.filter(p => !p.dead);
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        // Start everything
+        init();
+    </script>
+</body>
+</html>

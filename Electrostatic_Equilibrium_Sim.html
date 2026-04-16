@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electrostatic Equilibrium Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overscroll-behavior-y: none; }
+        canvas { 
+            touch-action: none; /* Prevents scrolling when interacting */
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+        .slider-thumb:hover::-webkit-slider-thumb {
+            background: #2563eb;
+        }
+        
+        .slider-q1::-webkit-slider-thumb { background: #ec4899; }
+        .slider-q2::-webkit-slider-thumb { background: #8b5cf6; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 min-h-screen flex flex-col font-sans selection:bg-blue-500/30">
+
+    <!-- Header -->
+    <header class="bg-slate-800/50 border-b border-slate-700 p-6 shadow-lg backdrop-blur-sm z-10 relative">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                    Electrostatic Equilibrium
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Watch the <span class="text-amber-400 font-bold">test charge</span> move physically under the forces! <span class="text-slate-200 font-medium">Click or drag</span> to drop it anywhere.
+                </p>
+            </div>
+            
+            <!-- Legend -->
+            <div class="flex items-center gap-4 text-xs font-medium bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-1 bg-pink-500 rounded"></div>
+                    <span>Force from Q₁</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-1 bg-violet-500 rounded"></div>
+                    <span>Force from Q₂</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-1.5 bg-emerald-400 rounded"></div>
+                    <span class="text-emerald-400">Net Force</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col max-w-6xl w-full mx-auto p-4 gap-6 relative">
+        
+        <!-- Canvas Container -->
+        <div class="relative w-full h-[350px] md:h-[450px] bg-slate-950 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden group">
+            <canvas id="simCanvas" class="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            
+            <!-- Floating Data Panel inside Canvas -->
+            <div id="dataPanel" class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 text-sm font-mono shadow-xl transition-opacity duration-300">
+                <div class="flex justify-between gap-6 mb-2">
+                    <span class="text-slate-400">Net Force:</span>
+                    <span id="txtFnet" class="font-bold text-emerald-400">0.00 N</span>
+                </div>
+                <div class="flex justify-between gap-6 mb-1">
+                    <span class="text-slate-500">Force Q₁:</span>
+                    <span id="txtF1" class="text-pink-400">0.00 N</span>
+                </div>
+                <div class="flex justify-between gap-6">
+                    <span class="text-slate-500">Force Q₂:</span>
+                    <span id="txtF2" class="text-violet-400">0.00 N</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-800/40 p-6 rounded-2xl border border-slate-700 shadow-lg">
+            
+            <!-- Q1 Control -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)]"></div>
+                        Charge Q₁
+                    </label>
+                    <span id="valQ1" class="text-pink-400 font-mono font-bold bg-slate-900 px-2 py-1 rounded-md text-sm">+5 μC</span>
+                </div>
+                <input type="range" id="sliderQ1" min="-10" max="10" value="5" step="1" 
+                    class="w-full h-2 bg-slate-900 rounded-lg appearance-none slider-thumb slider-q1">
+            </div>
+
+            <!-- Q2 Control -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.8)]"></div>
+                        Charge Q₂
+                    </label>
+                    <span id="valQ2" class="text-violet-400 font-mono font-bold bg-slate-900 px-2 py-1 rounded-md text-sm">+5 μC</span>
+                </div>
+                <input type="range" id="sliderQ2" min="-10" max="10" value="5" step="1" 
+                    class="w-full h-2 bg-slate-900 rounded-lg appearance-none slider-thumb slider-q2">
+            </div>
+
+            <!-- Distance Control -->
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                        Separation Distance
+                    </label>
+                    <span id="valDist" class="text-slate-300 font-mono font-bold bg-slate-900 px-2 py-1 rounded-md text-sm">400 px</span>
+                </div>
+                <input type="range" id="sliderDist" min="150" max="800" value="400" step="10" 
+                    class="w-full h-2 bg-slate-900 rounded-lg appearance-none slider-thumb">
+            </div>
+
+        </div>
+
+        <!-- Animation Controls -->
+        <div class="flex justify-center gap-4 mt-2">
+            <button id="btnPlayPause" class="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                Pause Physics
+            </button>
+            <button id="btnReset" class="px-8 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Drop from Edge
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderQ1 = document.getElementById('sliderQ1');
+        const sliderQ2 = document.getElementById('sliderQ2');
+        const sliderDist = document.getElementById('sliderDist');
+        const valQ1 = document.getElementById('valQ1');
+        const valQ2 = document.getElementById('valQ2');
+        const valDist = document.getElementById('valDist');
+        
+        const txtFnet = document.getElementById('txtFnet');
+        const txtF1 = document.getElementById('txtF1');
+        const txtF2 = document.getElementById('txtF2');
+        const dataPanel = document.getElementById('dataPanel');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const btnReset = document.getElementById('btnReset');
+
+        // Simulation State
+        let width, height;
+        let q1 = 5, q2 = 5;
+        let distance = 400;
+        let q1_x = 0, q2_x = 0;
+        let qt_x = 20; 
+        
+        // Physics & Animation State
+        let isPlaying = true;
+        let isDragging = false;
+        let velocity = 0;
+        let animFrameId = null;
+        
+        // Physics Rendering Constants
+        const k = 20000; 
+        const r_min = 25; // Minimum distance to prevent infinity/massive arrows
+        const testChargeValue = 1; // +1 μC standard test charge
+
+        function resize() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            width = canvas.width;
+            height = canvas.height;
+            
+            sliderDist.max = Math.floor(width * 0.9);
+            if (distance > sliderDist.max) {
+                distance = sliderDist.max;
+                sliderDist.value = distance;
+            }
+            updateState();
+        }
+
+        function formatCharge(val) {
+            return (val > 0 ? "+" : "") + val + " μC";
+        }
+
+        function updateState() {
+            q1 = parseFloat(sliderQ1.value);
+            q2 = parseFloat(sliderQ2.value);
+            distance = parseFloat(sliderDist.value);
+            
+            valQ1.innerText = formatCharge(q1);
+            valQ2.innerText = formatCharge(q2);
+            valDist.innerText = distance + " px";
+
+            valQ1.className = `font-mono font-bold bg-slate-900 px-2 py-1 rounded-md text-sm ${q1 > 0 ? 'text-pink-400' : q1 < 0 ? 'text-cyan-400' : 'text-slate-400'}`;
+            valQ2.className = `font-mono font-bold bg-slate-900 px-2 py-1 rounded-md text-sm ${q2 > 0 ? 'text-violet-400' : q2 < 0 ? 'text-cyan-400' : 'text-slate-400'}`;
+
+            const centerX = width / 2;
+            q1_x = centerX - distance / 2;
+            q2_x = centerX + distance / 2;
+
+            qt_x = Math.max(20, Math.min(width - 20, qt_x));
+            
+            if (!isPlaying) draw();
+        }
+
+        // Unified force calculation for rendering and physics
+        function calculateForces() {
+            let r1 = qt_x - q1_x;
+            let r2 = qt_x - q2_x;
+
+            let dist1 = Math.max(Math.abs(r1), r_min);
+            let dist2 = Math.max(Math.abs(r2), r_min);
+
+            let f1 = (k * q1 * testChargeValue) / (dist1 * dist1) * Math.sign(r1);
+            let f2 = (k * q2 * testChargeValue) / (dist2 * dist2) * Math.sign(r2);
+            
+            if(r1 === 0) f1 = 0;
+            if(r2 === 0) f2 = 0;
+
+            return { f1, f2, fnet: f1 + f2 };
+        }
+
+        function getEquilibriumPoint() {
+            if (q1 === 0 && q2 === 0) return null;
+            
+            let eqX = null;
+            const L = distance;
+
+            if (Math.sign(q1) === Math.sign(q2) && q1 !== 0 && q2 !== 0) {
+                let sqrtQ1 = Math.sqrt(Math.abs(q1));
+                let sqrtQ2 = Math.sqrt(Math.abs(q2));
+                let d1 = L * sqrtQ1 / (sqrtQ1 + sqrtQ2);
+                eqX = q1_x + d1;
+            } 
+            else if (Math.sign(q1) !== Math.sign(q2) && q1 !== 0 && q2 !== 0) {
+                if (Math.abs(q1) === Math.abs(q2)) return null; 
+                
+                let sqrtQ1 = Math.sqrt(Math.abs(q1));
+                let sqrtQ2 = Math.sqrt(Math.abs(q2));
+                
+                if (Math.abs(q2) > Math.abs(q1)) {
+                    let d1 = L * sqrtQ1 / (sqrtQ2 - sqrtQ1);
+                    eqX = q1_x - d1;
+                } else {
+                    let d2 = L * sqrtQ2 / (sqrtQ1 - sqrtQ2);
+                    eqX = q2_x + d2;
+                }
+            }
+            return eqX;
+        }
+
+        function drawArrow(ctx, fromX, fromY, toX, toY, color, lineWidth, headSize = 10) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const length = Math.sqrt(dx*dx + dy*dy);
+            
+            if (length < 2) return;
+
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headSize * Math.cos(angle - Math.PI / 6), toY - headSize * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headSize * Math.cos(angle + Math.PI / 6), toY - headSize * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(toX, toY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawCharge(x, y, chargeValue, label, baseColor, isTest = false) {
+            const radius = isTest ? 12 : 24;
+            
+            if (chargeValue !== 0 || isTest) {
+                const gradient = ctx.createRadialGradient(x, y, radius*0.5, x, y, radius*2.5);
+                gradient.addColorStop(0, `${baseColor}66`);
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, radius*2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = chargeValue === 0 && !isTest ? '#475569' : baseColor;
+            ctx.fill();
+            
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffffaa';
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            if (isTest) {
+                ctx.font = 'bold 14px monospace';
+                ctx.fillText("+q", x, y);
+            } else {
+                ctx.font = 'bold 20px monospace';
+                const sign = chargeValue > 0 ? "+" : chargeValue < 0 ? "-" : "0";
+                ctx.fillText(sign, x, y);
+                
+                ctx.font = '12px sans-serif';
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText(label, x, y - 35);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            const y = height / 2;
+
+            // Axis
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const eqX = getEquilibriumPoint();
+            let isAtEquilibrium = false;
+
+            if (eqX !== null && eqX > 0 && eqX < width) {
+                isAtEquilibrium = Math.abs(qt_x - eqX) < 2; 
+
+                // Highlight Marker
+                ctx.beginPath();
+                ctx.moveTo(eqX, y - 60);
+                ctx.lineTo(eqX, y + 60);
+                ctx.strokeStyle = isAtEquilibrium ? '#34d399' : '#10b98155';
+                ctx.lineWidth = isAtEquilibrium ? 3 : 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = isAtEquilibrium ? '#34d399' : '#10b98188';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText("Equilibrium (F_net = 0)", eqX, y - 70);
+
+                if (isAtEquilibrium) {
+                    const eqGlow = ctx.createRadialGradient(eqX, y, 0, eqX, y, 50);
+                    eqGlow.addColorStop(0, 'rgba(52, 211, 153, 0.4)');
+                    eqGlow.addColorStop(1, 'rgba(52, 211, 153, 0)');
+                    ctx.fillStyle = eqGlow;
+                    ctx.beginPath();
+                    ctx.arc(eqX, y, 50, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    dataPanel.classList.add('border-emerald-500', 'shadow-[0_0_15px_rgba(52,211,153,0.3)]');
+                } else {
+                    dataPanel.classList.remove('border-emerald-500', 'shadow-[0_0_15px_rgba(52,211,153,0.3)]');
+                }
+            } else {
+                dataPanel.classList.remove('border-emerald-500', 'shadow-[0_0_15px_rgba(52,211,153,0.3)]');
+            }
+
+            const q1Color = q1 > 0 ? '#ec4899' : q1 < 0 ? '#06b6d4' : '#475569';
+            const q2Color = q2 > 0 ? '#8b5cf6' : q2 < 0 ? '#06b6d4' : '#475569';
+            drawCharge(q1_x, y, q1, "Q₁", q1Color);
+            drawCharge(q2_x, y, q2, "Q₂", q2Color);
+
+            drawCharge(qt_x, y, testChargeValue, "Test", '#f59e0b', true);
+
+            // Fetch identical forces used for kinematics
+            const { f1, f2, fnet } = calculateForces();
+
+            // Screen constraints for vector drawings
+            const maxArrowLen = width * 0.4;
+            const constrainVec = (val) => Math.sign(val) * Math.min(Math.abs(val), maxArrowLen);
+
+            let visF1 = constrainVec(f1);
+            let visF2 = constrainVec(f2);
+            let visFnet = constrainVec(fnet);
+
+            // Display values
+            const UI_SCALE = 0.1; 
+            txtF1.innerText = (Math.abs(f1 * UI_SCALE)).toFixed(2) + " N " + (f1 === 0 ? "" : f1 > 0 ? "→" : "←");
+            txtF2.innerText = (Math.abs(f2 * UI_SCALE)).toFixed(2) + " N " + (f2 === 0 ? "" : f2 > 0 ? "→" : "←");
+            txtFnet.innerText = (Math.abs(fnet * UI_SCALE)).toFixed(2) + " N " + (isAtEquilibrium ? "✓" : fnet > 0 ? "→" : "←");
+
+            if (isAtEquilibrium) {
+                visFnet = 0; 
+                txtFnet.innerText = "0.00 N (Equilibrium)";
+            }
+
+            // Draw Vector Arrows
+            if (Math.abs(visF1) > 2) drawArrow(ctx, qt_x, y - 18, qt_x + visF1, y - 18, '#f472b6', 3, 8);
+            if (Math.abs(visF2) > 2) drawArrow(ctx, qt_x, y + 18, qt_x + visF2, y + 18, '#a78bfa', 3, 8);
+            if (Math.abs(visFnet) > 2) drawArrow(ctx, qt_x, y, qt_x + visFnet, y, '#34d399', 5, 12);
+        }
+
+        // --- Physics Engine ---
+        
+        function animate() {
+            if (!isPlaying) return;
+
+            if (!isDragging) {
+                const { fnet } = calculateForces();
+
+                // F = ma 
+                let accel = fnet * 0.02; 
+                velocity += accel;
+                velocity *= 0.95; // Damping/friction to let it settle into potential wells
+                qt_x += velocity;
+
+                // Screen wall bounces
+                if (qt_x > width - 20) {
+                    qt_x = width - 20;
+                    velocity *= -0.5;
+                } else if (qt_x < 20) {
+                    qt_x = 20;
+                    velocity *= -0.5;
+                }
+
+                // Snap perfectly to equilibrium line to prevent micro-jitters
+                const eqX = getEquilibriumPoint();
+                if (eqX !== null && Math.abs(qt_x - eqX) < 1.0 && Math.abs(velocity) < 0.2) {
+                    qt_x = eqX;
+                    velocity = 0;
+                }
+            }
+
+            draw();
+            animFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Interaction Handlers ---
+
+        function handleInputStart(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+            const y = height / 2;
+
+            // Allow dragging test charge directly or clicking anywhere near the axis to teleport it
+            if (Math.abs(mouseY - y) < 80) {
+                isDragging = true;
+                velocity = 0; 
+                qt_x = Math.max(20, Math.min(width - 20, mouseX));
+                canvas.style.cursor = 'grabbing';
+                if(e.cancelable) e.preventDefault(); 
+                if (!isPlaying) draw();
+            }
+        }
+
+        function handleInputMove(e) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            
+            qt_x = Math.max(20, Math.min(width - 20, clientX - rect.left));
+            velocity = 0; // Suspend momentum while dragging
+            
+            if (!isPlaying) draw();
+            if(e.cancelable) e.preventDefault();
+        }
+
+        function handleInputEnd() {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                btnPlayPause.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg> Pause Physics`;
+                btnPlayPause.className = "px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2";
+                animate();
+            } else {
+                btnPlayPause.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> Play Physics`;
+                btnPlayPause.className = "px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2";
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+            }
+        }
+
+        function dropFromEdge() {
+            qt_x = 20;
+            velocity = 0;
+            if (!isPlaying) draw();
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resize);
+        sliderQ1.addEventListener('input', updateState);
+        sliderQ2.addEventListener('input', updateState);
+        sliderDist.addEventListener('input', updateState);
+        
+        btnPlayPause.addEventListener('click', togglePlay);
+        btnReset.addEventListener('click', dropFromEdge);
+
+        // Mouse Events
+        canvas.addEventListener('mousedown', handleInputStart);
+        window.addEventListener('mousemove', handleInputMove);
+        window.addEventListener('mouseup', handleInputEnd);
+        canvas.addEventListener('mouseleave', handleInputEnd);
+
+        // Touch Events
+        canvas.addEventListener('touchstart', handleInputStart, {passive: false});
+        window.addEventListener('touchmove', handleInputMove, {passive: false});
+        window.addEventListener('touchend', handleInputEnd);
+
+        // Init
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

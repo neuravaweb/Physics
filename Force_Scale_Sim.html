@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Enormous Gap: Electric vs Gravitational Force</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        .particle-btn.active-electron { background-color: #2563eb; color: white; border-color: #60a5fa; box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); }
+        .particle-btn.active-proton { background-color: #dc2626; color: white; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); }
+        .particle-btn.active-neutron { background-color: #475569; color: white; border-color: #94a3b8; box-shadow: 0 0 15px rgba(71, 85, 105, 0.5); }
+        
+        canvas {
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            border-radius: 1rem;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 lg:p-8">
+
+    <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Header & Canvas Area -->
+        <div class="lg:col-span-2 flex flex-col space-y-6">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                    The Enormous Gap
+                </h1>
+                <p class="text-slate-400 mt-2 text-sm md:text-base">
+                    Compare the electric and gravitational forces between fundamental particles. Because gravity is so incredibly weak at this scale, you'll need to use the <span class="text-emerald-400 font-semibold">Magnifier</span> to even see it!
+                </p>
+            </div>
+
+            <div class="relative w-full aspect-video md:aspect-[21/9] lg:aspect-video rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
+                <canvas id="simulationCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-700 p-3 rounded-lg text-xs space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-1 bg-amber-400 rounded-full shadow-[0_0_8px_#fbbf24]"></div>
+                        <span>Electric Force ($F_e$)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-1 bg-emerald-400 rounded-full shadow-[0_0_8px_#34d399]"></div>
+                        <span>Gravitational Force ($F_g$)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distance Slider -->
+            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
+                <div class="flex justify-between items-end mb-2">
+                    <label class="text-sm font-semibold text-slate-300">Distance ($r$)</label>
+                    <span class="mono text-blue-400 font-bold" id="distDisplay">1.0 × 10⁻¹⁰ m</span>
+                </div>
+                <input type="range" id="distanceSlider" min="0.1" max="10.0" step="0.1" value="1.0">
+                <div class="flex justify-between text-xs text-slate-500 mt-2">
+                    <span>0.1 Å</span>
+                    <span>1.0 Å (Atomic Scale)</span>
+                    <span>10.0 Å</span>
+                </div>
+
+                <!-- Animation Controls -->
+                <div class="flex space-x-2 mt-4">
+                    <button id="playBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4" id="playIcon" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                        <svg class="w-4 h-4 hidden" id="pauseIcon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        <span id="playText">Play</span>
+                    </button>
+                    <button id="resetBtn" class="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg> Reset
+                    </button>
+                </div>
+                <div id="timeDisplay" class="mt-3 text-xs text-amber-400 font-mono text-center hidden">Simulated Time: <span id="simTimeVal">0 s</span></div>
+            </div>
+        </div>
+
+        <!-- Controls & Data Area -->
+        <div class="flex flex-col space-y-6">
+            
+            <!-- Particle Selectors -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6">
+                <h2 class="text-xl font-bold text-white mb-4">Particle System</h2>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Particle 1</label>
+                    <div class="flex space-x-2" id="p1-selector">
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all active-electron" data-type="electron">Electron</button>
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all" data-type="proton">Proton</button>
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all" data-type="neutron">Neutron</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Particle 2</label>
+                    <div class="flex space-x-2" id="p2-selector">
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all" data-type="electron">Electron</button>
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all active-proton" data-type="proton">Proton</button>
+                        <button class="particle-btn flex-1 py-2 rounded-lg border border-slate-600 text-sm font-medium transition-all" data-type="neutron">Neutron</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- The Big Gap Multiplier -->
+            <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+                <div class="flex justify-between items-start mb-2">
+                    <label class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                        Magnify Gravity Visual
+                    </label>
+                    <span class="mono text-emerald-400 font-bold bg-emerald-400/10 px-2 py-1 rounded">× 10<sup id="magExp">0</sup></span>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">Gravity is so weak, its arrow length is 0 pixels! Drag this slider to multiply the visual length of the gravity vector.</p>
+                <input type="range" id="gravityMagnifier" min="0" max="45" step="1" value="0">
+                <div class="mt-3 text-center h-4">
+                    <span id="magAlert" class="text-xs font-bold text-emerald-300 opacity-0 transition-opacity duration-300"></span>
+                </div>
+            </div>
+
+            <!-- Data Readout -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex-1">
+                <h2 class="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">Real Calculations</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Electric Force ($F_e$)</div>
+                        <div class="mono text-lg text-amber-400" id="feDisplay">0 N</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Gravitational Force ($F_g$)</div>
+                        <div class="mono text-lg text-emerald-400" id="fgDisplay">0 N</div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-slate-700">
+                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Force Ratio ($F_e$ / $F_g$)</div>
+                        <div class="mono text-xl text-blue-400 font-bold" id="ratioDisplay">0</div>
+                        <p class="text-[10px] text-slate-500 mt-1" id="ratioContext">Notice how changing distance doesn't affect this ratio!</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- PHYSICS CONSTANTS ---
+        const k = 8.9875517923e9; // Coulomb's constant (N m^2 / C^2)
+        const G = 6.67430e-11;    // Gravitational constant (N m^2 / kg^2)
+        const e = 1.602176634e-19; // Elementary charge (C)
+
+        const PARTICLES = {
+            electron: { mass: 9.1093837015e-31, charge: -1, color: '#60a5fa', name: 'e⁻', radius: 8 },
+            proton:   { mass: 1.67262192369e-27, charge: 1,  color: '#f87171', name: 'p⁺', radius: 14 },
+            neutron:  { mass: 1.674927471e-27,   charge: 0,  color: '#94a3b8', name: 'n⁰', radius: 14 }
+        };
+
+        // --- STATE ---
+        let state = {
+            p1: 'electron',
+            p2: 'proton',
+            distanceFactor: 1.0, // 1.0 to 10.0 representing Angstroms (1e-10 m)
+            gravityMultiplierLog: 0, // 0 to 45 (10^x visual multiplier)
+            
+            // Computed values
+            Fe: 0,
+            Fg: 0,
+            isFeAttractive: false,
+            ratio: 0,
+
+            // Animation state
+            isPlaying: false,
+            vRel: 0, // relative velocity (m/s)
+            simTime: 0, // elapsed simulated time (s)
+            timeMultiplier: 1 // simulated seconds per real second
+        };
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const distSlider = document.getElementById('distanceSlider');
+        const distDisplay = document.getElementById('distDisplay');
+        const magSlider = document.getElementById('gravityMagnifier');
+        const magExp = document.getElementById('magExp');
+        const magAlert = document.getElementById('magAlert');
+        
+        const feDisplay = document.getElementById('feDisplay');
+        const fgDisplay = document.getElementById('fgDisplay');
+        const ratioDisplay = document.getElementById('ratioDisplay');
+
+        // Animation DOM
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const playText = document.getElementById('playText');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const simTimeVal = document.getElementById('simTimeVal');
+
+        let animationFrameId = null;
+        let lastTime = 0;
+
+        // --- RESIZING & DPI SUPPORT ---
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            // Handle high-DPI displays for crisp rendering
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- CALCULATIONS ---
+        function updatePhysics() {
+            const p1 = PARTICLES[state.p1];
+            const p2 = PARTICLES[state.p2];
+            
+            // Actual distance in meters (distanceFactor * 10^-10)
+            const r = state.distanceFactor * 1e-10; 
+            
+            // Electric Force: k * |q1 * q2| * e^2 / r^2
+            const q1q2 = Math.abs(p1.charge * p2.charge);
+            state.Fe = (k * q1q2 * e * e) / (r * r);
+            state.isFeAttractive = (p1.charge * p2.charge) < 0;
+
+            // Gravitational Force: G * m1 * m2 / r^2
+            state.Fg = (G * p1.mass * p2.mass) / (r * r);
+
+            // Ratio
+            if (state.Fg > 0) {
+                state.ratio = state.Fe / state.Fg;
+            } else {
+                state.ratio = 0;
+            }
+
+            // Sync the slider visual position during animation
+            distSlider.value = state.distanceFactor;
+
+            updateUI();
+            draw();
+        }
+
+        function formatSimTime(seconds) {
+            if (seconds === 0) return "0 s";
+            const absSec = Math.abs(seconds);
+            if (absSec < 1e-12) return (seconds * 1e15).toFixed(2) + " fs";
+            if (absSec < 1e-9) return (seconds * 1e12).toFixed(2) + " ps";
+            if (absSec < 1e-6) return (seconds * 1e9).toFixed(2) + " ns";
+            if (absSec < 1e-3) return (seconds * 1e6).toFixed(2) + " μs";
+            if (absSec < 1) return (seconds * 1e3).toFixed(2) + " ms";
+            if (absSec < 60) return seconds.toFixed(2) + " s";
+            if (absSec < 3600) return (seconds / 60).toFixed(2) + " mins";
+            if (absSec < 86400) return (seconds / 3600).toFixed(2) + " hrs";
+            if (absSec < 31536000) return (seconds / 86400).toFixed(2) + " days";
+            return (seconds / 31536000).toExponential(2) + " years";
+        }
+
+        function toSci(num) {
+            if (num === 0) return "0.00e+0";
+            return num.toExponential(2).replace('e', ' × 10<sup>') + '</sup>';
+        }
+
+        function updateUI() {
+            feDisplay.innerHTML = toSci(state.Fe) + (state.Fe > 0 ? (state.isFeAttractive ? ' N (Attract)' : ' N (Repel)') : ' N');
+            fgDisplay.innerHTML = toSci(state.Fg) + ' N (Attract)';
+            
+            if (state.Fe === 0) {
+                ratioDisplay.innerHTML = "0 (No Charge)";
+            } else {
+                ratioDisplay.innerHTML = state.ratio.toExponential(2).replace('e', ' × 10<sup>') + '</sup>';
+            }
+
+            distDisplay.innerText = `${state.distanceFactor.toFixed(1)} × 10⁻¹⁰ m`;
+            magExp.innerText = state.gravityMultiplierLog;
+
+            // Alert logic for matching scales
+            if (state.Fe > 0) {
+                const ratioLog = Math.log10(state.ratio);
+                if (Math.abs(state.gravityMultiplierLog - ratioLog) < 1.5 && state.gravityMultiplierLog > 0) {
+                    magAlert.innerText = "⭐ Visual scale is matching the true gap! ⭐";
+                    magAlert.style.opacity = 1;
+                } else {
+                    magAlert.style.opacity = 0;
+                }
+            } else {
+                magAlert.style.opacity = 0;
+            }
+
+            simTimeVal.innerText = formatSimTime(state.simTime);
+        }
+
+        // --- DRAWING ---
+        function drawArrow(ctx, startX, startY, endX, endY, color, width=2) {
+            const headlen = 10; 
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(endX, endY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawParticle(x, y, particle) {
+            // Glow effect
+            ctx.beginPath();
+            ctx.arc(x, y, particle.radius * 2, 0, Math.PI * 2);
+            ctx.fillStyle = particle.color + '20'; // add 20 hex for transparency
+            ctx.fill();
+
+            // Core
+            ctx.beginPath();
+            ctx.arc(x, y, particle.radius, 0, Math.PI * 2);
+            ctx.fillStyle = particle.color;
+            ctx.shadowColor = particle.color;
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+            
+            // Label
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "12px Inter";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(particle.name, x, y - particle.radius - 12);
+        }
+
+        function draw() {
+            // Internal CSS pixels, unaffected by DPI scaling
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const centerY = h / 2;
+            const padding = w * 0.2; // Keep particles away from edges
+            
+            // The visual distance expands slightly with the slider, but mapping 0.1->10 to screen bounds
+            // Let's use a base distance + scaling for pure visual representation
+            const minDistVis = w * 0.2;
+            const maxDistVis = w * 0.8;
+            // Logarithmic mapping for visual position so 0.1 to 10 looks reasonable
+            const logDist = (Math.log10(state.distanceFactor) - Math.log10(0.1)) / (Math.log10(10) - Math.log10(0.1));
+            const visualDistance = minDistVis + logDist * (maxDistVis - minDistVis);
+
+            const p1X = w/2 - visualDistance/2;
+            const p2X = w/2 + visualDistance/2;
+
+            // Draw Distance line
+            ctx.beginPath();
+            ctx.moveTo(p1X, centerY + 40);
+            ctx.lineTo(p2X, centerY + 40);
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "11px Inter";
+            ctx.textAlign = "center";
+            ctx.fillText("Distance (r)", w/2, centerY + 55);
+
+            // Calculate visually normalized vector lengths
+            const maxArrowLen = Math.max(50, w * 0.2); 
+            
+            // We use the dominant force to normalize. Usually Fe.
+            let visualGravityMag = state.Fg * Math.pow(10, state.gravityMultiplierLog);
+            let dominantForce = Math.max(state.Fe, visualGravityMag);
+            
+            // Fallback if both 0 (e.g., two completely neutral, mass-less particles - impossible here but safe to guard)
+            if (dominantForce === 0) dominantForce = 1;
+
+            const feLen = (state.Fe / dominantForce) * maxArrowLen;
+            const fgLen = (visualGravityMag / dominantForce) * maxArrowLen;
+
+            // Draw Vectors
+            const drawForceVectors = (x, directionMultipler, isP1) => {
+                const FeColor = "#fbbf24"; // Amber
+                const FgColor = "#34d399"; // Emerald
+
+                // Offsets to prevent overlap
+                const yOffsetFe = -10;
+                const yOffsetFg = 10;
+
+                // Electric
+                if (state.Fe > 0) {
+                    const dirFe = state.isFeAttractive ? 1 : -1;
+                    const sign = isP1 ? dirFe : -dirFe;
+                    drawArrow(ctx, x, centerY + yOffsetFe, x + (feLen * sign), centerY + yOffsetFe, FeColor, 3);
+                }
+
+                // Gravity (Always Attractive)
+                if (fgLen > 0.5) { // Only draw if visually meaningful (> 0.5px)
+                    const dirFg = 1;
+                    const sign = isP1 ? dirFg : -dirFg;
+                    drawArrow(ctx, x, centerY + yOffsetFg, x + (fgLen * sign), centerY + yOffsetFg, FgColor, 2);
+                }
+            };
+
+            drawForceVectors(p1X, 1, true);
+            drawForceVectors(p2X, -1, false);
+
+            // Draw Particles Last so they cover arrow origins
+            drawParticle(p1X, centerY, PARTICLES[state.p1]);
+            drawParticle(p2X, centerY, PARTICLES[state.p2]);
+        }
+
+        // --- EVENT LISTENERS ---
+        document.querySelectorAll('#p1-selector .particle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#p1-selector .particle-btn').forEach(b => {
+                    b.classList.remove('active-electron', 'active-proton', 'active-neutron');
+                });
+                const type = e.target.dataset.type;
+                e.target.classList.add(`active-${type}`);
+                state.p1 = type;
+                resetAnimation();
+                updatePhysics();
+            });
+        });
+
+        document.querySelectorAll('#p2-selector .particle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#p2-selector .particle-btn').forEach(b => {
+                    b.classList.remove('active-electron', 'active-proton', 'active-neutron');
+                });
+                const type = e.target.dataset.type;
+                e.target.classList.add(`active-${type}`);
+                state.p2 = type;
+                resetAnimation();
+                updatePhysics();
+            });
+        });
+
+        distSlider.addEventListener('input', (e) => {
+            resetAnimation();
+            state.distanceFactor = parseFloat(e.target.value);
+            updatePhysics();
+        });
+
+        magSlider.addEventListener('input', (e) => {
+            state.gravityMultiplierLog = parseInt(e.target.value);
+            updatePhysics();
+        });
+
+        // --- ANIMATION LOGIC ---
+        function stopAnimation() {
+            state.isPlaying = false;
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            playText.innerText = "Play";
+            playBtn.classList.replace('bg-amber-600', 'bg-emerald-600');
+            playBtn.classList.replace('hover:bg-amber-500', 'hover:bg-emerald-500');
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            state.vRel = 0;
+            state.simTime = 0;
+            timeDisplay.classList.add('hidden');
+        }
+
+        function calculateTimeMultiplier() {
+            // Find target time to cover 1 Angstrom (1e-10 m) under current acceleration
+            const p1 = PARTICLES[state.p1];
+            const p2 = PARTICLES[state.p2];
+            
+            // F_net (outward is positive, inward is negative)
+            let F_net = -state.Fg; 
+            if (state.Fe > 0) F_net += state.isFeAttractive ? -state.Fe : state.Fe;
+
+            // a_rel (rate of change of distance)
+            const a_rel = F_net / p1.mass + F_net / p2.mass;
+
+            if (Math.abs(a_rel) === 0) return 0;
+
+            // t = sqrt(2 * d / a)
+            const d = 1e-10; 
+            const targetSimTime = Math.sqrt(2 * d / Math.abs(a_rel));
+            
+            // Scale so that traversing 1 Angstrom takes roughly 2 seconds of real animation time
+            return targetSimTime / 2.0; 
+        }
+
+        function animationLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            if (!lastTime) lastTime = timestamp;
+            const dtReal = (timestamp - lastTime) / 1000; // seconds
+            lastTime = timestamp;
+
+            const dtSim = dtReal * state.timeMultiplier;
+            state.simTime += dtSim;
+
+            const p1 = PARTICLES[state.p1];
+            const p2 = PARTICLES[state.p2];
+
+            // Net force (positive = repel, negative = attract)
+            let F_net = -state.Fg;
+            if (state.Fe > 0) {
+                F_net += state.isFeAttractive ? -state.Fe : state.Fe;
+            }
+
+            // Relative acceleration
+            const a_rel = F_net / p1.mass + F_net / p2.mass;
+
+            // Update velocity and distance
+            state.vRel += a_rel * dtSim;
+            const deltaR = state.vRel * dtSim;
+            
+            state.distanceFactor += deltaR / 1e-10;
+
+            // Bounds checking (Collision or Escape)
+            if (state.distanceFactor <= 0.1) {
+                state.distanceFactor = 0.1;
+                stopAnimation();
+            } else if (state.distanceFactor >= 10.0) {
+                state.distanceFactor = 10.0;
+                stopAnimation();
+            }
+
+            updatePhysics();
+            
+            if (state.isPlaying) {
+                animationFrameId = requestAnimationFrame(animationLoop);
+            }
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (state.isPlaying) {
+                stopAnimation();
+            } else {
+                state.isPlaying = true;
+                
+                // Allow restarting from bounds if velocity is 0
+                if ((state.distanceFactor <= 0.1 && state.vRel <= 0) || (state.distanceFactor >= 10.0 && state.vRel >= 0)) {
+                    state.vRel = 0;
+                }
+
+                // Compute time scale based on initial acceleration
+                if (state.vRel === 0) {
+                    state.timeMultiplier = calculateTimeMultiplier();
+                }
+
+                timeDisplay.classList.remove('hidden');
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                playText.innerText = "Pause";
+                playBtn.classList.replace('bg-emerald-600', 'bg-amber-600');
+                playBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-amber-500');
+                
+                lastTime = 0;
+                animationFrameId = requestAnimationFrame(animationLoop);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            resetAnimation();
+            state.distanceFactor = 1.0;
+            distSlider.value = 1.0;
+            updatePhysics();
+        });
+
+        // Initialize
+        setTimeout(() => {
+            resizeCanvas();
+            updatePhysics();
+        }, 100);
+
+    </script>
+</body>
+</html>
