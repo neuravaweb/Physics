@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electromagnetic Spectrum Pan</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #030308;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 2px;
+            font-weight: 600;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        #progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff, #ffffff);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+    
+    <div id="ui-layer">
+        <div class="header">
+            <h1>Electromagnetic Spectrum</h1>
+            <p>Order of Magnitude Sweep (10³m to 10⁻¹²m)</p>
+        </div>
+    </div>
+    <div id="progress-bar"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const progressBar = document.getElementById('progress-bar');
+        
+        let width, height, centerY;
+        const dpr = window.devicePixelRatio || 1;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            centerY = height * 0.5;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Virtual width of the entire spectrum to pan across
+        const W_virtual = 24000; 
+        
+        // Color mapping for the wave based on normalized position (0.0 to 1.0)
+        const colorStops = [
+            { w: 0.00, c: [40, 0, 0] },      // Deep Radio Red
+            { w: 0.15, c: [255, 0, 0] },     // Radio Red
+            { w: 0.30, c: [255, 60, 0] },    // Microwave Orange-Red
+            { w: 0.45, c: [255, 0, 0] },     // Infrared Red
+            { w: 0.54, c: [255, 0, 0] },     // Start Visible (Red)
+            { w: 0.55, c: [255, 127, 0] },   // Orange
+            { w: 0.56, c: [255, 255, 0] },   // Yellow
+            { w: 0.57, c: [0, 255, 0] },     // Green
+            { w: 0.58, c: [0, 100, 255] },   // Blue
+            { w: 0.59, c: [139, 0, 255] },   // Violet
+            { w: 0.65, c: [70, 0, 150] },    // Ultraviolet
+            { w: 0.80, c: [180, 100, 255] }, // X-Ray
+            { w: 0.90, c: [255, 200, 255] }, // Gamma Transition
+            { w: 1.00, c: [255, 255, 255] }  // Bright Gamma White
+        ];
+
+        function getInterpolatedColor(wx) {
+            if (wx <= 0) return colorStops[0].c;
+            if (wx >= 1) return colorStops[colorStops.length - 1].c;
+            
+            for (let i = 0; i < colorStops.length - 1; i++) {
+                if (wx >= colorStops[i].w && wx <= colorStops[i+1].w) {
+                    let t = (wx - colorStops[i].w) / (colorStops[i+1].w - colorStops[i].w);
+                    let c1 = colorStops[i].c;
+                    let c2 = colorStops[i+1].c;
+                    return [
+                        Math.round(c1[0] + t * (c2[0] - c1[0])),
+                        Math.round(c1[1] + t * (c2[1] - c1[1])),
+                        Math.round(c1[2] + t * (c2[2] - c1[2]))
+                    ];
+                }
+            }
+            return [255, 255, 255];
+        }
+
+        // Spectrum zone labels
+        const labels = [
+            { text: "RADIO WAVES", wx: 0.1, color: "#ff3333" },
+            { text: "MICROWAVES", wx: 0.32, color: "#ff8800" },
+            { text: "INFRARED", wx: 0.45, color: "#ff1111" },
+            { text: "VISIBLE LIGHT", wx: 0.57, color: "#ffffff", burst: true },
+            { text: "ULTRAVIOLET", wx: 0.68, color: "#b94dff" },
+            { text: "X-RAYS", wx: 0.82, color: "#dfb3ff" },
+            { text: "GAMMA RAYS", wx: 0.96, color: "#ffffff", violent: true }
+        ];
+
+        // Background particles for parallax effect
+        const particles = Array.from({length: 150}, () => ({
+            worldX: Math.random() * W_virtual,
+            y: Math.random() * 2000,
+            speed: Math.random() * 0.4 + 0.1,
+            size: Math.random() * 1.5 + 0.5
+        }));
+
+        // Math properties for wave frequency scaling
+        const f_start = 0.00015; // Slow, wide start
+        const f_k = 1200;        // Extremely high multiplier for compression mapping
+        
+        // Easing function for smooth pan sweep
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        }
+
+        let lastTime = performance.now();
+        let virtualElapsed = 0;
+        const baseDuration = 18000; // Base sweep time (faster, but slows down for labels)
+        const holdTime = 4000;  // 4 seconds hold on Gamma rays
+
+        function draw() {
+            let currentTime = performance.now();
+            let dt = currentTime - lastTime;
+            if (dt > 100) dt = 16; // Prevent huge jumps if tab is inactive
+            lastTime = currentTime;
+            
+            // Calculate pan progress
+            let progress = virtualElapsed / baseDuration;
+            if (progress > 1) progress = 1; // Hold at the end
+            
+            let easeProgress = easeInOutQuad(progress);
+            let panX = easeProgress * (W_virtual - width);
+            let cameraCenterWx = (panX + width / 2) / W_virtual;
+
+            // Dynamically calculate speed multiplier based on proximity to labels
+            let speedMultiplier = 1.0;
+            labels.forEach(label => {
+                let dist = Math.abs(cameraCenterWx - label.wx);
+                let threshold = 0.035; // Slowdown zone size
+                
+                if (dist < threshold) {
+                    // Smoothstep for gradual slow down and speed up
+                    let n = dist / threshold;
+                    let smooth = n * n * (3 - 2 * n);
+                    // Drop to 10% speed when perfectly centered on the label
+                    let localSpeed = 0.10 + 0.90 * smooth;
+                    if (localSpeed < speedMultiplier) {
+                        speedMultiplier = localSpeed;
+                    }
+                }
+            });
+
+            // Advance time dynamically
+            if (progress < 1) {
+                virtualElapsed += dt * speedMultiplier;
+            } else {
+                virtualElapsed += dt; // Normal speed during the hold phase
+            }
+
+            // Loop reset
+            if (virtualElapsed > baseDuration + holdTime) {
+                virtualElapsed = 0;
+            }
+
+            // Update UI
+            progressBar.style.width = `${easeProgress * 100}%`;
+
+            // Clear Screen
+            ctx.fillStyle = "#030308";
+            ctx.fillRect(0, 0, width, height);
+
+            // 1. Draw Parallax Background Dust
+            ctx.fillStyle = "#ffffff";
+            particles.forEach(p => {
+                let px = (p.worldX - panX * p.speed) % W_virtual;
+                if (px < 0) px += W_virtual;
+                if (px < width) {
+                    ctx.globalAlpha = 0.15 * p.speed;
+                    ctx.beginPath();
+                    ctx.arc(px, p.y % height, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 2. Visible Light Rainbow Burst (Bloom logic)
+            let visibleCenterScreenX = (0.57 * W_virtual) - panX;
+            if (visibleCenterScreenX > -width && visibleCenterScreenX < width * 2) {
+                let dist = Math.abs(width / 2 - visibleCenterScreenX);
+                let intensity = Math.max(0, 1 - dist / (width * 0.8));
+                if (intensity > 0) {
+                    let bloom = ctx.createRadialGradient(visibleCenterScreenX, centerY, 0, visibleCenterScreenX, centerY, height * 0.8);
+                    bloom.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.12})`);
+                    bloom.addColorStop(0.1, `rgba(0, 255, 255, ${intensity * 0.08})`);
+                    bloom.addColorStop(0.3, `rgba(138, 43, 226, ${intensity * 0.04})`);
+                    bloom.addColorStop(1, `rgba(0, 0, 0, 0)`);
+                    
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.fillStyle = bloom;
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            }
+
+            // 3. Setup Wave Styling using dynamically built Linear Gradient
+            const waveGradient = ctx.createLinearGradient(0, 0, width, 0);
+            for(let i = 0; i <= 20; i++) {
+                let stop = i / 20;
+                let wx = (panX + stop * width) / W_virtual;
+                let c = getInterpolatedColor(wx);
+                waveGradient.addColorStop(stop, `rgb(${c[0]}, ${c[1]}, ${c[2]})`);
+            }
+
+            // 4. Draw the Electromagnetic Wave
+            // We draw it multiple times with blending to create an intense glow
+            const wavePasses = [
+                { width: 12, alpha: 0.2 },
+                { width: 6, alpha: 0.5 },
+                { width: 2, alpha: 1.0 }
+            ];
+
+            ctx.globalCompositeOperation = 'lighter';
+            
+            wavePasses.forEach(pass => {
+                ctx.beginPath();
+                ctx.strokeStyle = waveGradient;
+                ctx.lineWidth = pass.width;
+                ctx.globalAlpha = pass.alpha;
+                ctx.lineJoin = 'round';
+
+                for (let x = 0; x <= width; x += 1) { // 1px stepping for extreme detail
+                    let worldX = panX + x;
+                    let wx = worldX / W_virtual;
+                    
+                    // Accumulate phase analytically to prevent wave tearing across frequencies
+                    let phaseCycles = W_virtual * f_start * (Math.pow(f_k, wx) - 1) / Math.log(f_k);
+                    let phase = 2 * Math.PI * phaseCycles - (currentTime * 0.005);
+                    
+                    let amplitude = 120;
+                    
+                    // Add violent vibration specifically for X-Ray and Gamma regions
+                    let noise = 0;
+                    if (wx > 0.75) {
+                        let violentFactor = Math.max(0, (wx - 0.75) / 0.25); 
+                        // High-frequency jitter
+                        noise = (Math.random() - 0.5) * 140 * violentFactor;
+                    }
+
+                    let y = centerY + Math.sin(phase) * amplitude + noise;
+                    
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            });
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+
+            // 5. Draw the Wavelength Axis (Bottom)
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            let axisY = height - 60;
+            ctx.moveTo(0, axisY);
+            ctx.lineTo(width, axisY);
+            ctx.stroke();
+
+            ctx.fillStyle = "#888";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            // Draw ticks from 10^3 to 10^-12
+            for (let exp = 4; exp >= -13; exp--) {
+                let wx_tick = (3 - exp) / 15; // Mapping exponent to physical 0-1 scale
+                let screenX = (wx_tick * W_virtual) - panX;
+
+                if (screenX > -50 && screenX < width + 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, axisY - 5);
+                    ctx.lineTo(screenX, axisY + 5);
+                    ctx.strokeStyle = "#888";
+                    ctx.stroke();
+                    
+                    // Draw Scientific Notation
+                    ctx.font = "14px -apple-system, sans-serif";
+                    ctx.fillText(`10`, screenX - 8, axisY + 22);
+                    ctx.font = "10px -apple-system, sans-serif";
+                    ctx.fillText(exp, screenX + 8, axisY + 16);
+                    ctx.font = "12px -apple-system, sans-serif";
+                    ctx.fillText(`m`, screenX + 22, axisY + 22);
+                }
+            }
+
+            // 6. Draw Zone Labels
+            labels.forEach(label => {
+                let screenX = (label.wx * W_virtual) - panX;
+
+                if (screenX > -200 && screenX < width + 200) {
+                    let alpha = 1.0;
+                    if (screenX < 150) alpha = screenX / 150;
+                    if (screenX > width - 150) alpha = (width - screenX) / 150;
+
+                    // Guide Line
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, centerY - 180);
+                    ctx.lineTo(screenX, centerY - 20);
+                    ctx.strokeStyle = label.color;
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = alpha * 0.3;
+                    ctx.stroke();
+
+                    // Text
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = label.color;
+                    ctx.font = "bold 20px -apple-system, sans-serif";
+                    ctx.letterSpacing = "2px";
+                    
+                    if (label.burst || label.violent) {
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = label.color;
+                    }
+                    
+                    ctx.fillText(label.text, screenX, centerY - 200);
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.letterSpacing = "0px";
+                }
+            });
+
+            ctx.globalAlpha = 1.0;
+            requestAnimationFrame(draw);
+        }
+
+        // Start the animation loop
+        draw();
+    </script>
+</body>
+</html>

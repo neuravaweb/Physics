@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biot-Savart Law: Magnetic Field of a Segment</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510; /* Deep space background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 10, 25, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            max-width: 350px;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #ffd700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        p {
+            margin: 0 0 15px 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #cccccc;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 10px;
+            box-shadow: 0 0 5px currentColor;
+        }
+        .golden { background-color: #ffd700; color: #ffd700; }
+        .green { background-color: #39ff14; color: #39ff14; }
+        .magenta { background-color: #ff00ff; color: #ff00ff; }
+        
+        .equation {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        /* 3D Space Labels */
+        .floating-label {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            font-size: 1rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.8rem;
+            pointer-events: none;
+            letter-spacing: 1px;
+        }
+    </style>
+    <!-- Load Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <h1>Biot-Savart Law</h1>
+        <p>Magnetic field contribution ($d\mathbf{B}$) from a small current segment ($I d\mathbf{l}$).</p>
+        
+        <div class="legend-item">
+            <div class="color-box golden"></div>
+            <span>Current Segment ($I$, 3A) along Z-axis</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box green"></div>
+            <span>Position Vector ($\mathbf{r}$, 0.2m) to P</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box magenta"></div>
+            <span>Magnetic Field Vector ($d\mathbf{B}$) at P</span>
+        </div>
+
+        <div class="equation">
+            dB &propto; I dl &times; r̂
+        </div>
+    </div>
+
+    <div id="controls-hint">DRAG TO ROTATE &bull; SCROLL TO ZOOM</div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Floating Labels for 3D objects -->
+    <div id="label-dl" class="floating-label" style="color: #ffd700;">Idl</div>
+    <div id="label-r" class="floating-label" style="color: #39ff14;">r</div>
+    <div id="label-db" class="floating-label" style="color: #ff00ff;">dB</div>
+    <div id="label-p" class="floating-label" style="color: #ffffff;">Point P</div>
+
+    <script>
+        // --- Initialization ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050510, 0.02);
+
+        // Scale factors for visualization: 0.1m -> 2 units, 0.2m -> 4 units
+        const L = 2; 
+        const D = 4;
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(6, 4, 8); // Initial camera position
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        // Focus the camera on the midpoint between the origin and point P
+        controls.target.set(D/2, 0, 0);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+
+        // Illuminate the center
+        const pointLight = new THREE.PointLight(0xffd700, 2, 20);
+        scene.add(pointLight);
+        
+        // --- Grid/Axes Helper for context (subtle) ---
+        const gridHelper = new THREE.GridHelper(20, 20, 0x333344, 0x111122);
+        gridHelper.position.y = -D/2; // Move grid down a bit
+        scene.add(gridHelper);
+
+        // --- Objects Creation ---
+
+        // 1. Current Segment (Golden Wire along Z-axis)
+        const wireGeometry = new THREE.CylinderGeometry(0.1, 0.1, L, 32);
+        // Rotate to align with Z axis
+        wireGeometry.rotateX(Math.PI / 2); 
+        const wireMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffaa00,
+            emissive: 0xffd700,
+            emissiveIntensity: 1.5,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+        const wire = new THREE.Mesh(wireGeometry, wireMaterial);
+        scene.add(wire);
+
+        // Small glowing sphere at origin
+        const originPoint = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        scene.add(originPoint);
+
+        // 2. Dashed Neon Green Line to P
+        // P is located at (D, 0, 0)
+        const pPosition = new THREE.Vector3(D, 0, 0);
+        
+        const linePoints = [];
+        linePoints.push(new THREE.Vector3(0, 0, 0));
+        linePoints.push(pPosition);
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const lineMaterial = new THREE.LineDashedMaterial({
+            color: 0x39ff14,
+            dashSize: 0.2,
+            gapSize: 0.2,
+            linewidth: 2 // WebGL usually limits to 1, but we request it
+        });
+        const dashedLine = new THREE.Line(lineGeometry, lineMaterial);
+        dashedLine.computeLineDistances();
+        scene.add(dashedLine);
+
+        // Point P marker
+        const pSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        pSphere.position.copy(pPosition);
+        scene.add(pSphere);
+
+        // 3. Vectors (ArrowHelpers)
+        
+        // Current Direction Vector (Idl) - Offset slightly to be visible next to wire
+        const dirI = new THREE.Vector3(0, 0, 1);
+        const originI = new THREE.Vector3(0.2, 0, -L/2); 
+        const arrowI = new THREE.ArrowHelper(dirI, originI, L, 0xffd700, 0.4, 0.2);
+        scene.add(arrowI);
+
+        // Position Vector (r) - Neon Green
+        const dirR = new THREE.Vector3(1, 0, 0);
+        const originR = new THREE.Vector3(0, 0, 0);
+        // Start length 0 for animation
+        const arrowR = new THREE.ArrowHelper(dirR, originR, 0.01, 0x39ff14, 0.5, 0.3);
+        scene.add(arrowR);
+
+        // Magnetic Field Vector (dB) - Magenta
+        // Idl is Z, r is X. Cross product Z x X = Y.
+        // So dB is along Y axis at Point P.
+        const dirB = new THREE.Vector3(0, 1, 0);
+        // Start length 0 for animation
+        const arrowB = new THREE.ArrowHelper(dirB, pPosition, 0.01, 0xff00ff, 0.6, 0.4);
+        scene.add(arrowB);
+
+
+        // --- Right Angle Indicators ---
+        function createRightAngleIndicator(pos, dir1, dir2, size, color) {
+            const material = new THREE.LineBasicMaterial({ color: color });
+            const points = [];
+            const p1 = new THREE.Vector3().copy(pos).add(dir1.clone().multiplyScalar(size));
+            const p2 = new THREE.Vector3().copy(pos).add(dir1.clone().multiplyScalar(size)).add(dir2.clone().multiplyScalar(size));
+            const p3 = new THREE.Vector3().copy(pos).add(dir2.clone().multiplyScalar(size));
+            
+            points.push(p1);
+            points.push(p2);
+            points.push(p3);
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            return new THREE.Line(geometry, material);
+        }
+
+        // Indicator at origin (between I and r) - XZ plane
+        const angleIndicator1 = createRightAngleIndicator(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,1), new THREE.Vector3(1,0,0), 0.5, 0xffffff);
+        angleIndicator1.material.transparent = true;
+        angleIndicator1.material.opacity = 0;
+        scene.add(angleIndicator1);
+
+        // Indicator at P (between r and B) - XY plane
+        const angleIndicator2 = createRightAngleIndicator(pPosition, new THREE.Vector3(-1,0,0), new THREE.Vector3(0,1,0), 0.5, 0xffffff);
+        angleIndicator2.material.transparent = true;
+        angleIndicator2.material.opacity = 0;
+        scene.add(angleIndicator2);
+
+
+        // --- Labels Setup ---
+        const labels = [
+            { el: document.getElementById('label-dl'), pos: new THREE.Vector3(0.5, 0.3, 0) },
+            { el: document.getElementById('label-r'), pos: new THREE.Vector3(D/2, 0.3, 0) },
+            { el: document.getElementById('label-db'), pos: new THREE.Vector3(D + 0.3, 1.5, 0) },
+            { el: document.getElementById('label-p'), pos: new THREE.Vector3(D + 0.3, -0.3, 0) }
+        ];
+
+        function updateLabels() {
+            labels.forEach(label => {
+                // Check if element should be visible based on animation state
+                if (label.el.style.opacity > 0) {
+                    const vector = label.pos.clone();
+                    vector.project(camera);
+                    
+                    // Convert normalized device coordinates to screen pixels
+                    const x = (vector.x * .5 + .5) * window.innerWidth;
+                    const y = (vector.y * -.5 + .5) * window.innerHeight;
+                    
+                    // Only show if in front of camera
+                    if (vector.z < 1) {
+                        label.el.style.left = `${x}px`;
+                        label.el.style.top = `${y}px`;
+                        label.el.style.display = 'block';
+                    } else {
+                        label.el.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+
+        // --- Animation Logic ---
+        let clock = new THREE.Clock();
+        let animationPhase = 0;
+        const targetRLength = D;
+        const targetBLength = 2.5;
+        let isUserInteracting = false;
+        let autoRotateAngle = 0;
+
+        // Detect user interaction to pause auto-rotation
+        controls.addEventListener('start', () => { isUserInteracting = true; });
+        controls.addEventListener('end', () => { 
+            isUserInteracting = false; 
+            // Update autoRotateAngle to match current camera position to prevent jumping
+            autoRotateAngle = Math.atan2(camera.position.z, camera.position.x);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // 1. Camera Auto-Rotation (if user isn't dragging)
+            if (!isUserInteracting) {
+                // Orbit around the center point (D/2, 0, 0)
+                const radius = 10;
+                const speed = 0.2;
+                autoRotateAngle += speed * clock.getDelta();
+                
+                camera.position.x = D/2 + radius * Math.cos(autoRotateAngle);
+                camera.position.z = radius * Math.sin(autoRotateAngle);
+                // Keep Y position somewhat constant but bobbing slightly
+                camera.position.y = 4 + Math.sin(elapsedTime * 0.5) * 1; 
+                
+                camera.lookAt(D/2, 0, 0);
+            }
+
+            // 2. Vector Animation Sequence
+            // Phase 0 (0-2s): Setup, show glowing wire
+            // Phase 1 (2-4s): Grow Position Vector (r)
+            if (elapsedTime > 2 && animationPhase < 1) {
+                let p = (elapsedTime - 2) / 2; // Progress 0 to 1
+                if (p > 1) {
+                    p = 1;
+                    animationPhase = 1;
+                    document.getElementById('label-r').style.opacity = 1;
+                    document.getElementById('label-p').style.opacity = 1;
+                    document.getElementById('label-dl').style.opacity = 1;
+                    angleIndicator1.material.opacity = 0.5;
+                }
+                
+                // Use easeOut
+                const easedP = 1 - Math.pow(1 - p, 3);
+                arrowR.setLength(Math.max(0.01, targetRLength * easedP), 0.5, 0.3);
+            }
+
+            // Phase 2 (4-6s): Grow Magnetic Field Vector (dB)
+            if (elapsedTime > 4 && animationPhase < 2) {
+                let p = (elapsedTime - 4) / 2;
+                if (p > 1) {
+                    p = 1;
+                    animationPhase = 2;
+                    document.getElementById('label-db').style.opacity = 1;
+                    angleIndicator2.material.opacity = 0.5;
+                }
+                
+                // Add a little spring/bounce effect
+                const easedP = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+                arrowB.setLength(Math.max(0.01, targetBLength * easedP), 0.6, 0.4);
+            }
+
+            // Pulse the glowing origin point
+            originPoint.scale.setScalar(1 + Math.sin(elapsedTime * 5) * 0.1);
+
+            controls.update(); // required if controls.enableDamping is true
+            
+            updateLabels();
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Start animation loop
+        animate();
+
+    </script>
+</body>
+</html>

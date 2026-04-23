@@ -284,7 +284,7 @@
             <div class="flex items-center gap-4 text-sm">
                 <span class="text-slate-500 hidden md:flex items-center gap-2 mono text-xs">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    11 simulations
+                    31 simulations
                 </span>
                 <a href="#simulations" class="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-4 py-2 rounded-lg transition-colors border border-cyan-500/20 text-sm font-medium">
                     Explore
@@ -334,7 +334,7 @@
             </h1>
 
             <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-4">
-                Explore wave mechanics, oscillations, electromagnetism, and acoustics through real-time interactive simulations.
+                Explore wave mechanics, oscillations, electromagnetism, acoustics, and nonlinear dynamics through real-time interactive simulations.
             </p>
 
             <!-- Hero equation -->
@@ -355,11 +355,11 @@
             <!-- Stats row -->
             <div class="flex justify-center gap-12 md:gap-20 text-center">
                 <div>
-                    <div class="text-3xl font-bold text-white mono">21</div>
+                    <div class="text-3xl font-bold text-white mono">31</div>
                     <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">Simulations</div>
                 </div>
                 <div>
-                    <div class="text-3xl font-bold text-white mono">4</div>
+                    <div class="text-3xl font-bold text-white mono">5</div>
                     <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">Categories</div>
                 </div>
                 <div>
@@ -512,6 +512,57 @@
                     <div class="flex items-center justify-between">
                         <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">&Delta;r = n&lambda;</span>
                         <span class="card-arrow text-indigo-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Snell's Law -->
+                <a href="Snell's_Law.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><line x1="0" y1="30" x2="400" y2="30" stroke="rgba(56,189,248,0.25)" stroke-width="1" stroke-dasharray="4,3"/><line x1="150" y1="5" x2="200" y2="30" stroke="rgba(56,189,248,0.4)" stroke-width="2"/><line x1="200" y1="30" x2="235" y2="55" stroke="rgba(59,130,246,0.4)" stroke-width="2"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/15 flex items-center justify-center transition-all group-hover:bg-blue-500/20 group-hover:shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h7l4-8 4 16 4-8h-3"/></svg>
+                        </div>
+                        <span class="cat-badge bg-blue-500/10 text-blue-500 border border-blue-500/15 px-2 py-0.5 rounded-full">Refraction</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">Snell's Law: Air to Water</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Sweep the angle of incidence to watch light bend across a media boundary. Observe total internal reflection emerge.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">n<sub>1</sub> sin &theta;<sub>1</sub> = n<sub>2</sub> sin &theta;<sub>2</sub></span>
+                        <span class="card-arrow text-blue-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Speed of Light -->
+                <a href="Speed_of_Light.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><line x1="40" y1="30" x2="200" y2="30" stroke="rgba(250,204,21,0.4)" stroke-width="2"/><line x1="200" y1="30" x2="360" y2="30" stroke="rgba(250,204,21,0.2)" stroke-width="2" stroke-dasharray="4,3"/><circle cx="200" cy="30" r="3" fill="rgba(250,204,21,0.6)"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-yellow-500/10 border border-yellow-500/15 flex items-center justify-center transition-all group-hover:bg-yellow-500/20 group-hover:shadow-[0_0_20px_rgba(250,204,21,0.15)]">
+                            <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <span class="cat-badge bg-yellow-500/10 text-yellow-500 border border-yellow-500/15 px-2 py-0.5 rounded-full">Media</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-yellow-300 transition-colors">Speed of Light: Vacuum vs Diamond</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Race photons through vacuum and diamond side by side. See how refractive index slows light in dense media.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">v = c/n</span>
+                        <span class="card-arrow text-yellow-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Wavelength & Frequency -->
+                <a href="Wavelength.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><path d="M0,30 Q20,10 40,30 T80,30 T120,30 T160,30 T200,30 T240,30 T280,30 T320,30 T360,30 T400,30" fill="none" stroke="url(#spectrum-grad)" stroke-width="2"/><defs><linearGradient id="spectrum-grad" x1="0" x2="1"><stop offset="0" stop-color="rgba(239,68,68,0.5)"/><stop offset="0.33" stop-color="rgba(234,179,8,0.5)"/><stop offset="0.66" stop-color="rgba(34,197,94,0.5)"/><stop offset="1" stop-color="rgba(139,92,246,0.5)"/></linearGradient></defs></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/15 flex items-center justify-center transition-all group-hover:bg-fuchsia-500/20 group-hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]">
+                            <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 1016 0 8 8 0 00-16 0zm4 0a4 4 0 118 0 4 4 0 01-8 0z"/></svg>
+                        </div>
+                        <span class="cat-badge bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/15 px-2 py-0.5 rounded-full">Visible Light</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-fuchsia-300 transition-colors">Wavelength &amp; Frequency</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Tune wavelength across the visible range. Watch color, frequency, and photon energy update in lock-step.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">c = f&lambda;</span>
+                        <span class="card-arrow text-fuchsia-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
                     </div>
                 </a>
 
@@ -844,6 +895,145 @@
                     <div class="flex items-center justify-between">
                         <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">r = mv/qB</span>
                         <span class="card-arrow text-teal-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Ampere's Law -->
+                <a href="Ampere's_Law.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><line x1="150" y1="5" x2="150" y2="55" stroke="rgba(239,68,68,0.4)" stroke-width="2"/><line x1="250" y1="5" x2="250" y2="55" stroke="rgba(239,68,68,0.4)" stroke-width="2"/><circle cx="150" cy="30" r="18" fill="none" stroke="rgba(239,68,68,0.2)" stroke-width="1"/><circle cx="250" cy="30" r="18" fill="none" stroke="rgba(239,68,68,0.2)" stroke-width="1"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/15 flex items-center justify-center transition-all group-hover:bg-red-500/20 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m-4-8h8M6 6l12 12M6 18L18 6"/></svg>
+                        </div>
+                        <span class="cat-badge bg-red-500/10 text-red-500 border border-red-500/15 px-2 py-0.5 rounded-full">Ampere</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-red-300 transition-colors">Ampere's Law: Parallel Wires</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Two current-carrying wires attract or repel based on current direction. Visualize the magnetic field between them.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">&oint; B &middot; dl = &mu;<sub>0</sub> I</span>
+                        <span class="card-arrow text-red-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Biot-Savart Law -->
+                <a href="Biot-Savart.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><line x1="120" y1="30" x2="280" y2="30" stroke="rgba(168,85,247,0.4)" stroke-width="2"/><circle cx="200" cy="30" r="3" fill="rgba(168,85,247,0.5)"/><circle cx="200" cy="30" r="12" fill="none" stroke="rgba(168,85,247,0.25)" stroke-width="1"/><circle cx="200" cy="30" r="22" fill="none" stroke="rgba(168,85,247,0.15)" stroke-width="1"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/15 flex items-center justify-center transition-all group-hover:bg-purple-500/20 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]">
+                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        </div>
+                        <span class="cat-badge bg-purple-500/10 text-purple-500 border border-purple-500/15 px-2 py-0.5 rounded-full">Biot-Savart</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">Biot-Savart: Field of a Segment</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Probe the magnetic field produced by a finite current segment. Move the probe to see contribution geometry.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">dB = &mu;<sub>0</sub>I/4&pi; &middot; (dL&times;r&#770;)/r<sup>2</sup></span>
+                        <span class="card-arrow text-purple-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Capacitor -->
+                <a href="Capacitor.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><rect x="160" y="10" width="6" height="40" fill="rgba(52,211,153,0.3)"/><rect x="234" y="10" width="6" height="40" fill="rgba(52,211,153,0.3)"/><line x1="170" y1="20" x2="230" y2="20" stroke="rgba(52,211,153,0.25)" stroke-width="1"/><line x1="170" y1="30" x2="230" y2="30" stroke="rgba(52,211,153,0.25)" stroke-width="1"/><line x1="170" y1="40" x2="230" y2="40" stroke="rgba(52,211,153,0.25)" stroke-width="1"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center transition-all group-hover:bg-emerald-500/20 group-hover:shadow-[0_0_20px_rgba(52,211,153,0.15)]">
+                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <span class="cat-badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/15 px-2 py-0.5 rounded-full">Energy</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-emerald-300 transition-colors">Parallel-Plate Capacitor</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Adjust plate area, separation, and voltage. Watch capacitance, field strength, and stored energy respond live.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">U = &frac12; CV<sup>2</sup></span>
+                        <span class="card-arrow text-emerald-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Gauss's Law -->
+                <a href="Gauss_Law.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><circle cx="200" cy="30" r="25" fill="none" stroke="rgba(139,92,246,0.3)" stroke-width="1.5" stroke-dasharray="3,3"/><circle cx="200" cy="30" r="3" fill="rgba(139,92,246,0.6)"/><path d="M200,30 L170,20 M200,30 L230,20 M200,30 L170,40 M200,30 L230,40 M200,30 L200,5 M200,30 L200,55" stroke="rgba(139,92,246,0.25)" stroke-width="1"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center transition-all group-hover:bg-violet-500/20 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+                            <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4v12m-6-6h12"/></svg>
+                        </div>
+                        <span class="cat-badge bg-violet-500/10 text-violet-500 border border-violet-500/15 px-2 py-0.5 rounded-full">Flux</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-violet-300 transition-colors">Gauss's Law: Electric Flux</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Enclose charge in a Gaussian surface and watch flux depend only on what's inside — not on surface shape.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">&oint; E &middot; dA = Q/&epsilon;<sub>0</sub></span>
+                        <span class="card-arrow text-violet-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: Magnetic Torque -->
+                <a href="Magnetic_Torque.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><rect x="170" y="15" width="60" height="30" fill="none" stroke="rgba(251,113,133,0.4)" stroke-width="1.5" transform="rotate(-20 200 30)"/><path d="M200,10 L200,50" stroke="rgba(251,113,133,0.25)" stroke-width="1" stroke-dasharray="3,3"/><line x1="60" y1="30" x2="150" y2="30" stroke="rgba(251,113,133,0.2)" stroke-width="1"/><line x1="250" y1="30" x2="340" y2="30" stroke="rgba(251,113,133,0.2)" stroke-width="1"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/15 flex items-center justify-center transition-all group-hover:bg-rose-500/20 group-hover:shadow-[0_0_20px_rgba(251,113,133,0.15)]">
+                            <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </div>
+                        <span class="cat-badge bg-rose-500/10 text-rose-500 border border-rose-500/15 px-2 py-0.5 rounded-full">Torque</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-rose-300 transition-colors">Magnetic Torque on a Loop</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Rotate a current loop in a uniform field. See torque peak at perpendicular alignment and vanish at equilibrium.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">&tau; = &mu; &times; B</span>
+                        <span class="card-arrow text-rose-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+                <!-- Card: EM Spectrum -->
+                <a href="Spectrum_Animation.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><rect x="20" y="20" width="360" height="20" fill="url(#em-spec-grad)" opacity="0.35"/><defs><linearGradient id="em-spec-grad" x1="0" x2="1"><stop offset="0" stop-color="#ef4444"/><stop offset="0.2" stop-color="#f97316"/><stop offset="0.4" stop-color="#eab308"/><stop offset="0.6" stop-color="#22c55e"/><stop offset="0.8" stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center transition-all group-hover:bg-indigo-500/20 group-hover:shadow-[0_0_20px_rgba(129,140,248,0.15)]">
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        </div>
+                        <span class="cat-badge bg-indigo-500/10 text-indigo-500 border border-indigo-500/15 px-2 py-0.5 rounded-full">Spectrum</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">Electromagnetic Spectrum Pan</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Scan from radio waves to gamma rays. Wavelength, frequency, and photon energy span 20 orders of magnitude.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">E = hf = hc/&lambda;</span>
+                        <span class="card-arrow text-indigo-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
+                    </div>
+                </a>
+
+            </div>
+        </section>
+
+        <div class="glow-divider max-w-4xl mx-auto mb-28"></div>
+
+        <!-- ======== NONLINEAR DYNAMICS ======== -->
+        <section id="chaos" class="mb-20 reveal">
+            <div class="flex items-center gap-5 mb-12">
+                <div class="w-px h-16 bg-gradient-to-b from-transparent via-fuchsia-500/40 to-transparent"></div>
+                <div>
+                    <div class="flex items-center gap-3 mb-1">
+                        <h2 class="text-3xl font-bold text-white">Nonlinear Dynamics</h2>
+                        <span class="math-serif italic text-fuchsia-500/30 text-xl hidden sm:inline">dx/dt = &sigma;(y - x)</span>
+                    </div>
+                    <p class="text-slate-500 text-sm">Strange attractors, sensitive dependence &amp; deterministic chaos</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+                <!-- Card: Chaos Theory -->
+                <a href="Chaos_Theory.html" class="sim-card block group p-6">
+                    <svg class="card-wave" viewBox="0 0 400 60" preserveAspectRatio="none"><path d="M130,30 C150,5 180,55 200,30 C220,5 250,55 270,30" fill="none" stroke="rgba(217,70,239,0.4)" stroke-width="1.5"/><path d="M130,30 C160,45 190,15 200,30 C210,45 240,15 270,30" fill="none" stroke="rgba(234,179,8,0.3)" stroke-width="1.2"/></svg>
+                    <div class="flex items-start justify-between mb-5">
+                        <div class="w-11 h-11 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/15 flex items-center justify-center transition-all group-hover:bg-fuchsia-500/20 group-hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]">
+                            <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        </div>
+                        <span class="cat-badge bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/15 px-2 py-0.5 rounded-full">3D Attractor</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2 group-hover:text-fuchsia-300 transition-colors">Lorenz Attractor</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed mb-5">Rotate the 3D Lorenz system and watch trajectories fold into a strange attractor — deterministic yet unpredictable.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="card-eq math-serif italic text-sm text-slate-600 transition-colors">&#7819; = &sigma;(y-x), &#375; = x(&rho;-z)-y</span>
+                        <span class="card-arrow text-fuchsia-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></span>
                     </div>
                 </a>
 

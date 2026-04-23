@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetic Torque: Loop in a Uniform Field</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050510; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; box-sizing: border-box; }
+        .glass-panel { background: rgba(15, 20, 35, 0.75); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; pointer-events: auto; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        
+        /* Custom scrollbar for panel if needed */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-start">
+            <div class="glass-panel p-6 max-w-md shadow-2xl">
+                <h1 class="text-2xl font-bold mb-2 text-white">Magnetic Torque</h1>
+                <h2 class="text-sm font-medium text-blue-300 mb-4 tracking-wide uppercase">Loop in a Uniform Field</h2>
+                <p class="text-gray-300 text-sm leading-relaxed">
+                    A current-carrying copper loop in a uniform magnetic field experiences forces on its perpendicular sides. 
+                    These opposing forces create a <strong class="text-white">magnetic torque</strong> (<span class="italic text-yellow-200">τ = μ × B</span>) that twists the loop until its normal vector aligns with the external field.
+                </p>
+            </div>
+
+            <!-- Controls -->
+            <div class="glass-panel p-5 w-64 shadow-2xl flex flex-col gap-4">
+                <h3 class="font-semibold text-gray-100 uppercase text-xs tracking-wider border-b border-gray-600 pb-2">Simulation Controls</h3>
+                
+                <button id="btn-play" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                    Simulate Torque
+                </button>
+                <button id="btn-reset" class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm">
+                    Reset Position
+                </button>
+
+                <div class="space-y-3 mt-2">
+                    <label class="flex items-center space-x-3 cursor-pointer group">
+                        <input type="checkbox" id="toggle-bfield" checked class="form-checkbox h-4 w-4 text-blue-500 rounded bg-gray-800 border-gray-600 focus:ring-0 cursor-pointer">
+                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Show Magnetic Field (B)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer group">
+                        <input type="checkbox" id="toggle-forces" checked class="form-checkbox h-4 w-4 text-red-500 rounded bg-gray-800 border-gray-600 focus:ring-0 cursor-pointer">
+                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Show Forces (F)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer group">
+                        <input type="checkbox" id="toggle-normal" checked class="form-checkbox h-4 w-4 text-green-500 rounded bg-gray-800 border-gray-600 focus:ring-0 cursor-pointer">
+                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Show Area Vector (μ)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend Bottom -->
+        <div class="glass-panel px-6 py-4 flex gap-6 self-start items-center shadow-2xl">
+            <div class="flex items-center text-xs text-gray-300 font-medium tracking-wide">
+                <span class="legend-dot" style="background: #3b82f6; box-shadow: 0 0 8px #3b82f6;"></span> B-Field (0.3 T)
+            </div>
+            <div class="flex items-center text-xs text-gray-300 font-medium tracking-wide">
+                <span class="legend-dot" style="background: #eab308; box-shadow: 0 0 8px #eab308;"></span> Current (2 A)
+            </div>
+            <div class="flex items-center text-xs text-gray-300 font-medium tracking-wide">
+                <span class="legend-dot" style="background: #ef4444; box-shadow: 0 0 8px #ef4444;"></span> Force
+            </div>
+            <div class="flex items-center text-xs text-gray-300 font-medium tracking-wide">
+                <span class="legend-dot" style="background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span> Normal
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- THREE.JS SETUP ---
+        let scene, camera, renderer, controls;
+        let loopGroup, bFieldGroup, forceArrows, normalArrow, currentParticles = [];
+        
+        // Physics & Animation state
+        let isPlaying = false;
+        let currentAngle = 0;
+        let targetAngle = 0;
+        let velocity = 0;
+        const SPRING_STRENGTH = 0.03;
+        const DAMPING = 0.85;
+
+        // Dimensions mapping (1 unit = 1 cm)
+        const LOOP_WIDTH = 10; // X axis initially
+        const LOOP_LENGTH = 5; // Z axis initially
+        const WIRE_RADIUS = 0.2;
+        const PERIMETER = 2 * LOOP_WIDTH + 2 * LOOP_LENGTH; // 30
+
+        init();
+        animate();
+
+        function init() {
+            // 1. Scene & Camera Setup
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050510);
+            scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(12, 10, 18);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 50;
+            controls.minDistance = 5;
+
+            // 2. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x4466ff, 0.5);
+            fillLight.position.set(-10, -5, -15);
+            scene.add(fillLight);
+
+            // 3. Construct Elements
+            createMagneticField();
+            createCopperLoop();
+            createCurrentParticles();
+            createForcesAndNormal();
+
+            // 4. Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            setupUIControls();
+        }
+
+        function createMagneticField() {
+            bFieldGroup = new THREE.Group();
+            const arrowLength = 20;
+            const dir = new THREE.Vector3(1, 0, 0); // B-field strictly +X
+            const color = 0x2563eb; // Blue-600
+
+            // Create a grid of arrows
+            for (let y = -6; y <= 6; y += 4) {
+                for (let z = -6; z <= 6; z += 4) {
+                    const origin = new THREE.Vector3(-10, y, z);
+                    const arrowHelper = new THREE.ArrowHelper(dir, origin, arrowLength, color, 1.2, 0.4);
+                    
+                    // Add slight transparency to the materials
+                    arrowHelper.line.material.transparent = true;
+                    arrowHelper.line.material.opacity = 0.4;
+                    arrowHelper.cone.material.transparent = true;
+                    arrowHelper.cone.material.opacity = 0.7;
+                    
+                    bFieldGroup.add(arrowHelper);
+                }
+            }
+            scene.add(bFieldGroup);
+        }
+
+        function createCopperLoop() {
+            loopGroup = new THREE.Group();
+            
+            // Copper Material
+            const copperMaterial = new THREE.MeshStandardMaterial({
+                color: 0xb87333,
+                metalness: 0.9,
+                roughness: 0.2,
+            });
+
+            // The loop is constructed of 4 cylinders (sides) and 4 spheres (corners)
+            const hw = LOOP_WIDTH / 2;
+            const hl = LOOP_LENGTH / 2;
+
+            // Geometry
+            const geoWidth = new THREE.CylinderGeometry(WIRE_RADIUS, WIRE_RADIUS, LOOP_WIDTH, 16);
+            const geoLength = new THREE.CylinderGeometry(WIRE_RADIUS, WIRE_RADIUS, LOOP_LENGTH, 16);
+            const geoCorner = new THREE.SphereGeometry(WIRE_RADIUS, 16, 16);
+
+            // Side 1: Right (+X), parallel to Z. (Perpendicular to B-field)
+            const side1 = new THREE.Mesh(geoLength, copperMaterial);
+            side1.position.set(hw, 0, 0);
+            side1.rotation.x = Math.PI / 2;
+            side1.castShadow = true;
+            loopGroup.add(side1);
+
+            // Side 3: Left (-X), parallel to Z. (Perpendicular to B-field)
+            const side3 = new THREE.Mesh(geoLength, copperMaterial);
+            side3.position.set(-hw, 0, 0);
+            side3.rotation.x = Math.PI / 2;
+            side3.castShadow = true;
+            loopGroup.add(side3);
+
+            // Side 2: Back (-Z), parallel to X. (Parallel to B-field)
+            const side2 = new THREE.Mesh(geoWidth, copperMaterial);
+            side2.position.set(0, 0, -hl);
+            side2.rotation.z = Math.PI / 2;
+            side2.castShadow = true;
+            loopGroup.add(side2);
+
+            // Side 4: Front (+Z), parallel to X. (Parallel to B-field)
+            const side4 = new THREE.Mesh(geoWidth, copperMaterial);
+            side4.position.set(0, 0, hl);
+            side4.rotation.z = Math.PI / 2;
+            side4.castShadow = true;
+            loopGroup.add(side4);
+
+            // Corners
+            const cornersPos = [
+                [hw, 0, hl], [hw, 0, -hl], [-hw, 0, -hl], [-hw, 0, hl]
+            ];
+            cornersPos.forEach(pos => {
+                const corner = new THREE.Mesh(geoCorner, copperMaterial);
+                corner.position.set(pos[0], pos[1], pos[2]);
+                loopGroup.add(corner);
+            });
+
+            // Highlights for the perpendicular sides
+            const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+            const highlightGeo = new THREE.CylinderGeometry(WIRE_RADIUS * 1.5, WIRE_RADIUS * 1.5, LOOP_LENGTH * 0.9, 16);
+            
+            const hl1 = new THREE.Mesh(highlightGeo, highlightMaterial);
+            hl1.position.set(hw, 0, 0);
+            hl1.rotation.x = Math.PI / 2;
+            loopGroup.add(hl1);
+
+            const hl3 = new THREE.Mesh(highlightGeo, highlightMaterial);
+            hl3.position.set(-hw, 0, 0);
+            hl3.rotation.x = Math.PI / 2;
+            loopGroup.add(hl3);
+
+            scene.add(loopGroup);
+        }
+
+        function createCurrentParticles() {
+            const particleMaterial = new THREE.MeshBasicMaterial({ color: 0xeab308 });
+            const particleGeo = new THREE.SphereGeometry(WIRE_RADIUS * 1.2, 8, 8);
+            
+            // Create 15 particles
+            for(let i=0; i<15; i++) {
+                const particle = new THREE.Mesh(particleGeo, particleMaterial);
+                // Initial 's' parameter (distance along perimeter 0 to 30)
+                const s = (i / 15) * PERIMETER;
+                currentParticles.push({ mesh: particle, s: s });
+                loopGroup.add(particle); // Add to loop so they rotate with it
+            }
+        }
+
+        function createForcesAndNormal() {
+            // Force Vectors (Attached to Scene so their orientation remains strict, 
+            // but we will update their position based on the loop rotation)
+            forceArrows = new THREE.Group();
+            
+            const forceColor = 0xef4444; // Red
+            const fLength = 4.5;
+            
+            // Force 1: On Right Side (X=5). Current goes -Z. B is +X. F = -Y (Down)
+            const f1Dir = new THREE.Vector3(0, -1, 0);
+            const f1Arrow = new THREE.ArrowHelper(f1Dir, new THREE.Vector3(0,0,0), fLength, forceColor, 1.0, 0.4);
+            
+            // Force 2: On Left Side (X=-5). Current goes +Z. B is +X. F = +Y (Up)
+            const f2Dir = new THREE.Vector3(0, 1, 0);
+            const f2Arrow = new THREE.ArrowHelper(f2Dir, new THREE.Vector3(0,0,0), fLength, forceColor, 1.0, 0.4);
+
+            forceArrows.add(f1Arrow);
+            forceArrows.add(f2Arrow);
+            scene.add(forceArrows);
+
+            // Normal Vector / Area Vector
+            // Initially normal is +Y. Loop rotates around Z axis.
+            const normalColor = 0x22c55e; // Green
+            const nLength = 6;
+            normalArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), nLength, normalColor, 1.2, 0.4);
+            scene.add(normalArrow);
+        }
+
+        function updateSimulationLogic() {
+            // Update Current Particles
+            const speed = 0.15;
+            const hw = LOOP_WIDTH / 2;  // 5
+            const hl = LOOP_LENGTH / 2; // 2.5
+
+            currentParticles.forEach(p => {
+                p.s = (p.s + speed) % PERIMETER;
+                let s = p.s;
+                let x, z;
+                
+                // Map linear distance 's' to 3D rectangular path
+                if (s < LOOP_LENGTH) {
+                    // Right side moving -Z
+                    x = hw;
+                    z = hl - s;
+                } else if (s < LOOP_LENGTH + LOOP_WIDTH) {
+                    // Back side moving -X
+                    s -= LOOP_LENGTH;
+                    z = -hl;
+                    x = hw - s;
+                } else if (s < 2 * LOOP_LENGTH + LOOP_WIDTH) {
+                    // Left side moving +Z
+                    s -= (LOOP_LENGTH + LOOP_WIDTH);
+                    x = -hw;
+                    z = -hl + s;
+                } else {
+                    // Front side moving +X
+                    s -= (2 * LOOP_LENGTH + LOOP_WIDTH);
+                    z = hl;
+                    x = -hw + s;
+                }
+                
+                p.mesh.position.set(x, 0, z);
+            });
+
+            // Physics Animation for Torque
+            if (isPlaying) {
+                targetAngle = -Math.PI / 2; // -90 degrees, aligning normal with +X
+            } else {
+                targetAngle = 0; // Reset
+            }
+
+            // Spring dynamics
+            const force = (targetAngle - currentAngle) * SPRING_STRENGTH;
+            velocity += force;
+            velocity *= DAMPING;
+            currentAngle += velocity;
+
+            // Apply rotation
+            loopGroup.rotation.z = currentAngle;
+
+            // Update Force Vectors position
+            // The side segments are at local X = 5 and X = -5.
+            // As the group rotates around Z, their world positions change.
+            const hw_world = LOOP_WIDTH / 2;
+            const worldXRight = hw_world * Math.cos(currentAngle);
+            const worldYRight = hw_world * Math.sin(currentAngle);
+            
+            const worldXLeft = -hw_world * Math.cos(currentAngle);
+            const worldYLeft = -hw_world * Math.sin(currentAngle);
+
+            // Force 1 is on the "right" side (initially X=5), pointing down
+            forceArrows.children[0].position.set(worldXRight, worldYRight, 0);
+            
+            // Force 2 is on the "left" side (initially X=-5), pointing up
+            forceArrows.children[1].position.set(worldXLeft, worldYLeft, 0);
+
+            // The moment arm becomes smaller as it aligns with the field. 
+            // Torque = F * distance_x. We can visually scale the arrows if we wanted, 
+            // but physically the FORCE magnitude remains constant (F = ILB). Only the torque changes!
+            // So we keep arrow lengths constant.
+
+            // Update Normal Vector
+            // Normal starts at (0,1,0) and rotates around Z
+            const normX = -Math.sin(currentAngle);
+            const normY = Math.cos(currentAngle);
+            normalArrow.setDirection(new THREE.Vector3(normX, normY, 0).normalize());
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateSimulationLogic();
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- UI Logic ---
+        function setupUIControls() {
+            const btnPlay = document.getElementById('btn-play');
+            const btnReset = document.getElementById('btn-reset');
+            const chkB = document.getElementById('toggle-bfield');
+            const chkF = document.getElementById('toggle-forces');
+            const chkN = document.getElementById('toggle-normal');
+
+            btnPlay.addEventListener('click', () => {
+                isPlaying = true;
+                btnPlay.innerHTML = `<svg class="w-4 h-4 text-green-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> Simulating...`;
+                btnPlay.classList.add('bg-blue-800');
+                btnPlay.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+            });
+
+            btnReset.addEventListener('click', () => {
+                isPlaying = false;
+                btnPlay.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg> Simulate Torque`;
+                btnPlay.classList.remove('bg-blue-800');
+                btnPlay.classList.add('bg-blue-600', 'hover:bg-blue-500');
+            });
+
+            chkB.addEventListener('change', (e) => {
+                bFieldGroup.visible = e.target.checked;
+            });
+
+            chkF.addEventListener('change', (e) => {
+                forceArrows.visible = e.target.checked;
+            });
+
+            chkN.addEventListener('change', (e) => {
+                normalArrow.visible = e.target.checked;
+            });
+        }
+    </script>
+</body>
+</html>

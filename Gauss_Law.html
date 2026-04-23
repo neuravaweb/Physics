@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gauss's Law: Electric Flux Visualization</title>
+    <!-- Tailwind CSS for UI overlay -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- KaTeX for rendering math formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030308;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .glass-panel {
+            background: rgba(15, 20, 35, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            pointer-events: auto; /* Re-enable pointer for UI elements */
+        }
+        .charge-label {
+            position: absolute;
+            color: #ff3333;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px rgba(255, 50, 50, 0.8);
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        /* Custom scrollbar for info panel if it gets too long on small screens */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(100, 150, 255, 0.5); border-radius: 3px; }
+    </style>
+</head>
+<body class="text-white">
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <header class="flex justify-between items-start">
+            <div class="glass-panel p-6 max-w-lg">
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
+                    Gauss's Law: Electric Flux
+                </h1>
+                <p class="text-sm text-gray-300 mb-4 leading-relaxed">
+                    A +2 C positive point charge resides at the center of a transparent Gaussian sphere (radius = 1m). The electric field \(\mathbf{E}\) radiates uniformly outward. As the field lines pierce the surface, they create electric flux \(\Phi_E\), visualized by the bright flashes at intersections.
+                </p>
+                <div class="bg-black/40 p-3 rounded-lg border border-blue-500/30 font-serif text-center text-lg">
+                    $$ \Phi_E = \oint_{S} \mathbf{E} \cdot d\mathbf{A} = \frac{Q_{\text{enc}}}{\varepsilon_0} $$
+                </div>
+            </div>
+            
+            <div class="glass-panel p-4 flex flex-col gap-2">
+                <div class="text-xs text-gray-400 uppercase font-semibold tracking-wider mb-1">Controls</div>
+                <div class="flex items-center gap-2 text-sm text-gray-200">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                    Left Click + Drag to Rotate
+                </div>
+                <div class="flex items-center gap-2 text-sm text-gray-200">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                    Scroll to Zoom
+                </div>
+            </div>
+        </header>
+
+        <footer class="flex justify-center">
+            <div class="glass-panel px-6 py-3 text-sm text-blue-200 flex items-center gap-3">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+                Simulation Running &bull; Symmetric Spherical Flux
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        window.onload = function() {
+            if (window.renderMathInElement) {
+                renderMathInElement(document.body);
+            }
+            init3D();
+        };
+
+        function init3D() {
+            // --- Scene Setup ---
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020205); // Deep dark void
+            
+            // Camera
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(2.5, 1.5, 3); // Start slightly above and to the side
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            // Enable physical lights
+            renderer.physicallyCorrectLights = true;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.8; // Slow cinematic orbit
+            controls.minDistance = 1.5;
+            controls.maxDistance = 6;
+
+            // --- Lighting ---
+            // Ambient subtle light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            scene.add(ambientLight);
+
+            // Center Point Light (emanating from the charge)
+            const chargeLight = new THREE.PointLight(0xff5522, 15, 10);
+            chargeLight.position.set(0, 0, 0);
+            scene.add(chargeLight);
+
+            // External directional lights to catch the glass reflections
+            const dirLight1 = new THREE.DirectionalLight(0x88bbff, 2);
+            dirLight1.position.set(5, 5, 5);
+            scene.add(dirLight1);
+            
+            const dirLight2 = new THREE.DirectionalLight(0x4444ff, 1);
+            dirLight2.position.set(-5, -2, -5);
+            scene.add(dirLight2);
+
+            // --- Objects ---
+
+            // 1. The Point Charge (+2C)
+            const chargeGroup = new THREE.Group();
+            scene.add(chargeGroup);
+
+            // Core sphere
+            const chargeGeo = new THREE.SphereGeometry(0.08, 32, 32);
+            const chargeMat = new THREE.MeshBasicMaterial({ color: 0xff3311 });
+            const chargeMesh = new THREE.Mesh(chargeGeo, chargeMat);
+            chargeGroup.add(chargeMesh);
+
+            // Glowing halo around charge
+            const haloGeo = new THREE.SphereGeometry(0.12, 32, 32);
+            const haloMat = new THREE.MeshBasicMaterial({ 
+                color: 0xff4400, 
+                transparent: true, 
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide
+            });
+            const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+            chargeGroup.add(haloMesh);
+            
+            const haloGeo2 = new THREE.SphereGeometry(0.18, 32, 32);
+            const haloMat2 = new THREE.MeshBasicMaterial({ 
+                color: 0xff2200, 
+                transparent: true, 
+                opacity: 0.2,
+                blending: THREE.AdditiveBlending
+            });
+            const haloMesh2 = new THREE.Mesh(haloGeo2, haloMat2);
+            chargeGroup.add(haloMesh2);
+
+            // Sprite label for "+2C"
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256; canvas.height = 256;
+            context.font = "Bold 100px Arial";
+            context.fillStyle = "#ffffff";
+            context.textAlign = "center";
+            context.fillText("+2C", 128, 160);
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(0.4, 0.4, 0.4);
+            sprite.position.set(0, 0.2, 0); // Hover above charge
+            chargeGroup.add(sprite);
+
+            // 2. The Gaussian Surface (Transparent Glass Sphere, r=1)
+            const sphereRadius = 1.0;
+            const gaussianGeo = new THREE.SphereGeometry(sphereRadius, 64, 64);
+            const gaussianMat = new THREE.MeshPhysicalMaterial({
+                color: 0xaaccff,
+                metalness: 0.1,
+                roughness: 0.1,
+                transmission: 0.92, // Glass-like transparency
+                thickness: 0.1,
+                transparent: true,
+                opacity: 1,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const gaussianSphere = new THREE.Mesh(gaussianGeo, gaussianMat);
+            scene.add(gaussianSphere);
+
+            // Add subtle wireframe grid to emphasize surface curvature
+            const wireGeo = new THREE.WireframeGeometry(new THREE.SphereGeometry(sphereRadius, 24, 24));
+            const wireMat = new THREE.LineBasicMaterial({ 
+                color: 0x66aaff, 
+                transparent: true, 
+                opacity: 0.08,
+                blending: THREE.AdditiveBlending 
+            });
+            const wireframe = new THREE.LineSegments(wireGeo, wireMat);
+            scene.add(wireframe);
+
+            // 3. Electric Field Vectors and Intersections
+            const arrowsGroup = new THREE.Group();
+            scene.add(arrowsGroup);
+            
+            const numVectors = 60; // Total arrows radiating outwards
+            const vectors = []; // Store normalized directions
+            const intersectionPoints = []; // Store visual objects for flashes
+
+            // Use Fibonacci Sphere algorithm for perfectly uniform distribution
+            const goldenRatio = (1 + Math.sqrt(5)) / 2;
+            const angleIncrement = Math.PI * 2 * goldenRatio;
+
+            for (let i = 0; i < numVectors; i++) {
+                const t = i / numVectors;
+                const inclination = Math.acos(1 - 2 * t);
+                const azimuth = angleIncrement * i;
+
+                const x = Math.sin(inclination) * Math.cos(azimuth);
+                const y = Math.sin(inclination) * Math.sin(azimuth);
+                const z = Math.cos(inclination);
+                
+                const dir = new THREE.Vector3(x, y, z).normalize();
+                vectors.push(dir);
+
+                // --- Arrow Helper ---
+                const arrowLength = 1.4; // Extends past the sphere
+                const arrowColor = 0xffaa33; // Orange glowing color
+                const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), arrowLength, arrowColor, 0.1, 0.06);
+                
+                // Enhance arrow materials for glowing effect
+                if(arrow.line) {
+                    arrow.line.material.transparent = true;
+                    arrow.line.material.opacity = 0.5;
+                    arrow.line.material.blending = THREE.AdditiveBlending;
+                }
+                if(arrow.cone) {
+                    arrow.cone.material.transparent = true;
+                    arrow.cone.material.opacity = 0.8;
+                    arrow.cone.material.blending = THREE.AdditiveBlending;
+                }
+                arrowsGroup.add(arrow);
+
+                // --- Intersection "Flash" Points ---
+                // We place a compound object at exactly r=1 along each vector
+                const flashGroup = new THREE.Group();
+                flashGroup.position.copy(dir).multiplyScalar(sphereRadius);
+                
+                // Core flash (bright white)
+                const coreFlashGeo = new THREE.SphereGeometry(0.015, 16, 16);
+                const coreFlashMat = new THREE.MeshBasicMaterial({ 
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0,
+                    blending: THREE.AdditiveBlending
+                });
+                const coreFlash = new THREE.Mesh(coreFlashGeo, coreFlashMat);
+                flashGroup.add(coreFlash);
+
+                // Outer glow (orange/yellow)
+                const outerFlashGeo = new THREE.SphereGeometry(0.04, 16, 16);
+                const outerFlashMat = new THREE.MeshBasicMaterial({
+                    color: 0xffaa00,
+                    transparent: true,
+                    opacity: 0,
+                    blending: THREE.AdditiveBlending
+                });
+                const outerFlash = new THREE.Mesh(outerFlashGeo, outerFlashMat);
+                flashGroup.add(outerFlash);
+
+                scene.add(flashGroup);
+                
+                // Store references for animation
+                intersectionPoints.push({
+                    group: flashGroup,
+                    core: coreFlash,
+                    outer: outerFlash,
+                    direction: dir
+                });
+            }
+
+            // --- Traveling Pulses (Energy packets moving along vectors) ---
+            const pulses = [];
+            const numPulseWaves = 3; // Number of simultaneous waves
+            
+            for(let w = 0; w < numPulseWaves; w++) {
+                const waveOffset = w * (1.5 / numPulseWaves); // Stagger waves
+                vectors.forEach(dir => {
+                    const pulseGeo = new THREE.SphereGeometry(0.012, 8, 8);
+                    const pulseMat = new THREE.MeshBasicMaterial({
+                        color: 0xffdd88,
+                        transparent: true,
+                        opacity: 0.8,
+                        blending: THREE.AdditiveBlending
+                    });
+                    const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
+                    scene.add(pulseMesh);
+                    
+                    pulses.push({
+                        mesh: pulseMesh,
+                        direction: dir,
+                        waveOffset: waveOffset
+                    });
+                });
+            }
+
+            // --- Animation Loop ---
+            const clock = new THREE.Clock();
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const time = clock.getElapsedTime();
+                const delta = clock.getDelta();
+
+                // 1. Animate Charge (Pulsing)
+                const pulseScale = 1 + 0.1 * Math.sin(time * 6);
+                chargeMesh.scale.setScalar(pulseScale);
+                haloMesh.scale.setScalar(pulseScale * 1.1);
+                chargeLight.intensity = 15 + 5 * Math.sin(time * 6);
+
+                // Calculate a global "flux cycle" variable
+                // Speed of pulses traveling outward
+                const speed = 0.8; 
+                const travelDistance = 1.5; // Travels past the r=1 surface
+
+                // 2. Animate Traveling Pulses
+                pulses.forEach(pulse => {
+                    // Calculate current position along the vector
+                    let t = ((time * speed) + pulse.waveOffset) % travelDistance;
+                    pulse.mesh.position.copy(pulse.direction).multiplyScalar(t);
+                    
+                    // Fade out as it passes the sphere
+                    if (t > sphereRadius + 0.1) {
+                        pulse.mesh.material.opacity = Math.max(0, 1 - (t - sphereRadius) * 3);
+                    } else {
+                        pulse.mesh.material.opacity = 0.8;
+                    }
+                });
+
+                // 3. Animate Intersection Flashes
+                // We evaluate distance from *any* pulse wave to the surface r=1
+                intersectionPoints.forEach(pt => {
+                    let maxIntensity = 0;
+                    
+                    // Check all waves to see if one is currently hitting the surface
+                    for(let w = 0; w < numPulseWaves; w++) {
+                        const waveOffset = w * (travelDistance / numPulseWaves);
+                        const t = ((time * speed) + waveOffset) % travelDistance;
+                        
+                        // Distance from current pulse to the r=1 surface
+                        const distToSurface = Math.abs(t - sphereRadius);
+                        
+                        // If pulse is close to surface, increase intensity
+                        if (distToSurface < 0.1) {
+                            // Creates a sharp peak when dist = 0
+                            const intensity = 1.0 - (distToSurface / 0.1);
+                            if (intensity > maxIntensity) maxIntensity = intensity;
+                        }
+                    }
+
+                    // Apply the calculated flash intensity
+                    // Core flash gets sharp peak, outer glow gets slightly softer peak
+                    pt.core.material.opacity = maxIntensity * 1.0;
+                    pt.outer.material.opacity = maxIntensity * 0.5;
+                    
+                    // Scale effect for the pop
+                    const scalePop = 1 + maxIntensity * 0.8;
+                    pt.group.scale.setScalar(scalePop);
+                });
+
+                // Smoothly rotate the entire scene for dynamic viewing
+                controls.update();
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // --- Window Resize Handling ---
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+    </script>
+</body>
+</html>

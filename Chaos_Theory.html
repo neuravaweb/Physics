@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Chaos Theory: Lorenz Attractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030305;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .math-font {
+            font-family: 'Fira Code', monospace;
+        }
+        .glass-panel {
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+    <!-- Include Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <!-- Header & Equations -->
+        <div class="absolute top-6 left-6 max-w-lg pointer-events-auto">
+            <h1 class="text-3xl font-bold tracking-tight mb-1 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-yellow-400">Chaos Theory</h1>
+            <p class="text-sm text-gray-400 mb-6 font-light">The Lorenz Attractor & The Butterfly Effect</p>
+            
+            <div class="glass-panel rounded-xl p-5 shadow-2xl">
+                <h2 class="text-xs uppercase tracking-widest text-gray-500 mb-4 font-bold">System of Differential Equations</h2>
+                
+                <div class="space-y-3 math-font text-sm text-gray-200">
+                    <div class="flex items-center gap-3">
+                        <span class="text-cyan-400 font-bold">dx/dt</span>
+                        <span>=</span>
+                        <span>σ(y - x)</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-fuchsia-400 font-bold">dy/dt</span>
+                        <span>=</span>
+                        <span>x(ρ - z) - y</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-yellow-400 font-bold">dz/dt</span>
+                        <span>=</span>
+                        <span>xy - βz</span>
+                    </div>
+                </div>
+
+                <div class="mt-5 pt-4 border-t border-gray-700/50 text-xs text-gray-400 space-y-2">
+                    <div class="flex justify-between">
+                        <span>Prandtl Number (σ):</span> <span class="text-gray-200">10.0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Rayleigh Number (ρ):</span> <span class="text-gray-200">28.0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Geometric Factor (β):</span> <span class="text-gray-200">8/3</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls Helper -->
+        <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center text-xs text-gray-500 tracking-wider">
+            DRAG TO ORBIT CAMERA • WATCH THE DIVERGENCE
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            initSimulation();
+        };
+
+        function initSimulation() {
+            // --- SCENE & CAMERA ---
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x030305, 0.003);
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 70);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // --- LORENZ MATH PARAMETERS ---
+            const sigma = 10;
+            const rho = 28;
+            const beta = 8/3;
+            const dt = 0.004; // Time step per calculation
+
+            // --- PROGRESSIVE LINE SYSTEM SETUP ---
+            const maxPoints = 80000;
+            let currentPointCount = 0;
+            const stepsPerFrame = 15; // Speed up the drawing process dramatically
+
+            // We will trace 3 paths starting incredibly close together
+            const initialStates = [
+                { x: 0.1, y: 0.1, z: 0.1, color: 0x00eeff },   // Cyan
+                { x: 0.101, y: 0.1, z: 0.1, color: 0xff0088 }, // Fuchsia
+                { x: 0.102, y: 0.1, z: 0.1, color: 0xffd700 }  // Yellow
+            ];
+
+            const lorenzGroup = new THREE.Group();
+            scene.add(lorenzGroup);
+
+            const lines = [];
+            const heads = [];
+
+            // Create fake glowing aura texture for the "heads"
+            const canvasTex = document.createElement('canvas');
+            canvasTex.width = 64; canvasTex.height = 64;
+            const ctx = canvasTex.getContext('2d');
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(0.4, 'rgba(255,255,255,0.1)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+            const glowTex = new THREE.CanvasTexture(canvasTex);
+
+            initialStates.forEach((state) => {
+                // 1. Line Geometry (The Trail)
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(maxPoints * 3);
+                
+                // Set initial position
+                positions[0] = state.x; positions[1] = state.y; positions[2] = state.z;
+                
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setDrawRange(0, 1); // Start drawing nothing
+
+                const material = new THREE.LineBasicMaterial({
+                    color: state.color,
+                    blending: THREE.AdditiveBlending,
+                    transparent: true,
+                    opacity: 0.65,
+                    linewidth: 2
+                });
+
+                const line = new THREE.Line(geometry, material);
+                lorenzGroup.add(line);
+                
+                // Store reference to arrays and coordinates
+                lines.push({
+                    lineObj: line,
+                    positions: positions,
+                    currentX: state.x,
+                    currentY: state.y,
+                    currentZ: state.z
+                });
+
+                // 2. Head Particle (The glowing moving tip)
+                const headMat = new THREE.SpriteMaterial({ 
+                    map: glowTex, 
+                    color: state.color,
+                    blending: THREE.AdditiveBlending,
+                    transparent: true,
+                    depthWrite: false
+                });
+                const headSprite = new THREE.Sprite(headMat);
+                headSprite.scale.set(3, 3, 3);
+                headSprite.position.set(state.x, state.y, state.z);
+                lorenzGroup.add(headSprite);
+                heads.push(headSprite);
+            });
+
+            // Center the entire attractor in the camera view
+            lorenzGroup.position.z = -25;
+            lorenzGroup.position.y = -10; 
+
+            // --- BACKGROUND DUST ---
+            const dustGeo = new THREE.BufferGeometry();
+            const dustPos = new Float32Array(500 * 3);
+            for(let i=0; i<500; i++) {
+                dustPos[i*3] = (Math.random() - 0.5) * 200;
+                dustPos[i*3+1] = (Math.random() - 0.5) * 200;
+                dustPos[i*3+2] = (Math.random() - 0.5) * 200;
+            }
+            dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+            const dustMat = new THREE.PointsMaterial({ color: 0x444455, size: 0.4, transparent: true, opacity: 0.5 });
+            const dustSystem = new THREE.Points(dustGeo, dustMat);
+            scene.add(dustSystem);
+
+
+            // --- CAMERA INTERACTION ---
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let camAngleHorizontal = Math.PI / 4; 
+            let camAngleVertical = Math.PI / 6;
+            let camRadius = 75;
+
+            // Enable mouse and touch rotation
+            const containerEl = document.getElementById('ui-layer');
+            containerEl.addEventListener('mousedown', () => isDragging = true);
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    camAngleHorizontal -= deltaX * 0.005;
+                    camAngleVertical += deltaY * 0.005;
+                    camAngleVertical = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camAngleVertical));
+                }
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            containerEl.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, {passive: true});
+            window.addEventListener('touchend', () => isDragging = false);
+            window.addEventListener('touchmove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.touches[0].clientX - previousMousePosition.x;
+                    const deltaY = e.touches[0].clientY - previousMousePosition.y;
+                    camAngleHorizontal -= deltaX * 0.005;
+                    camAngleVertical += deltaY * 0.005;
+                    camAngleVertical = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camAngleVertical));
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, {passive: true});
+
+
+            // --- ANIMATION LOOP ---
+            let timeTracker = 0;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Calculate next continuous path steps
+                if (currentPointCount < maxPoints - stepsPerFrame) {
+                    for (let step = 0; step < stepsPerFrame; step++) {
+                        lines.forEach((path) => {
+                            let x = path.currentX;
+                            let y = path.currentY;
+                            let z = path.currentZ;
+
+                            // Apply Lorenz Equations
+                            let dx = sigma * (y - x);
+                            let dy = x * (rho - z) - y;
+                            let dz = x * y - beta * z;
+
+                            x += dx * dt;
+                            y += dy * dt;
+                            z += dz * dt;
+
+                            path.currentX = x;
+                            path.currentY = y;
+                            path.currentZ = z;
+
+                            let idx = (currentPointCount + step) * 3;
+                            path.positions[idx]     = x;
+                            path.positions[idx + 1] = y;
+                            path.positions[idx + 2] = z;
+                        });
+                    }
+                    
+                    currentPointCount += stepsPerFrame;
+
+                    lines.forEach((path, i) => {
+                        path.lineObj.geometry.attributes.position.needsUpdate = true;
+                        path.lineObj.geometry.setDrawRange(0, currentPointCount);
+                        
+                        // Move the glowing head sprite to the latest point
+                        heads[i].position.set(path.currentX, path.currentY, path.currentZ);
+                    });
+                }
+
+                // Slowly auto-rotate the system to make it look epic
+                timeTracker += 0.002;
+                lorenzGroup.rotation.y = timeTracker;
+                lorenzGroup.rotation.z = Math.sin(timeTracker) * 0.05;
+
+                // Background dust subtle rotation
+                dustSystem.rotation.y -= 0.0005;
+                dustSystem.rotation.x += 0.0002;
+
+                // Apply interactive camera orbit
+                camera.position.x = camRadius * Math.cos(camAngleVertical) * Math.sin(camAngleHorizontal);
+                camera.position.y = camRadius * Math.sin(camAngleVertical);
+                camera.position.z = camRadius * Math.cos(camAngleVertical) * Math.cos(camAngleHorizontal);
+                camera.lookAt(0, 0, 0);
+
+                renderer.render(scene, camera);
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            animate();
+        }
+    </script>
+</body>
+</html>

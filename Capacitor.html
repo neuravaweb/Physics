@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capacitor: Stored Energy and Fields</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js and add-ons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GSAP for cinematic animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050508; /* Deep cinematic dark */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+        .ui-panel {
+            background: rgba(10, 15, 30, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: auto;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+        button {
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(100, 200, 255, 0.5);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div class="ui-panel rounded-xl p-6 max-w-md">
+            <h1 class="text-3xl font-bold mb-2 glow-text">Parallel-Plate Capacitor</h1>
+            <p class="text-sm text-gray-300 mb-4 border-b border-gray-600 pb-4">
+                Area (A) = 0.02 m² <br>
+                Separation (d) = 5.0 mm
+            </p>
+            
+            <div id="status-text" class="text-lg font-mono text-cyan-400 mb-6 h-8">
+                Status: Uncharged (0V)
+            </div>
+
+            <button id="charge-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Apply 500V Potential
+            </button>
+            <button id="reset-btn" class="w-full mt-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hidden">
+                Discharge & Reset
+            </button>
+        </div>
+
+        <div class="text-right text-gray-400 text-sm">
+            Drag to rotate • Scroll to zoom
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let topPlate, bottomPlate;
+        let chargeParticles = [];
+        let fieldLinesGroup = new THREE.Group();
+        let energyCloud;
+        let tensionLinesGroup = new THREE.Group();
+        
+        let redLight, blueLight;
+        let animationTimeline;
+
+        // Constants for layout
+        const PLATE_WIDTH = 6;
+        const PLATE_DEPTH = 6;
+        const PLATE_GAP = 2.0; // Visual gap
+
+        window.onload = function() {
+            initScene();
+            createCapacitor();
+            setupAnimation();
+            setupInteractions();
+            animateLoop();
+        };
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050510, 0.04); // Cinematic dark depth
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(7, 3, 9);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            // Soft shadows and cinematic tone mapping
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 20;
+            controls.minDistance = 3;
+            controls.target.set(0, 0, 0);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            dirLight.position.set(5, 10, 5);
+            scene.add(dirLight);
+
+            // Colored lights for glowing charge effect (initially intensity 0)
+            redLight = new THREE.PointLight(0xff2222, 0, 10);
+            redLight.position.set(0, PLATE_GAP/2 + 0.5, 0);
+            scene.add(redLight);
+
+            blueLight = new THREE.PointLight(0x2266ff, 0, 10);
+            blueLight.position.set(0, -PLATE_GAP/2 - 0.5, 0);
+            scene.add(blueLight);
+
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function createCapacitor() {
+            // 1. Plates (Metallic)
+            const plateGeometry = new THREE.BoxGeometry(PLATE_WIDTH, 0.1, PLATE_DEPTH);
+            const plateMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x888899,
+                metalness: 0.9,
+                roughness: 0.2,
+                clearcoat: 0.5,
+                clearcoatRoughness: 0.1
+            });
+
+            topPlate = new THREE.Mesh(plateGeometry, plateMaterial.clone());
+            topPlate.position.y = PLATE_GAP / 2;
+            scene.add(topPlate);
+
+            bottomPlate = new THREE.Mesh(plateGeometry, plateMaterial.clone());
+            bottomPlate.position.y = -PLATE_GAP / 2;
+            scene.add(bottomPlate);
+
+            // 2. Charges (Red Positive, Blue Negative)
+            createCharges();
+
+            // 3. Electric Field Lines (Uniform, straight downward)
+            createFieldLines();
+
+            // 4. Volumetric Energy Cloud (U)
+            createEnergyCloud();
+
+            // 5. Tension Lines (F)
+            createTensionLines();
+        }
+
+        function createCharges() {
+            const particleCount = 120; // Per plate
+            const particleGeo = new THREE.SphereGeometry(0.06, 16, 16);
+            
+            const redMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0 });
+            const blueMat = new THREE.MeshBasicMaterial({ color: 0x3377ff, transparent: true, opacity: 0 });
+
+            for(let i = 0; i < particleCount; i++) {
+                // Random positions within the plate bounds
+                const x = (Math.random() - 0.5) * (PLATE_WIDTH - 0.4);
+                const z = (Math.random() - 0.5) * (PLATE_DEPTH - 0.4);
+
+                // Top plate (+ red)
+                const pTop = new THREE.Mesh(particleGeo, redMat);
+                pTop.position.set(x, PLATE_GAP/2 + 0.05, z);
+                scene.add(pTop);
+                chargeParticles.push(pTop);
+
+                // Bottom plate (- blue)
+                const pBot = new THREE.Mesh(particleGeo, blueMat);
+                pBot.position.set(x, -PLATE_GAP/2 - 0.05, z);
+                scene.add(pBot);
+                chargeParticles.push(pBot);
+            }
+        }
+
+        function createFieldLines() {
+            const gridLimit = 6;
+            const spacing = (PLATE_WIDTH - 1) / (gridLimit - 1);
+            
+            const lineMat = new THREE.MeshBasicMaterial({ 
+                color: 0xffaaff, 
+                transparent: true, 
+                opacity: 0 
+            });
+
+            const arrowLength = PLATE_GAP - 0.2;
+            
+            // Create a cylinder to act as a thick line
+            const cylGeo = new THREE.CylinderGeometry(0.015, 0.015, arrowLength, 8);
+            cylGeo.translate(0, -arrowLength/2, 0); // Origin at top so it scales downwards
+
+            // Create arrow head
+            const coneGeo = new THREE.ConeGeometry(0.06, 0.15, 8);
+            coneGeo.translate(0, -arrowLength, 0);
+
+            for(let i=0; i<gridLimit; i++) {
+                for(let j=0; j<gridLimit; j++) {
+                    const x = - (PLATE_WIDTH - 1)/2 + i * spacing;
+                    const z = - (PLATE_DEPTH - 1)/2 + j * spacing;
+
+                    const lineGroup = new THREE.Group();
+                    
+                    const cylinder = new THREE.Mesh(cylGeo, lineMat);
+                    const cone = new THREE.Mesh(coneGeo, lineMat);
+                    
+                    lineGroup.add(cylinder);
+                    lineGroup.add(cone);
+                    
+                    lineGroup.position.set(x, PLATE_GAP/2 - 0.1, z);
+                    
+                    // Initial state for animation (scaled to 0)
+                    lineGroup.scale.y = 0;
+                    
+                    fieldLinesGroup.add(lineGroup);
+                }
+            }
+            scene.add(fieldLinesGroup);
+        }
+
+        function createEnergyCloud() {
+            const cloudGeo = new THREE.BoxGeometry(PLATE_WIDTH - 0.2, PLATE_GAP - 0.2, PLATE_DEPTH - 0.2);
+            
+            // Custom shader material for a volumetric glow effect
+            const vertexShader = `
+                varying vec3 vPosition;
+                void main() {
+                    vPosition = position;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `;
+            const fragmentShader = `
+                uniform float opacity;
+                uniform float time;
+                varying vec3 vPosition;
+                
+                void main() {
+                    // Create a soft glowing gradient bound tightly between plates
+                    float intensity = 1.0 - abs(vPosition.y / (${(PLATE_GAP - 0.2)/2.0}));
+                    intensity = pow(intensity, 0.5); // Smoothen the edge
+                    
+                    // Add some subtle pulsating noise
+                    float pulse = sin(time * 3.0 + vPosition.x * 2.0 + vPosition.z * 2.0) * 0.1 + 0.9;
+                    
+                    vec3 glowColor = vec3(0.7, 0.2, 1.0); // Purple energy
+                    gl_FragColor = vec4(glowColor * intensity * pulse, opacity * intensity);
+                }
+            `;
+
+            const cloudMat = new THREE.ShaderMaterial({
+                vertexShader,
+                fragmentShader,
+                uniforms: {
+                    opacity: { value: 0.0 },
+                    time: { value: 0.0 }
+                },
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+
+            energyCloud = new THREE.Mesh(cloudGeo, cloudMat);
+            scene.add(energyCloud);
+        }
+
+        function createTensionLines() {
+            // Faint red tension arrows outside the plates
+            const arrMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 });
+            
+            const createTensionArrow = (yPos, isUp) => {
+                const group = new THREE.Group();
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), arrMat);
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.15), arrMat);
+                
+                if (isUp) {
+                    cyl.position.y = 0.2;
+                    cone.position.y = 0.4;
+                } else {
+                    cyl.position.y = -0.2;
+                    cone.position.y = -0.4;
+                    cone.rotation.z = Math.PI; // point down
+                }
+                
+                group.add(cyl);
+                group.add(cone);
+                group.position.y = yPos;
+                return group;
+            };
+
+            const positions = [
+                [PLATE_WIDTH/2 + 0.3, 0], [-PLATE_WIDTH/2 - 0.3, 0],
+                [0, PLATE_DEPTH/2 + 0.3], [0, -PLATE_DEPTH/2 - 0.3]
+            ];
+
+            positions.forEach(pos => {
+                // Top plate pulling down
+                const arrowDown = createTensionArrow(PLATE_GAP/2, false);
+                arrowDown.position.x = pos[0];
+                arrowDown.position.z = pos[1];
+                tensionLinesGroup.add(arrowDown);
+
+                // Bottom plate pulling up
+                const arrowUp = createTensionArrow(-PLATE_GAP/2, true);
+                arrowUp.position.x = pos[0];
+                arrowUp.position.z = pos[1];
+                tensionLinesGroup.add(arrowUp);
+            });
+
+            scene.add(tensionLinesGroup);
+        }
+
+        function setupAnimation() {
+            // Prepare GSAP timeline
+            animationTimeline = gsap.timeline({ paused: true });
+
+            // Shared constants
+            const t1 = 0;   // Charges appear
+            const t2 = 1.5; // Field lines drop
+            const t3 = 3.0; // Energy cloud appears
+            const t4 = 5.0; // Physical attraction (Force)
+
+            // 1. Apply Voltage: Charges flood in & lights turn on
+            chargeParticles.forEach(p => {
+                animationTimeline.to(p.material, { opacity: 0.8, duration: 1.5, ease: "power1.inOut" }, t1);
+            });
+            animationTimeline.to(redLight, { intensity: 2, duration: 1.5 }, t1);
+            animationTimeline.to(blueLight, { intensity: 2, duration: 1.5 }, t1);
+            animationTimeline.call(() => updateStatus("Charging... Gathering Electrons"), [], t1);
+
+            // 2. Electric Field (E) establishes from + to -
+            fieldLinesGroup.children.forEach((line, i) => {
+                // Stagger slightly from center outwards for effect
+                const delay = Math.abs(line.position.x) * 0.1 + Math.abs(line.position.z) * 0.1;
+                animationTimeline.to(line.scale, { y: 1, duration: 1.0, ease: "back.out(1.2)" }, t2 + delay);
+                line.children.forEach(child => {
+                    animationTimeline.to(child.material, { opacity: 0.7, duration: 0.5 }, t2 + delay);
+                });
+            });
+            animationTimeline.call(() => updateStatus("Establishing Uniform Electric Field (E)"), [], t2);
+
+            // 3. Volumetric Stored Energy (U) materializes
+            animationTimeline.to(energyCloud.material.uniforms.opacity, { value: 0.6, duration: 2.0, ease: "power2.inOut" }, t3);
+            animationTimeline.call(() => updateStatus("Accumulating Electrostatic Energy (U)"), [], t3);
+
+            // 4. Force of Attraction (F): Tension lines appear & plates move together slightly
+            tensionLinesGroup.children.forEach(arrow => {
+                arrow.children.forEach(child => {
+                    animationTimeline.to(child.material, { opacity: 0.9, duration: 1.0 }, t4);
+                });
+            });
+            
+            // Move plates inward by 10%
+            const shift = 0.15;
+            animationTimeline.to(topPlate.position, { y: PLATE_GAP/2 - shift, duration: 1.5, ease: "elastic.out(1, 0.4)" }, t4);
+            animationTimeline.to(bottomPlate.position, { y: -PLATE_GAP/2 + shift, duration: 1.5, ease: "elastic.out(1, 0.4)" }, t4);
+            
+            // Adjust charge positions with plates
+            chargeParticles.forEach(p => {
+                if(p.position.y > 0) {
+                    animationTimeline.to(p.position, { y: (PLATE_GAP/2 - shift) + 0.05, duration: 1.5, ease: "elastic.out(1, 0.4)" }, t4);
+                } else {
+                    animationTimeline.to(p.position, { y: (-PLATE_GAP/2 + shift) - 0.05, duration: 1.5, ease: "elastic.out(1, 0.4)" }, t4);
+                }
+            });
+
+            // Final status
+            animationTimeline.call(() => updateStatus("Fully Charged: 500V. Attraction Force Active."), [], t4 + 1.0);
+        }
+
+        function setupInteractions() {
+            const chargeBtn = document.getElementById('charge-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            chargeBtn.addEventListener('click', () => {
+                chargeBtn.classList.add('hidden');
+                resetBtn.classList.remove('hidden');
+                animationTimeline.play();
+            });
+
+            resetBtn.addEventListener('click', () => {
+                resetBtn.classList.add('hidden');
+                chargeBtn.classList.remove('hidden');
+                updateStatus("Uncharged (0V)");
+                animationTimeline.reverse(); // Smoothly undo everything
+            });
+        }
+
+        function updateStatus(text) {
+            document.getElementById('status-text').innerText = `Status: ${text}`;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
+            
+            // Update time for the energy cloud shader
+            if (energyCloud) {
+                energyCloud.material.uniforms.time.value += 0.02;
+            }
+
+            // Gently rotate the camera slightly for cinematic feel if no user input
+            if (controls.state === -1) { // -1 means no user interaction in typical orbitcontrols implementations, or just add idle rotation
+                // camera.position.x = Math.sin(Date.now() * 0.0001) * 9;
+                // camera.position.z = Math.cos(Date.now() * 0.0001) * 9;
+                // camera.lookAt(0,0,0);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

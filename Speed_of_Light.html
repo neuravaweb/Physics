@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed of Light: Vacuum vs Diamond</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+
+        #split-container {
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .view-panel {
+            position: relative;
+            width: 100%;
+            height: 50%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        #vacuum-panel {
+            border-bottom: 2px solid #222;
+        }
+
+        #diamond-panel {
+            border-top: 2px solid #113344;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .header {
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(4px);
+        }
+
+        .header h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.4rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .header h1.vacuum-title { text-shadow: 0 0 10px #ffffff; color: #ffffff; }
+        .header h1.diamond-title { text-shadow: 0 0 10px #00ffff; color: #00ffff; }
+
+        .header p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #aaa;
+            font-family: monospace;
+        }
+
+        .header p span { color: #fff; font-weight: bold; }
+
+        .stats {
+            bottom: 20px;
+            right: 20px;
+            text-align: right;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border-left: 3px solid #555;
+        }
+
+        .stats.diamond-stats { border-left: 3px solid #00ffff; }
+
+        .stat-row { margin: 3px 0; font-size: 1.1rem; color: #ddd; }
+        .stat-row span { color: #fff; font-weight: bold; }
+        .stat-row .speed-val { color: #ffeb3b; }
+
+        #loading {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-size: 1.5rem;
+            font-family: monospace;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+    <!-- Include Three.js for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="loading">Initializing Simulation...</div>
+
+    <div id="split-container">
+        <!-- Top Screen: Vacuum -->
+        <div id="vacuum-panel" class="view-panel">
+            <div class="overlay header">
+                <h1 class="vacuum-title">Deep Vacuum</h1>
+                <p>Medium: <span>Space</span> | Refractive Index (n): <span>1.00</span></p>
+            </div>
+            <div class="overlay stats">
+                <div class="stat-row">Phase Velocity: <span class="speed-val">299,792 km/s</span></div>
+                <div class="stat-row">State: <span>Unimpeded</span></div>
+            </div>
+        </div>
+
+        <!-- Bottom Screen: Diamond -->
+        <div id="diamond-panel" class="view-panel">
+            <div class="overlay header">
+                <h1 class="diamond-title">Diamond Lattice</h1>
+                <p>Medium: <span>Crystalline Carbon</span> | Refractive Index (n): <span>2.42</span></p>
+            </div>
+            <div class="overlay stats diamond-stats">
+                <div class="stat-row">Phase Velocity: <span class="speed-val">123,881 km/s</span></div>
+                <div class="stat-row">State: <span>Scattering / Retarded</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Simulation Constants
+        const BASE_SPEED = 1.6;        // Base speed in vacuum (units per frame)
+        const DIAMOND_N = 2.42;        // Refractive index of Diamond
+        const INTERFACE_X = -20;       // X coordinate where diamond begins
+        const BOUNDARY_X = 80;         // X coordinate to wrap around
+        const WRAP_OFFSET = 160;       // Distance to wrap back
+
+        let renderers = [], scenes = [], cameras = [], activePhotons = [];
+
+        // --- Core Photon Class ---
+        class Photon {
+            constructor(scene, isVacuum, startX, startY, startZ) {
+                this.scene = scene;
+                this.isVacuum = isVacuum;
+                this.startX = startX;
+                this.startY = startY;
+                this.startZ = startZ;
+                
+                // Physics state
+                this.x = startX;
+                this.y = startY;
+                this.z = startZ;
+                this.lastX = this.x;
+                this.lastY = this.y;
+                this.lastZ = this.z;
+                
+                this.targetY = startY;
+                this.targetZ = startZ;
+                this.timeInMedium = 0;
+
+                // Visual Trail Generation
+                // Cylinder pointing along X axis, with origin at the head (radiusTop)
+                const geometry = new THREE.CylinderGeometry(0.35, 0.0, 1, 12);
+                geometry.rotateZ(-Math.PI / 2);
+                geometry.translate(-0.5, 0, 0); 
+                
+                const material = new THREE.MeshBasicMaterial({
+                    color: isVacuum ? 0xffffff : 0xddeeff,
+                    transparent: true,
+                    opacity: isVacuum ? 0.9 : 0.7,
+                    blending: THREE.AdditiveBlending
+                });
+
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.scene.add(this.mesh);
+
+                // Add PointLight to interact with the environment
+                // Limited intensity and distance to prevent washing out and save performance
+                const lightColor = isVacuum ? 0xffffff : 0x00ffff;
+                this.light = new THREE.PointLight(lightColor, isVacuum ? 0.5 : 2.5, isVacuum ? 15 : 25);
+                this.scene.add(this.light);
+            }
+
+            update() {
+                this.lastX = this.x;
+                this.lastY = this.y;
+                this.lastZ = this.z;
+
+                let currentSpeed = BASE_SPEED;
+                let insideMedium = !this.isVacuum && this.x >= INTERFACE_X;
+
+                // Apply Refractive Index Physics
+                if (insideMedium) {
+                    currentSpeed = BASE_SPEED / DIAMOND_N;
+                    this.timeInMedium++;
+
+                    // Simulate interaction/scattering with atomic structure (wobble)
+                    if (this.timeInMedium % 4 === 0) {
+                        this.targetY = this.startY + (Math.random() - 0.5) * 3.5;
+                        this.targetZ = this.startZ + (Math.random() - 0.5) * 3.5;
+                    }
+                    
+                    // Smoothly transition to target to represent jagged scattering path
+                    this.y += (this.targetY - this.y) * 0.25;
+                    this.z += (this.targetZ - this.z) * 0.25;
+                } else {
+                    // Pull back to straight line if exiting medium or in vacuum
+                    this.y += (this.startY - this.y) * 0.1;
+                    this.z += (this.startZ - this.z) * 0.1;
+                }
+
+                this.x += currentSpeed;
+
+                // Wrapping logic
+                if (this.x > BOUNDARY_X) {
+                    this.x -= WRAP_OFFSET;
+                    this.lastX = this.x - currentSpeed;
+                    this.timeInMedium = 0;
+                }
+
+                // Visual Updates
+                this.mesh.position.set(this.x, this.y, this.z);
+                this.light.position.set(this.x, this.y, this.z);
+
+                // Align trail with velocity vector and scale based on speed
+                let dx = this.x - this.lastX;
+                let dy = this.y - this.lastY;
+                let dz = this.z - this.lastZ;
+                let velocity = new THREE.Vector3(dx, dy, dz);
+                let speedMag = velocity.length();
+
+                // Scale visually represents the velocity
+                let trailLength = speedMag * 12.0; 
+                this.mesh.scale.set(trailLength, 1, 1);
+
+                if (speedMag > 0) {
+                    velocity.normalize();
+                    this.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), velocity);
+                }
+            }
+        }
+
+        // --- Setup Logic ---
+        function init() {
+            const w = window.innerWidth;
+            const h = window.innerHeight / 2;
+
+            // 1. Setup Vacuum (Top Panel)
+            const vacPanel = document.getElementById('vacuum-panel');
+            const vacScene = new THREE.Scene();
+            vacScene.background = new THREE.Color(0x020205);
+            // Faint reference grid
+            const vacGrid = new THREE.GridHelper(200, 40, 0x111111, 0x111111);
+            vacGrid.position.y = -15;
+            vacScene.add(vacGrid);
+
+            const vacCamera = new THREE.PerspectiveCamera(45, w / h, 1, 1000);
+            vacCamera.position.set(20, 10, 60);
+            vacCamera.lookAt(20, 0, 0);
+
+            const vacRenderer = new THREE.WebGLRenderer({ antialias: true });
+            vacRenderer.setSize(w, h);
+            vacRenderer.setPixelRatio(window.devicePixelRatio);
+            vacPanel.appendChild(vacRenderer.domElement);
+
+            // 2. Setup Diamond (Bottom Panel)
+            const diaPanel = document.getElementById('diamond-panel');
+            const diaScene = new THREE.Scene();
+            diaScene.background = new THREE.Color(0x000612);
+            const diaGrid = new THREE.GridHelper(200, 40, 0x001122, 0x001122);
+            diaGrid.position.y = -15;
+            diaScene.add(diaGrid);
+
+            const diaCamera = new THREE.PerspectiveCamera(45, w / h, 1, 1000);
+            diaCamera.position.set(20, 10, 60);
+            diaCamera.lookAt(20, 0, 0);
+
+            const diaRenderer = new THREE.WebGLRenderer({ antialias: true });
+            diaRenderer.setSize(w, h);
+            diaRenderer.setPixelRatio(window.devicePixelRatio);
+            diaPanel.appendChild(diaRenderer.domElement);
+
+            // Interface Plane
+            const interfaceGeo = new THREE.PlaneGeometry(100, 100);
+            const interfaceMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff, 
+                transparent: true, 
+                opacity: 0.1, 
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const interfaceMesh = new THREE.Mesh(interfaceGeo, interfaceMat);
+            interfaceMesh.position.set(INTERFACE_X, 0, 0);
+            interfaceMesh.rotation.y = Math.PI / 2;
+            diaScene.add(interfaceMesh);
+
+            // Build Diamond Lattice (FCC approach)
+            buildDiamondLattice(diaScene);
+
+            // Add Ambient Light to diamond scene so lattice is faintly visible
+            diaScene.add(new THREE.AmbientLight(0xffffff, 0.05));
+
+            scenes.push(vacScene, diaScene);
+            cameras.push(vacCamera, diaCamera);
+            renderers.push(vacRenderer, diaRenderer);
+
+            // 3. Spawn Synced Photon Streams
+            // Space them out so there is a continuous stream.
+            const streamCount = 5;
+            for (let i = 0; i < streamCount; i++) {
+                let startX = -60 - (i * (WRAP_OFFSET / streamCount));
+                let startY = (Math.random() - 0.5) * 16;
+                let startZ = (Math.random() - 0.5) * 16;
+
+                // Spawn identical pairs in both dimensions
+                activePhotons.push(new Photon(vacScene, true, startX, startY, startZ));
+                activePhotons.push(new Photon(diaScene, false, startX, startY, startZ));
+            }
+
+            // Remove loading screen
+            document.getElementById('loading').style.opacity = 0;
+            setTimeout(() => document.getElementById('loading').remove(), 500);
+
+            // Start Loop
+            animate();
+        }
+
+        // --- Diamond Lattice Generator ---
+        function buildDiamondLattice(scene) {
+            const latticeGroup = new THREE.Group();
+            const points = [];
+            
+            // Generate Face-Centered Cubic interpenetrating geometry
+            // Restrict bounds to save geometry where cameras won't see
+            for (let ix = -1; ix <= 12; ix++) { // x range roughly -20 to 60 (unit is 6)
+                for (let iy = -3; iy <= 3; iy++) {
+                    for (let iz = -3; iz <= 3; iz++) {
+                        let cx = (ix * 6) + INTERFACE_X;
+                        let cy = iy * 6;
+                        let cz = iz * 6;
+
+                        // Cylindrical culling to save performance
+                        if (cy*cy + cz*cz > 200) continue;
+
+                        // Sub-lattice A
+                        points.push(new THREE.Vector3(cx, cy, cz));
+                        points.push(new THREE.Vector3(cx+3, cy+3, cz));
+                        points.push(new THREE.Vector3(cx+3, cy, cz+3));
+                        points.push(new THREE.Vector3(cx, cy+3, cz+3));
+
+                        // Sub-lattice B (Offset by 1/4 diagonal)
+                        const offset = 1.5; 
+                        points.push(new THREE.Vector3(cx+offset, cy+offset, cz+offset));
+                        points.push(new THREE.Vector3(cx+3+offset, cy+3+offset, cz+offset));
+                        points.push(new THREE.Vector3(cx+3+offset, cy+offset, cz+3+offset));
+                        points.push(new THREE.Vector3(cx+offset, cy+3+offset, cz+3+offset));
+                    }
+                }
+            }
+
+            // Create highly reflective, glossy material for Carbon Atoms
+            const atomGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            const atomMat = new THREE.MeshStandardMaterial({
+                color: 0x00aaff,
+                emissive: 0x001133,
+                roughness: 0.1,
+                metalness: 0.8,
+                transparent: true,
+                opacity: 0.75
+            });
+
+            const instancedAtoms = new THREE.InstancedMesh(atomGeo, atomMat, points.length);
+            const dummy = new THREE.Object3D();
+            points.forEach((p, i) => {
+                dummy.position.copy(p);
+                dummy.updateMatrix();
+                instancedAtoms.setMatrixAt(i, dummy.matrix);
+            });
+            latticeGroup.add(instancedAtoms);
+
+            // Compute bonds between nearest neighbors
+            const bondMat = new THREE.LineBasicMaterial({ 
+                color: 0x0066aa, 
+                transparent: true, 
+                opacity: 0.3 
+            });
+            const bondPositions = [];
+            
+            // Distance threshold for tetrahedral bonds
+            const thresholdSq = 26.0; 
+
+            for(let i = 0; i < points.length; i++) {
+                for(let j = i + 1; j < points.length; j++) {
+                    let dx = points[i].x - points[j].x;
+                    let dy = points[i].y - points[j].y;
+                    let dz = points[i].z - points[j].z;
+                    let distSq = dx*dx + dy*dy + dz*dz;
+                    
+                    if(distSq < thresholdSq && distSq > 0.1) {
+                        bondPositions.push(points[i].x, points[i].y, points[i].z);
+                        bondPositions.push(points[j].x, points[j].y, points[j].z);
+                    }
+                }
+            }
+
+            const bondGeo = new THREE.BufferGeometry();
+            bondGeo.setAttribute('position', new THREE.Float32BufferAttribute(bondPositions, 3));
+            const bonds = new THREE.LineSegments(bondGeo, bondMat);
+            latticeGroup.add(bonds);
+
+            scene.add(latticeGroup);
+        }
+
+        // --- Main Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update all physics
+            activePhotons.forEach(p => p.update());
+
+            // Add slight camera drift for cinematic feel
+            let time = Date.now() * 0.0005;
+            let camX = 20 + Math.sin(time) * 5;
+            let camY = 10 + Math.cos(time * 0.8) * 3;
+
+            cameras.forEach(cam => {
+                cam.position.x += (camX - cam.position.x) * 0.05;
+                cam.position.y += (camY - cam.position.y) * 0.05;
+                cam.lookAt(20, 0, 0);
+            });
+
+            // Render both scenes
+            renderers[0].render(scenes[0], cameras[0]);
+            renderers[1].render(scenes[1], cameras[1]);
+        }
+
+        // --- Event Listeners ---
+        window.addEventListener('resize', () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight / 2;
+            
+            cameras.forEach(cam => {
+                cam.aspect = w / h;
+                cam.updateProjectionMatrix();
+            });
+            
+            renderers.forEach(rend => {
+                rend.setSize(w, h);
+            });
+        });
+
+        // Initialize on load
+        window.onload = init;
+
+    </script>
+</body>
+</html>

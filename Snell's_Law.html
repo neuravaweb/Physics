@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snell's Law Simulation: Air to Water</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay-panel {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .math-text {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .laser-color { color: #22c55e; }
+        .water-color { color: #38bdf8; } /* Changed from glass to cyan/water */
+        .air-color { color: #e2e8f0; }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <!-- Canvas renders everything, no blurring overlays covering the text -->
+        <canvas id="simCanvas"></canvas>
+
+        <!-- Information Panel -->
+        <div class="overlay-panel top-6 left-6 z-20 max-w-xs">
+            <h1 class="text-xl font-bold mb-2 text-white">Refraction (Snell's Law)</h1>
+            <div class="space-y-2 text-sm text-gray-300">
+                <p>Boundary: <span class="air-color">Air</span> to <span class="water-color">Water</span></p>
+                <div class="border-t border-gray-600 my-2"></div>
+                <p>Equation: <br><span class="math-text">n₁ · sin(θ₁) = n₂ · sin(θ₂)</span></p>
+                <ul class="list-none space-y-1 mt-2">
+                    <li>n₁ (Air) = 1.00</li>
+                    <li>n₂ (Water) = 1.33</li>
+                    <li>θ₁ (Incidence) = 30.0°</li>
+                </ul>
+                <div class="border-t border-gray-600 my-2 pt-2">
+                    <p class="text-xs text-gray-400">Calculation:</p>
+                    <p>sin(θ₂) = (1.00 / 1.33) · sin(30°)</p>
+                    <p>sin(θ₂) ≈ 0.751 · 0.5 ≈ 0.376</p>
+                    <p class="math-text mt-1">θ₂ ≈ 22.1°</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medium Labels -->
+        <div class="absolute top-1/4 right-8 z-20 text-right opacity-70 pointer-events-none">
+            <h2 class="text-2xl font-bold air-color tracking-widest uppercase">Air</h2>
+            <p class="font-mono">n = 1.00</p>
+        </div>
+        <div class="absolute bottom-1/4 right-8 z-20 text-right opacity-70 pointer-events-none">
+            <h2 class="text-2xl font-bold water-color tracking-widest uppercase">Water</h2>
+            <p class="font-mono">n = 1.33</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        // Physics Constants (Updated to Water)
+        const n1 = 1.00; // Air
+        const n2 = 1.33; // Water
+        const theta1_deg = 30;
+        const theta1_rad = theta1_deg * Math.PI / 180;
+        
+        // Calculate refraction angle
+        const sin_theta2 = (n1 / n2) * Math.sin(theta1_rad);
+        const theta2_rad = Math.asin(sin_theta2);
+        const theta2_deg = theta2_rad * 180 / Math.PI;
+
+        // Display properties
+        let width, height, cx, cy;
+        let rayLength;
+
+        function resize() {
+            width = canvas.clientWidth;
+            height = canvas.clientHeight;
+            // Handle high DPI displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            cx = width / 2;
+            cy = height / 2;
+            rayLength = Math.max(width, height) * 0.7;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Animation Timeline parameters (ms)
+        const LOOP_DURATION = 8000; 
+        const T_INCIDENT_RAY = 1000;
+        const T_INCIDENT_ARC = 1000;
+        const T_REFRACTED_RAY = 1500;
+        const T_REFRACTED_ARC = 1000;
+
+        function drawBackground() {
+            // Air (Top half)
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, width, cy);
+            
+            // Draw subtle grid in air
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 1;
+            for(let i = 0; i < width; i += 50) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, cy); ctx.stroke();
+            }
+            for(let j = 0; j < cy; j += 50) {
+                ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(width, j); ctx.stroke();
+            }
+
+            // Water (Bottom half) - drawn directly on canvas for crisp rendering
+            const waterGradient = ctx.createLinearGradient(0, cy, 0, height);
+            waterGradient.addColorStop(0, '#082f49'); // Deep cyan/blue top
+            waterGradient.addColorStop(1, '#020617'); // Darker bottom
+            ctx.fillStyle = waterGradient;
+            ctx.fillRect(0, cy, width, height - cy);
+            
+            // Draw subtle horizontal water lines
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+            ctx.lineWidth = 1;
+            for(let j = cy + 30; j < height; j += 30) {
+                ctx.beginPath(); 
+                ctx.moveTo(0, j);
+                ctx.lineTo(width, j);
+                ctx.stroke();
+            }
+
+            // Boundary line
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(width, cy);
+            ctx.strokeStyle = '#38bdf8'; // Cyan boundary
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Boundary glow
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 10;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawNormalLine() {
+            ctx.beginPath();
+            ctx.setLineDash([8, 8]);
+            ctx.moveTo(cx, 0);
+            ctx.lineTo(cx, height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset
+            
+            // Label normal
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '14px JetBrains Mono';
+            ctx.textAlign = 'center';
+            ctx.fillText("Normal", cx, 30);
+            ctx.fillText("Normal", cx, height - 20);
+        }
+
+        function drawLaserSource(x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            
+            // Draw a mechanical-looking laser pointer
+            ctx.fillStyle = '#262626'; // Dark metal
+            ctx.fillRect(-30, -10, 60, 20);
+            
+            // Glow tip
+            ctx.fillStyle = '#22c55e'; // Green
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(25, -6, 10, 12);
+            
+            ctx.restore();
+        }
+
+        function animate(timestamp) {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw static elements
+            drawBackground();
+            drawNormalLine();
+
+            // Calculate animation progress
+            const timeInLoop = timestamp % LOOP_DURATION;
+            
+            let pIncidentRay = 0;
+            let pIncidentArc = 0;
+            let pRefractedRay = 0;
+            let pRefractedArc = 0;
+
+            // State Machine for progress variables
+            let currentTime = 0;
+            
+            // Phase 1: Incident Ray
+            if (timeInLoop > currentTime) {
+                pIncidentRay = Math.min(1, (timeInLoop - currentTime) / T_INCIDENT_RAY);
+            }
+            currentTime += T_INCIDENT_RAY;
+
+            // Phase 2: Incident Arc
+            if (timeInLoop > currentTime) {
+                pIncidentArc = Math.min(1, (timeInLoop - currentTime) / T_INCIDENT_ARC);
+                pIncidentArc = 1 - Math.pow(1 - pIncidentArc, 3); // Easing
+            }
+            currentTime += T_INCIDENT_ARC;
+
+            // Phase 3: Refracted Ray
+            if (timeInLoop > currentTime) {
+                pRefractedRay = Math.min(1, (timeInLoop - currentTime) / T_REFRACTED_RAY);
+            }
+            currentTime += T_REFRACTED_RAY;
+
+            // Phase 4: Refracted Arc
+            if (timeInLoop > currentTime) {
+                pRefractedArc = Math.min(1, (timeInLoop - currentTime) / T_REFRACTED_ARC);
+                pRefractedArc = 1 - Math.pow(1 - pRefractedArc, 3); // Easing
+            }
+
+            // Calculations for vectors based on normal (vertical)
+            const startX = cx - rayLength * Math.sin(theta1_rad);
+            const startY = cy - rayLength * Math.cos(theta1_rad);
+            const sourceAngle = Math.atan2(cy - startY, cx - startX);
+
+            // Draw Laser Source
+            drawLaserSource(startX, startY, sourceAngle);
+
+            // Setup Laser Style
+            ctx.strokeStyle = '#22c55e'; // Bright green
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = '#4ade80';
+            ctx.shadowBlur = 15;
+
+            // Draw Incident Ray
+            if (pIncidentRay > 0) {
+                const currentLen = rayLength * pIncidentRay;
+                const curX = startX + Math.cos(sourceAngle) * currentLen;
+                const curY = startY + Math.sin(sourceAngle) * currentLen;
+                
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(curX, curY);
+                ctx.stroke();
+
+                // Laser head dot
+                ctx.beginPath();
+                ctx.arc(curX, curY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+
+            // Draw Incident Arc
+            const arcRadius = Math.min(width, height) * 0.15;
+            if (pIncidentArc > 0) {
+                ctx.save();
+                ctx.shadowBlur = 0; 
+                ctx.strokeStyle = '#fbbf24'; // Amber
+                ctx.lineWidth = 2;
+                
+                const startAngle = -Math.PI / 2;
+                const endAngle = startAngle - (theta1_rad * pIncidentArc);
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, arcRadius, startAngle, endAngle, true); 
+                ctx.stroke();
+
+                // Draw Angle Text
+                if (pIncidentArc > 0.5) {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.font = 'bold 20px JetBrains Mono';
+                    // Text align right so it pushes away from normal line on the left side
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'bottom';
+                    
+                    const textAngle = startAngle - (theta1_rad / 2);
+                    const tx = cx + Math.cos(textAngle) * (arcRadius + 15);
+                    const ty = cy + Math.sin(textAngle) * (arcRadius + 15);
+                    
+                    // Add a black drop shadow for guaranteed readability
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    
+                    const currentAngleDisplay = (30 * pIncidentArc).toFixed(1);
+                    ctx.fillText(`${currentAngleDisplay}°`, tx, ty);
+                }
+                ctx.restore();
+            }
+
+            // Draw Refracted Ray
+            if (pRefractedRay > 0) {
+                const refrAngleCanvas = Math.PI/2 - theta2_rad;
+                
+                const currentLen = rayLength * pRefractedRay;
+                const curX = cx + Math.cos(refrAngleCanvas) * currentLen;
+                const curY = cy + Math.sin(refrAngleCanvas) * currentLen;
+
+                ctx.save();
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#4ade80';
+                ctx.shadowBlur = 10;
+                
+                // Slight opacity to simulate beam in water
+                ctx.globalAlpha = 0.85;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(curX, curY);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(curX, curY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Flash effect at the boundary
+                if (pRefractedRay < 0.1) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 5 + pRefractedRay*100, 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(74, 222, 128, ${1 - pRefractedRay*10})`;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // Draw Refracted Arc
+            if (pRefractedArc > 0) {
+                ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 2;
+                
+                const startAngle = Math.PI / 2;
+                const endAngle = startAngle - (theta2_rad * pRefractedArc);
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, arcRadius, startAngle, endAngle, true); 
+                ctx.stroke();
+
+                // Draw Angle Text
+                if (pRefractedArc > 0.5) {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.font = 'bold 20px JetBrains Mono';
+                    // Text align left so it pushes right, away from normal line
+                    ctx.textAlign = 'left'; 
+                    ctx.textBaseline = 'top';
+                    
+                    const textAngle = startAngle - (theta2_rad / 2);
+                    const tx = cx + Math.cos(textAngle) * (arcRadius + 15);
+                    const ty = cy + Math.sin(textAngle) * (arcRadius + 15);
+                    
+                    // Strong dark shadow makes the text visible even against bright rays or water
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    
+                    const currentAngleDisplay = (theta2_deg * pRefractedArc).toFixed(1);
+                    ctx.fillText(`${currentAngleDisplay}°`, tx, ty);
+                }
+                ctx.restore();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation loop
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
