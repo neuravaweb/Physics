@@ -252,6 +252,20 @@
             flex-wrap: wrap; gap: 12px;
         }
         footer .run { color: var(--accent); }
+        .ig-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 12px;
+            border: 1px solid var(--faint);
+            color: var(--fg);
+            background: var(--panel);
+            font-size: 10px; letter-spacing: 0.2em;
+            transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+        }
+        .ig-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 12px rgba(61,255,138,0.18);
+        }
 
         /* ---- Scrollbar ---- */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -377,6 +391,14 @@
     <footer class="bot" id="about">
         <span>PHYSICS::LAB v3.1 · build 2026.04.23</span>
         <span class="run">● CONNECTED · 60Hz</span>
+        <a href="https://www.instagram.com/neurava.web/" target="_blank" rel="noopener noreferrer" class="ig-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+            </svg>
+            <span>@NEURAVA.WEB</span>
+        </a>
         <span>HTML5 · VANILLA JS</span>
     </footer>
 
