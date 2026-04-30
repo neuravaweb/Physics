@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixed Circuit Simplification (10Ω Resistors)</title>
+    <!-- Tailwind CSS is assumed to be available per instructions -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Circuit Styles */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a; /* Tailwind slate-900 */
+            color: #f8fafc;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .circuit-container {
+            position: relative;
+            width: 600px;
+            height: 500px;
+            /* Center circuit in available space */
+            transform-origin: center center;
+            margin: auto;
+        }
+
+        /* Engineering Grid Background */
+        .grid-bg {
+            background-image: linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .wire {
+            position: absolute;
+            background-color: #64748b; /* slate-500 */
+            transition: all 1s ease-in-out;
+            z-index: 10;
+        }
+
+        .resistor {
+            position: absolute;
+            background-color: #1e293b; /* slate-800 */
+            border: 2px solid #94a3b8; /* slate-400 */
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #e2e8f0;
+            transition: all 1s ease-in-out;
+            z-index: 20;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        .node-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #cbd5e1;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 30;
+            transition: all 1s ease-in-out;
+        }
+
+        .terminal-label {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            color: #f1f5f9;
+            transform: translate(-100%, -50%);
+            padding-right: 15px;
+            z-index: 30;
+        }
+
+        /* Highlight States */
+        .glow-series {
+            border-color: #3b82f6 !important; /* blue-500 */
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important;
+        }
+        .wire.glow-series { background-color: #3b82f6 !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.8) !important; }
+
+        .glow-parallel {
+            border-color: #f97316 !important; /* orange-500 */
+            background-color: rgba(249, 115, 22, 0.2) !important;
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.6) !important;
+        }
+        .wire.glow-parallel { background-color: #f97316 !important; box-shadow: 0 0 8px rgba(249, 115, 22, 0.8) !important; }
+
+        .glow-final {
+            border-color: #22c55e !important; /* green-500 */
+            background-color: rgba(34, 197, 94, 0.2) !important;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.8) !important;
+        }
+        .wire.glow-final { background-color: #22c55e !important; box-shadow: 0 0 8px rgba(34, 197, 94, 0.8) !important; }
+
+        /* Fraction Math CSS */
+        .math-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 0.25rem;
+            font-size: 0.9em;
+        }
+        .math-frac > span:first-child {
+            border-bottom: 1px solid currentColor;
+            padding: 0 0.25rem;
+        }
+        .math-frac > span:last-child {
+            padding: 0 0.25rem;
+        }
+
+        /* Custom Scrollbar for Math Panel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body class="flex h-screen w-full">
+
+    <!-- Left Pane: Interactive Circuit Canvas -->
+    <div class="flex-1 relative flex items-center justify-center grid-bg overflow-hidden">
+        
+        <!-- Main Stage Container -->
+        <div class="circuit-container" id="circuitStage">
+            
+            <!-- Terminals -->
+            <div class="terminal-label" style="left: 50px; top: 100px;">A</div>
+            <div class="node-dot" style="left: 50px; top: 100px;"></div>
+            
+            <div class="terminal-label" style="left: 50px; top: 400px;">B</div>
+            <div class="node-dot" style="left: 50px; top: 400px;"></div>
+
+            <!-- Wires -->
+            <div id="wA_R1" class="wire" style="left: 50px; top: 99px; width: 50px; height: 2px;"></div>
+            <div id="wR1_J1" class="wire" style="left: 180px; top: 99px; width: 120px; height: 2px;"></div>
+            <div id="wB_J2" class="wire" style="left: 50px; top: 399px; width: 250px; height: 2px;"></div>
+            
+            <div id="wJ1_R2" class="wire" style="left: 299px; top: 100px; width: 2px; height: 110px;"></div>
+            <div id="wR2_J2" class="wire" style="left: 299px; top: 290px; width: 2px; height: 110px;"></div>
+            
+            <div id="wJ1_TR" class="wire" style="left: 300px; top: 99px; width: 200px; height: 2px;"></div>
+            <div id="wBR_J2" class="wire" style="left: 300px; top: 399px; width: 200px; height: 2px;"></div>
+            
+            <div id="wTR_R3" class="wire" style="left: 499px; top: 100px; width: 2px; height: 40px;"></div>
+            <div id="wR3_R4" class="wire" style="left: 499px; top: 220px; width: 2px; height: 60px;"></div>
+            <div id="wR4_BR" class="wire" style="left: 499px; top: 360px; width: 2px; height: 40px;"></div>
+
+            <!-- Resistors -->
+            <div id="R1" class="resistor" style="left: 100px; top: 75px; width: 80px; height: 50px;">
+                <span id="R1_text">R<sub>1</sub><br>10Ω</span>
+            </div>
+            
+            <div id="R2" class="resistor" style="left: 275px; top: 210px; width: 50px; height: 80px;">
+                <span id="R2_text">R<sub>2</sub><br>10Ω</span>
+            </div>
+
+            <div id="R3" class="resistor" style="left: 475px; top: 140px; width: 50px; height: 80px;">
+                <span id="R3_text">R<sub>3</sub><br>10Ω</span>
+            </div>
+
+            <div id="R4" class="resistor" style="left: 475px; top: 280px; width: 50px; height: 80px;">
+                <span id="R4_text">R<sub>4</sub><br>10Ω</span>
+            </div>
+
+        </div>
+
+        <!-- Floating Controls -->
+        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
+            <button id="actionBtn" onclick="nextState()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full shadow-lg transition-all border border-indigo-400">
+                Start Analysis (Step 1)
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Pane: Math Tracking Panel -->
+    <div class="w-96 bg-slate-800 border-l border-slate-700 flex flex-col shadow-2xl z-40">
+        <div class="p-6 border-b border-slate-700 bg-slate-900">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Circuit Math Log
+            </h2>
+            <p class="text-slate-400 text-sm mt-2">All resistors are 10Ω. Simplify to find R<sub>eq</sub>.</p>
+        </div>
+        
+        <div id="mathPanel" class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
+            <!-- Math steps injected here dynamically -->
+            <div id="initialNote" class="text-slate-500 italic text-sm text-center mt-10">
+                Awaiting calculation start...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentState = 0;
+        const btn = document.getElementById('actionBtn');
+        const mathPanel = document.getElementById('mathPanel');
+
+        // Helper to modify multiple elements' classes easily
+        function toggleClass(elements, className, forceAdd = true) {
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    if(forceAdd) el.classList.add(className);
+                    else el.classList.remove(className);
+                }
+            });
+        }
+
+        // Apply inline styles to elements
+        function applyStyles(id, styles) {
+            const el = document.getElementById(id);
+            if(el) {
+                Object.assign(el.style, styles);
+            }
+        }
+
+        // Set Inner HTML dynamically
+        function setHtml(id, html) {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = html;
+        }
+
+        // Add Math Block to Sidebar
+        function addMathStep(title, formulas, isFinal = false, colorClass = "border-indigo-500") {
+            const initNote = document.getElementById('initialNote');
+            if(initNote) initNote.remove();
+
+            const div = document.createElement('div');
+            div.className = `opacity-0 transition-opacity duration-1000 p-4 rounded-lg bg-slate-900 border-l-4 ${colorClass} shadow-md`;
+            
+            let html = `<h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">${title}</h4>`;
+            formulas.forEach(f => {
+                html += `<div class="text-[1.05rem] text-slate-200 mb-2 font-mono">${f}</div>`;
+            });
+            div.innerHTML = html;
+            
+            mathPanel.appendChild(div);
+            
+            // Auto scroll to bottom
+            setTimeout(() => {
+                div.classList.remove('opacity-0');
+                mathPanel.scrollTop = mathPanel.scrollHeight;
+            }, 50);
+        }
+
+        // State Machine
+        function nextState() {
+            currentState++;
+            
+            switch(currentState) {
+                case 1:
+                    // Highlight Right Branch (Series R3 & R4)
+                    toggleClass(['R3', 'R4', 'wTR_R3', 'wR3_R4', 'wR4_BR'], 'glow-series', true);
+                    addMathStep("Step 1: Series Branch", [
+                        "R<sub>34</sub> = R<sub>3</sub> + R<sub>4</sub>",
+                        "R<sub>34</sub> = 10Ω + 10Ω = <span class='text-blue-400 font-bold'>20Ω</span>"
+                    ], false, "border-blue-500");
+                    btn.innerText = "Collapse Series Group";
+                    break;
+
+                case 2:
+                    // Merge R3 & R4 -> R34
+                    toggleClass(['R3', 'R4', 'wTR_R3', 'wR3_R4', 'wR4_BR'], 'glow-series', false);
+                    
+                    applyStyles('R4', { opacity: '0', top: '210px' });
+                    applyStyles('R3', { top: '210px' });
+                    setHtml('R3_text', 'R<sub>34</sub><br>20Ω');
+                    
+                    applyStyles('wR3_R4', { top: '250px', height: '0px' });
+                    applyStyles('wTR_R3', { height: '110px' });
+                    applyStyles('wR4_BR', { top: '290px', height: '110px' });
+
+                    btn.innerText = "Analyze Parallel Section";
+                    btn.className = btn.className.replace('bg-indigo-600', 'bg-orange-600').replace('hover:bg-indigo-500', 'hover:bg-orange-500').replace('border-indigo-400', 'border-orange-400');
+                    break;
+
+                case 3:
+                    // Highlight Parallel Loop (R2 & R34)
+                    toggleClass(['R2', 'R3', 'wJ1_R2', 'wR2_J2', 'wJ1_TR', 'wBR_J2', 'wTR_R3', 'wR4_BR'], 'glow-parallel', true);
+                    addMathStep("Step 2: Parallel Branches", [
+                        `R<sub>234</sub> = <span class="math-frac"><span>R<sub>2</sub> &times; R<sub>34</sub></span><span>R<sub>2</sub> + R<sub>34</sub></span></span>`,
+                        `R<sub>234</sub> = <span class="math-frac"><span>10 &times; 20</span><span>10 + 20</span></span> = <span class='math-frac'><span>200</span><span>30</span></span>`,
+                        `R<sub>234</sub> ≈ <span class='text-orange-400 font-bold'>6.67Ω</span>`
+                    ], false, "border-orange-500");
+                    btn.innerText = "Collapse Parallel Group";
+                    break;
+
+                case 4:
+                    // Merge R2 & R34 -> R234
+                    toggleClass(['R2', 'R3', 'wJ1_R2', 'wR2_J2', 'wJ1_TR', 'wBR_J2', 'wTR_R3', 'wR4_BR'], 'glow-parallel', false);
+                    
+                    applyStyles('R3', { opacity: '0', left: '275px' }); // R34 hides into R2
+                    setHtml('R2_text', 'R<sub>234</sub><br>6.67Ω');
+                    
+                    applyStyles('wJ1_TR', { width: '0px' });
+                    applyStyles('wBR_J2', { width: '0px' });
+                    applyStyles('wTR_R3', { left: '299px' });
+                    applyStyles('wR4_BR', { left: '299px' });
+
+                    btn.innerText = "Analyze Final Circuit";
+                    btn.className = btn.className.replace('bg-orange-600', 'bg-blue-600').replace('hover:bg-orange-500', 'hover:bg-blue-500').replace('border-orange-400', 'border-blue-400');
+                    break;
+
+                case 5:
+                    // Highlight Final Series (R1 & R234)
+                    toggleClass(['R1', 'R2', 'wA_R1', 'wR1_J1', 'wJ1_R2', 'wR2_J2', 'wB_J2'], 'glow-series', true);
+                    addMathStep("Step 3: Final Series", [
+                        "R<sub>eq</sub> = R<sub>1</sub> + R<sub>234</sub>",
+                        "R<sub>eq</sub> = 10Ω + 6.67Ω",
+                        "R<sub>eq</sub> = <span class='text-green-400 font-bold text-xl'>16.67Ω</span>"
+                    ], false, "border-blue-500");
+                    btn.innerText = "Calculate Req";
+                    btn.className = btn.className.replace('bg-blue-600', 'bg-green-600').replace('hover:bg-blue-500', 'hover:bg-green-500').replace('border-blue-400', 'border-green-400');
+                    break;
+
+                case 6:
+                    // Final Merge into R_eq
+                    toggleClass(['R1', 'R2', 'wA_R1', 'wR1_J1', 'wJ1_R2', 'wR2_J2', 'wB_J2'], 'glow-series', false);
+                    
+                    // R1 transforms into the final Req box at the central trunk
+                    applyStyles('R1', { left: '275px', top: '210px', width: '50px', height: '80px' });
+                    setHtml('R1_text', 'R<sub>eq</sub><br>16.67Ω');
+                    toggleClass(['R1'], 'glow-final', true);
+                    
+                    applyStyles('R2', { opacity: '0' }); // Hide R234
+                    
+                    // Wires re-route
+                    applyStyles('wA_R1', { width: '250px' }); // Reaches over to the center trunk
+                    applyStyles('wR1_J1', { width: '0px', left: '300px' }); // Shrinks to nothing
+
+                    toggleClass(['wA_R1', 'wJ1_R2', 'wR2_J2', 'wB_J2'], 'glow-final', true);
+
+                    btn.innerText = "Reset Simulation";
+                    btn.className = btn.className.replace('bg-green-600', 'bg-slate-600').replace('hover:bg-green-500', 'hover:bg-slate-500').replace('border-green-400', 'border-slate-400');
+                    break;
+
+                case 7:
+                    // Reset to initial state
+                    location.reload();
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>

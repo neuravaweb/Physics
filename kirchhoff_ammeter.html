@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kirchhoff's Laws — Solving for the Ammeter Current</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0a0d14;
+    --bg-1: #11151f;
+    --bg-2: #1a2030;
+    --grid: rgba(99, 138, 200, 0.06);
+    --wire: #5b6a8a;
+    --ink: #e8ecf2;
+    --ink-dim: #8a93a8;
+    --ink-faint: #5b6a8a;
+    --gold: #f4c542;
+    --gold-glow: rgba(244, 197, 66, 0.35);
+    --coral: #f25f5c;
+    --coral-glow: rgba(242, 95, 92, 0.4);
+    --cyan: #4dd0e1;
+    --cyan-glow: rgba(77, 208, 225, 0.4);
+    --green: #4ade80;
+    --green-glow: rgba(74, 222, 128, 0.4);
+    --amber: #e8a73c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-0);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: minmax(520px, 1.45fr) minmax(380px, 1fr);
+    height: 100vh;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ===== LEFT: STAGE ===== */
+  .stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(91, 106, 138, 0.2);
+  }
+
+  .stage-header {
+    padding: 18px 28px 10px;
+    border-bottom: 1px solid rgba(91, 106, 138, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .stage-header .tag {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  .stage-header .doc-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .stage-header .doc-id {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+  }
+
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+  }
+
+  svg.circuit {
+    width: 100%;
+    height: 100%;
+    max-width: 720px;
+    max-height: 540px;
+  }
+
+  .controls {
+    padding: 16px 28px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid rgba(91, 106, 138, 0.15);
+    background: rgba(0,0,0,0.2);
+  }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid rgba(91, 106, 138, 0.4);
+    padding: 9px 16px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-transform: uppercase;
+  }
+  button:hover:not(:disabled) {
+    color: var(--ink);
+    border-color: var(--ink-dim);
+    background: rgba(255,255,255,0.03);
+  }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.primary {
+    background: var(--gold);
+    color: var(--bg-0);
+    border-color: var(--gold);
+    font-weight: 700;
+  }
+  button.primary:hover:not(:disabled) {
+    background: #ffd566;
+    border-color: #ffd566;
+  }
+  button.replay {
+    margin-left: auto;
+    border-color: rgba(74, 222, 128, 0.4);
+    color: var(--green);
+  }
+  button.replay:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.08);
+    border-color: var(--green);
+  }
+
+  .progress {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin: 0 12px;
+  }
+  .progress-tick {
+    flex: 1;
+    height: 2px;
+    background: rgba(91, 106, 138, 0.25);
+    transition: background 0.3s, transform 0.3s;
+    transform-origin: left;
+  }
+  .progress-tick.done { background: var(--ink-faint); }
+  .progress-tick.active { background: var(--gold); transform: scaleY(2); }
+
+  /* ===== RIGHT: PANEL ===== */
+  .panel {
+    background:
+      radial-gradient(ellipse at top right, rgba(244, 197, 66, 0.04), transparent 60%),
+      var(--bg-1);
+    padding: 32px 36px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91, 106, 138, 0.3); border-radius: 3px; }
+
+  .step-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(91, 106, 138, 0.15);
+    padding-bottom: 16px;
+  }
+  .step-num {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .step-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 1.2;
+    color: var(--ink);
+    letter-spacing: -0.015em;
+  }
+
+  .content {
+    animation: slideIn 0.5s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .content p {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--ink-dim);
+    margin-bottom: 14px;
+  }
+  .content strong { color: var(--ink); font-weight: 600; }
+  .content em { font-style: normal; color: var(--gold); }
+
+  .content ul {
+    list-style: none;
+    margin: 12px 0 16px;
+  }
+  .content ul li {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    padding: 6px 0 6px 18px;
+    position: relative;
+  }
+  .content ul li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .eq-block {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(244, 197, 66, 0.18);
+    border-left: 2px solid var(--gold);
+    padding: 14px 18px;
+    margin: 12px 0;
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.85;
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  .eq-block.coral { border-left-color: var(--coral); border-color: rgba(242,95,92,0.18); }
+  .eq-block.cyan  { border-left-color: var(--cyan);  border-color: rgba(77,208,225,0.18); }
+  .eq-block .hi-coral { color: var(--coral); }
+  .eq-block .hi-cyan  { color: var(--cyan); }
+  .eq-block .hi-gold  { color: var(--gold); }
+  .eq-block .hi-green { color: var(--green); }
+  .eq-block .hi-dim   { color: var(--ink-faint); }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .badge.kcl   { background: rgba(74, 222, 128, 0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+  .badge.kvl-l { background: rgba(242, 95, 92, 0.12); color: var(--coral); border: 1px solid rgba(242,95,92,0.3); }
+  .badge.kvl-r { background: rgba(77, 208, 225, 0.12); color: var(--cyan);  border: 1px solid rgba(77,208,225,0.3); }
+  .badge.solve { background: rgba(244, 197, 66, 0.12); color: var(--gold);  border: 1px solid rgba(244,197,66,0.3); }
+
+  .result-card {
+    margin-top: 18px;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(74,222,128,0.12), rgba(244,197,66,0.06));
+    border: 1px solid rgba(74,222,128,0.4);
+    border-radius: 4px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(74,222,128,0.15), transparent 70%);
+    animation: pulseGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .result-card .result-label {
+    position: relative;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--green);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .result-card .result-value {
+    position: relative;
+    font-family: 'Fraunces', serif;
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .result-card .result-value .unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--green);
+    margin-left: 6px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .summary-item {
+    background: rgba(0,0,0,0.3);
+    padding: 12px 10px;
+    border-radius: 2px;
+    text-align: center;
+    border: 1px solid rgba(91,106,138,0.2);
+  }
+  .summary-item .label {
+    font-size: 10px;
+    color: var(--ink-faint);
+    margin-bottom: 4px;
+    letter-spacing: 0.1em;
+  }
+  .summary-item .value {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .summary-item .value.neg { color: var(--coral); }
+  .summary-item .dir {
+    font-size: 10px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+
+  /* ===== SVG STYLING ===== */
+  .wire { stroke: var(--wire); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+  .node { fill: var(--bg-1); stroke: var(--wire); stroke-width: 2; transition: all 0.4s; }
+  .node.highlight {
+    fill: var(--green);
+    stroke: var(--green);
+    r: 9;
+    filter: drop-shadow(0 0 12px var(--green-glow));
+  }
+
+  .label {
+    fill: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .label-dim {
+    fill: var(--ink-faint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  /* Battery */
+  .bat-long { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+  .bat-short { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+  .bat-pol-pos { fill: var(--coral); font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .bat-pol-neg { fill: var(--cyan); font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  /* Resistor (zigzag) */
+  .resistor { stroke: var(--amber); stroke-width: 2.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+
+  /* Ammeter */
+  .ammeter-circle {
+    fill: var(--bg-1);
+    stroke: var(--gold);
+    stroke-width: 2.5;
+    transition: all 0.5s;
+  }
+  .ammeter-circle.glow {
+    filter: drop-shadow(0 0 12px var(--gold-glow));
+    animation: amGlow 2.4s ease-in-out infinite;
+  }
+  .ammeter-circle.live {
+    fill: var(--gold);
+  }
+  @keyframes amGlow {
+    0%, 100% { filter: drop-shadow(0 0 6px var(--gold-glow)); }
+    50%      { filter: drop-shadow(0 0 18px var(--gold-glow)); }
+  }
+  .ammeter-letter {
+    fill: var(--gold);
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: fill 0.4s;
+  }
+  .ammeter-letter.live { fill: var(--bg-0); }
+  .ammeter-reading {
+    fill: var(--bg-0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .ammeter-reading.show { opacity: 1; }
+
+  /* Current direction arrows */
+  .iarrow { opacity: 0; transition: opacity 0.6s ease; }
+  .iarrow.visible { opacity: 1; }
+  .iarrow line, .iarrow path { stroke: var(--green); fill: var(--green); stroke-width: 2; }
+  .iarrow text {
+    fill: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  /* Loop trace */
+  .loop-trace {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .loop-trace.left  { stroke: var(--coral); filter: drop-shadow(0 0 8px var(--coral-glow)); }
+  .loop-trace.right { stroke: var(--cyan);  filter: drop-shadow(0 0 8px var(--cyan-glow)); }
+
+  /* Direction indicator on loop */
+  .loop-dir { opacity: 0; transition: opacity 0.4s; }
+  .loop-dir.visible { opacity: 1; }
+  .loop-dir.left text  { fill: var(--coral); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; }
+  .loop-dir.right text { fill: var(--cyan);  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; }
+
+  /* Particle */
+  .particle {
+    fill: var(--gold);
+    filter: drop-shadow(0 0 4px var(--gold));
+  }
+
+  /* Frame decoration */
+  .frame-corner {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    fill: none;
+    opacity: 0.4;
+  }
+
+  @media (max-width: 880px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 60% 40%; }
+    .stage { border-right: none; border-bottom: 1px solid rgba(91, 106, 138, 0.2); }
+    .panel { padding: 20px; }
+    .step-title { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ==================== STAGE ==================== -->
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Circuit Analysis</div>
+        <div class="doc-title">Kirchhoff — Two-Loop Network</div>
+      </div>
+      <div class="doc-id">DOC · 06 / KVL-KCL</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <svg class="circuit" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid meet">
+        <!-- Frame corners -->
+        <path class="frame-corner" d="M 20 20 L 20 50 M 20 20 L 50 20"/>
+        <path class="frame-corner" d="M 780 20 L 780 50 M 780 20 L 750 20"/>
+        <path class="frame-corner" d="M 20 520 L 20 490 M 20 520 L 50 520"/>
+        <path class="frame-corner" d="M 780 520 L 780 490 M 780 520 L 750 520"/>
+
+        <!-- Node labels -->
+        <text x="400" y="58" class="label-dim" text-anchor="middle">NODE A</text>
+        <text x="400" y="478" class="label-dim" text-anchor="middle">NODE B</text>
+
+        <!-- ==== WIRES ==== -->
+        <g class="wires">
+          <!-- Horizontal -->
+          <path class="wire" d="M 150 80 L 650 80"/>
+          <path class="wire" d="M 150 460 L 650 460"/>
+          <!-- Left vertical (around battery y=200, resistor y=320) -->
+          <path class="wire" d="M 150 80 L 150 175"/>
+          <path class="wire" d="M 150 225 L 150 290"/>
+          <path class="wire" d="M 150 350 L 150 460"/>
+          <!-- Middle vertical (around ammeter y=170, resistor y=320) -->
+          <path class="wire" d="M 400 80 L 400 145"/>
+          <path class="wire" d="M 400 195 L 400 290"/>
+          <path class="wire" d="M 400 350 L 400 460"/>
+          <!-- Right vertical (around resistor y=200, battery y=340) -->
+          <path class="wire" d="M 650 80 L 650 170"/>
+          <path class="wire" d="M 650 230 L 650 315"/>
+          <path class="wire" d="M 650 365 L 650 460"/>
+        </g>
+
+        <!-- ==== LOOP TRACES (drawn before components so components show on top) ==== -->
+        <path id="leftLoop"  class="loop-trace left"  d="M 150 460 L 150 80 L 400 80 L 400 460 L 150 460"/>
+        <path id="rightLoop" class="loop-trace right" d="M 400 460 L 400 80 L 650 80 L 650 460 L 400 460"/>
+
+        <!-- ==== JUNCTION NODES ==== -->
+        <circle cx="150" cy="80"  r="5" class="node"/>
+        <circle cx="650" cy="80"  r="5" class="node"/>
+        <circle cx="150" cy="460" r="5" class="node"/>
+        <circle cx="650" cy="460" r="5" class="node"/>
+        <circle id="nodeA" cx="400" cy="80"  r="6" class="node"/>
+        <circle id="nodeB" cx="400" cy="460" r="6" class="node"/>
+
+        <!-- ==== COMPONENTS ==== -->
+
+        <!-- ε₁ : long line on top (positive at top) -->
+        <g transform="translate(150, 200)">
+          <line x1="-22" y1="-12" x2="22" y2="-12" class="bat-long"/>
+          <line x1="-12" y1="0"   x2="12"  y2="0"  class="bat-short"/>
+          <line x1="-22" y1="12"  x2="22"  y2="12" class="bat-long"/>
+          <line x1="-12" y1="24"  x2="12"  y2="24" class="bat-short"/>
+          <text x="-32" y="-14" class="bat-pol-pos" text-anchor="end">+</text>
+          <text x="-32" y="29"  class="bat-pol-neg" text-anchor="end">−</text>
+          <text x="38"  y="0"   class="label" text-anchor="start">ε₁ = 10 V</text>
+        </g>
+
+        <!-- R₁ : zigzag resistor -->
+        <g transform="translate(150, 320)">
+          <path class="resistor" d="M 0 -28 L -10 -22 L 10 -14 L -10 -6 L 10 2 L -10 10 L 10 18 L 0 28"/>
+          <text x="-22" y="4" class="label" text-anchor="end">R₁ = 3 Ω</text>
+        </g>
+
+        <!-- Ammeter -->
+        <g id="ammeter" transform="translate(400, 170)">
+          <circle r="25" class="ammeter-circle"/>
+          <text class="ammeter-letter" id="amLetter">A</text>
+          <text class="ammeter-reading" id="amReading">1.0 A</text>
+        </g>
+
+        <!-- R₂ -->
+        <g transform="translate(400, 320)">
+          <path class="resistor" d="M 0 -28 L -10 -22 L 10 -14 L -10 -6 L 10 2 L -10 10 L 10 18 L 0 28"/>
+          <text x="22" y="4" class="label" text-anchor="start">R₂ = 4 Ω</text>
+        </g>
+
+        <!-- R₃ -->
+        <g transform="translate(650, 200)">
+          <path class="resistor" d="M 0 -28 L -10 -22 L 10 -14 L -10 -6 L 10 2 L -10 10 L 10 18 L 0 28"/>
+          <text x="22" y="4" class="label" text-anchor="start">R₃ = 2 Ω</text>
+        </g>
+
+        <!-- ε₂ : positive at top -->
+        <g transform="translate(650, 340)">
+          <line x1="-22" y1="-12" x2="22" y2="-12" class="bat-long"/>
+          <line x1="-12" y1="0"   x2="12"  y2="0"  class="bat-short"/>
+          <text x="-32" y="-8"  class="bat-pol-pos" text-anchor="end">+</text>
+          <text x="-32" y="6"   class="bat-pol-neg" text-anchor="end">−</text>
+          <text x="32"  y="-2"  class="label" text-anchor="start">ε₂ = 2 V</text>
+        </g>
+
+        <!-- ==== LOOP DIRECTION INDICATORS ==== -->
+        <g id="leftLoopDir" class="loop-dir left">
+          <text x="275" y="74" text-anchor="middle">↻ CLOCKWISE</text>
+        </g>
+        <g id="rightLoopDir" class="loop-dir right">
+          <text x="525" y="74" text-anchor="middle">↻ CLOCKWISE</text>
+        </g>
+
+        <!-- ==== CURRENT ARROWS ==== -->
+        <!-- I₁ on left branch, pointing UP (assumed direction) -->
+        <g class="iarrow" id="arrI1" transform="translate(112, 415)">
+          <path d="M 0 -10 L -5 0 L 5 0 Z"/>
+          <line x1="0" y1="0" x2="0" y2="20"/>
+          <text x="-22" y="14" text-anchor="end">I₁</text>
+        </g>
+        <!-- I₂ on middle branch, pointing DOWN -->
+        <g class="iarrow" id="arrI2" transform="translate(362, 240)">
+          <line x1="0" y1="0" x2="0" y2="20"/>
+          <path d="M 0 30 L -5 20 L 5 20 Z"/>
+          <text x="-12" y="18" text-anchor="end">I₂</text>
+        </g>
+        <!-- I₃ on right branch, pointing UP (assumed direction) -->
+        <g class="iarrow" id="arrI3" transform="translate(688, 415)">
+          <path d="M 0 -10 L -5 0 L 5 0 Z"/>
+          <line x1="0" y1="0" x2="0" y2="20"/>
+          <text x="14" y="14" text-anchor="start">I₃</text>
+        </g>
+
+        <!-- ==== PARTICLES (final step) ==== -->
+        <g id="particles"></g>
+
+      </svg>
+    </div>
+
+    <div class="controls">
+      <button id="prevBtn">◀ Prev</button>
+      <button id="playBtn" class="primary">▶ Play</button>
+      <button id="nextBtn">Next ▶</button>
+      <div class="progress" id="progress"></div>
+      <button id="replayBtn" class="replay">↻ Replay</button>
+    </div>
+  </div>
+
+  <!-- ==================== PANEL ==================== -->
+  <div class="panel">
+    <div class="step-header">
+      <div class="step-num" id="stepNum">STEP 01 / 08</div>
+      <div class="step-title" id="stepTitle">The Circuit</div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+//   PROBLEM PARAMETERS  (chosen for clean integer answer)
+// ------------------------------------------------------------
+//   ε₁ = 10 V,  R₁ = 3 Ω    (left branch)
+//   R₂ = 4 Ω                (middle branch, ammeter)
+//   ε₂ = 2 V,   R₃ = 2 Ω    (right branch)
+//
+//   Solution:
+//     I₁ = +2 A    (up, as assumed)
+//     I₂ = +1 A    (down through ammeter — answer)
+//     I₃ = −1 A    (assumed direction was wrong)
+// ============================================================
+
+const STEPS = [
+  {
+    num: 'STEP 01 / 08',
+    title: 'The Circuit',
+    html: `
+      <p>Two batteries drive current through three branches between nodes <strong>A</strong> (top) and <strong>B</strong> (bottom). The <em>ammeter</em> sits in the middle branch — our job is to read it.</p>
+      <div class="eq-block">
+<span class="hi-dim">Given:</span>
+ε₁ = 10 V,   R₁ = 3 Ω
+R₂ = 4 Ω           <span class="hi-gold">← ammeter branch</span>
+ε₂ = 2 V,    R₃ = 2 Ω
+
+<span class="hi-dim">Find:</span>  I₂  through the ammeter</div>
+      <p>Two unknown loops, three unknown currents, two laws to invoke.</p>
+    `,
+    enter() {
+      $('#ammeter .ammeter-circle').classList.add('glow');
+      hideAllArrows();
+      hideLoopTraces();
+      hideLoopDirs();
+      stopParticles();
+      $('#nodeA').classList.remove('highlight');
+      $('#amReading').classList.remove('show');
+      $('#ammeter .ammeter-circle').classList.remove('live');
+      $('#amLetter').classList.remove('live');
+    }
+  },
+  {
+    num: 'STEP 02 / 08',
+    title: 'Pick Current Directions',
+    html: `
+      <p>Before any algebra, we <em>guess</em> a direction for each branch current. If we guess wrong, the answer simply comes out negative — Kirchhoff doesn't punish bad guesses.</p>
+      <ul>
+        <li><strong>I₁</strong> &nbsp;— assumed flowing <em>up</em> the left branch</li>
+        <li><strong>I₂</strong> &nbsp;— assumed flowing <em>down</em> through the ammeter</li>
+        <li><strong>I₃</strong> &nbsp;— assumed flowing <em>up</em> the right branch</li>
+      </ul>
+      <p>Three unknowns. We need three independent equations.</p>
+    `,
+    enter() {
+      $('#ammeter .ammeter-circle').classList.add('glow');
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      hideLoopTraces();
+      hideLoopDirs();
+      $('#nodeA').classList.remove('highlight');
+    }
+  },
+  {
+    num: 'STEP 03 / 08',
+    title: 'Kirchhoff\'s Current Law',
+    html: `
+      <span class="badge kcl">KCL · NODE A</span>
+      <p>At node A: charge in = charge out. Currents <strong>I₁</strong> and <strong>I₃</strong> flow <em>into</em> the node; <strong>I₂</strong> flows <em>out</em>.</p>
+      <div class="eq-block">
+<span class="hi-green">I₁ + I₃ = I₂</span>          <span class="hi-dim">… (1)</span></div>
+      <p>That's our first equation. The same junction at node B gives the same relation — it is not independent.</p>
+    `,
+    enter() {
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      $('#nodeA').classList.add('highlight');
+      hideLoopTraces();
+      hideLoopDirs();
+    },
+    exit() {
+      $('#nodeA').classList.remove('highlight');
+    }
+  },
+  {
+    num: 'STEP 04 / 08',
+    title: 'KVL — Left Loop',
+    html: `
+      <span class="badge kvl-l">KVL · LEFT</span>
+      <p>Walk <em>clockwise</em> around the left loop, summing voltages. Sign convention: traversing a battery from − to + gains ε; traversing a resistor with the current direction loses I·R.</p>
+      <div class="eq-block coral">
+<span class="hi-coral">↑ through ε₁:</span>   +10 V       <span class="hi-dim">(− to +)</span>
+<span class="hi-coral">↑ through R₁:</span>   −3·I₁       <span class="hi-dim">(with I₁)</span>
+<span class="hi-coral">→ top wire:</span>    0
+<span class="hi-coral">↓ through R₂:</span>   −4·I₂       <span class="hi-dim">(with I₂)</span>
+
+  10 − 3I₁ − 4I₂ = 0
+<span class="hi-coral">⇒ 3I₁ + 4I₂ = 10</span>     <span class="hi-dim">… (2)</span></div>
+    `,
+    enter() {
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      $('#nodeA').classList.remove('highlight');
+      hideLoopTraces();
+      animateLoopTrace('leftLoop', 3000);
+      $('#leftLoopDir').classList.add('visible');
+      $('#rightLoopDir').classList.remove('visible');
+    },
+    exit() {
+      $('#leftLoopDir').classList.remove('visible');
+    }
+  },
+  {
+    num: 'STEP 05 / 08',
+    title: 'KVL — Right Loop',
+    html: `
+      <span class="badge kvl-r">KVL · RIGHT</span>
+      <p>Same technique, right loop, walking <em>clockwise</em> from node B.</p>
+      <div class="eq-block cyan">
+<span class="hi-cyan">↑ through R₂:</span>   +4·I₂       <span class="hi-dim">(against I₂)</span>
+<span class="hi-cyan">→ top wire:</span>    0
+<span class="hi-cyan">↓ through R₃:</span>   +2·I₃       <span class="hi-dim">(against I₃)</span>
+<span class="hi-cyan">↓ through ε₂:</span>   −2 V        <span class="hi-dim">(+ to −)</span>
+
+  4I₂ + 2I₃ − 2 = 0
+<span class="hi-cyan">⇒ 2I₃ + 4I₂ = 2</span>     <span class="hi-dim">… (3)</span></div>
+    `,
+    enter() {
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      hideLoopTraces();
+      animateLoopTrace('rightLoop', 3000);
+      $('#rightLoopDir').classList.add('visible');
+      $('#leftLoopDir').classList.remove('visible');
+    },
+    exit() {
+      $('#rightLoopDir').classList.remove('visible');
+    }
+  },
+  {
+    num: 'STEP 06 / 08',
+    title: 'Three Equations, Three Unknowns',
+    html: `
+      <span class="badge solve">SYSTEM</span>
+      <p>Collecting our three equations into matrix form <strong>A·x = b</strong>:</p>
+      <div class="eq-block">
+<span class="hi-gold">⎡  1  −1   1 ⎤   ⎡ I₁ ⎤   ⎡  0 ⎤</span>
+<span class="hi-gold">⎢  3   4   0 ⎥ · ⎢ I₂ ⎥ = ⎢ 10 ⎥</span>
+<span class="hi-gold">⎣  0   4   2 ⎦   ⎣ I₃ ⎦   ⎣  2 ⎦</span>
+
+<span class="hi-dim">  Row 1 ← KCL</span>
+<span class="hi-dim">  Row 2 ← KVL left loop</span>
+<span class="hi-dim">  Row 3 ← KVL right loop</span></div>
+      <p>The determinant is nonzero, so this has a unique solution.</p>
+    `,
+    enter() {
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      hideLoopTraces();
+      hideLoopDirs();
+    }
+  },
+  {
+    num: 'STEP 07 / 08',
+    title: 'Solve by Substitution',
+    html: `
+      <span class="badge solve">REDUCE</span>
+      <p>From KCL: <strong>I₂ = I₁ + I₃</strong>. Substitute into the two KVL equations to eliminate I₂.</p>
+      <div class="eq-block">
+<span class="hi-coral">3I₁ + 4(I₁ + I₃) = 10</span>
+<span class="hi-coral">⇒  7I₁ + 4I₃ = 10</span>     <span class="hi-dim">… (A)</span>
+
+<span class="hi-cyan">4(I₁ + I₃) + 2I₃ = 2</span>
+<span class="hi-cyan">⇒  2I₁ + 3I₃ = 1</span>      <span class="hi-dim">… (B)</span></div>
+
+      <p>Eliminate I₁: multiply (A)·2 − (B)·7.</p>
+      <div class="eq-block">
+14I₁ +  8I₃ = 20
+14I₁ + 21I₃ =  7
+─────────────────
+       −13I₃ = 13
+<span class="hi-green">    ⇒ I₃ = −1 A</span>
+
+<span class="hi-dim">Back-substitute:</span>
+2I₁ + 3(−1) = 1   <span class="hi-green">⇒ I₁ = +2 A</span>
+I₂ = I₁ + I₃     <span class="hi-green">⇒ I₂ = +1 A</span></div>
+    `,
+    enter() {
+      ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.add('visible'));
+      hideLoopTraces();
+      hideLoopDirs();
+    }
+  },
+  {
+    num: 'STEP 08 / 08',
+    title: 'The Ammeter Reads',
+    html: `
+      <p>Current is now flowing — the gold trail is the ammeter branch reading.</p>
+      <div class="result-card">
+        <div class="result-label">Ammeter Current</div>
+        <div class="result-value">1<span class="unit">A</span></div>
+      </div>
+      <p style="margin-top:18px"><strong>I₃ came out negative</strong> — meaning our assumed upward direction was wrong. The current actually flows <em>downward</em> in the right branch. The magnitude (1 A) is correct; only the sign tells us we guessed the direction wrong.</p>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="label">I₁</div>
+          <div class="value">2 A</div>
+          <div class="dir">↑ up (correct)</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">I₂</div>
+          <div class="value" style="color:var(--gold)">1 A</div>
+          <div class="dir">↓ down (ammeter)</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">I₃</div>
+          <div class="value neg">−1 A</div>
+          <div class="dir">↓ actually down</div>
+        </div>
+      </div>
+    `,
+    enter() {
+      hideAllArrows();
+      hideLoopTraces();
+      hideLoopDirs();
+      $('#nodeA').classList.remove('highlight');
+      $('#ammeter .ammeter-circle').classList.add('glow', 'live');
+      $('#amLetter').classList.add('live');
+      $('#amReading').classList.add('show');
+      $('#amLetter').style.opacity = '0';
+      startParticles();
+    },
+    exit() {
+      stopParticles();
+      $('#ammeter .ammeter-circle').classList.remove('live');
+      $('#amLetter').classList.remove('live');
+      $('#amLetter').style.opacity = '1';
+      $('#amReading').classList.remove('show');
+    }
+  }
+];
+
+// ============================================================
+//   HELPERS
+// ============================================================
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+function hideAllArrows() {
+  ['arrI1','arrI2','arrI3'].forEach(id => $('#'+id).classList.remove('visible'));
+}
+function hideLoopTraces() {
+  ['leftLoop','rightLoop'].forEach(id => {
+    const p = $('#'+id);
+    p.style.opacity = '0';
+    p.style.transition = 'none';
+    p.style.strokeDashoffset = '';
+    p.style.strokeDasharray = '';
+  });
+}
+function hideLoopDirs() {
+  $('#leftLoopDir').classList.remove('visible');
+  $('#rightLoopDir').classList.remove('visible');
+}
+
+function animateLoopTrace(id, durationMs) {
+  const path = $('#'+id);
+  const len = path.getTotalLength();
+  // reset
+  path.style.transition = 'none';
+  path.style.strokeDasharray = len;
+  path.style.strokeDashoffset = len;
+  path.style.opacity = '1';
+  // force reflow
+  void path.getBoundingClientRect();
+  // animate
+  path.style.transition = `stroke-dashoffset ${durationMs}ms cubic-bezier(0.65, 0, 0.35, 1)`;
+  path.style.strokeDashoffset = '0';
+}
+
+// ============================================================
+//   PARTICLES (current flow visualization)
+//   Actual currents:
+//     left branch:  2A up
+//     middle:       1A down
+//     right branch: 1A down
+//
+//   Two particle streams, one per loop, ratio 1:1
+//   shared on left branch (so left has 2× density).
+// ============================================================
+const NS = 'http://www.w3.org/2000/svg';
+let particleTimer = null;
+
+function startParticles() {
+  const g = $('#particles');
+  g.innerHTML = '';
+  // Path 1: outer left+middle loop (clockwise = up-left, across, down-mid, across)
+  const path1 = "M 150 460 L 150 80 L 400 80 L 400 460 L 150 460";
+  // Path 2: outer left+right loop (up-left, across full top, down-right, across full bottom)
+  const path2 = "M 150 460 L 150 80 L 650 80 L 650 460 L 150 460";
+
+  const cfg = [
+    { path: path1, dur: 4.0, offset:  0   },
+    { path: path1, dur: 4.0, offset: -2.0 },
+    { path: path2, dur: 4.0, offset: -1.0 },
+    { path: path2, dur: 4.0, offset: -3.0 }
+  ];
+
+  cfg.forEach(c => {
+    const circ = document.createElementNS(NS, 'circle');
+    circ.setAttribute('r', '5');
+    circ.setAttribute('class', 'particle');
+    circ.setAttribute('cx', '150');
+    circ.setAttribute('cy', '460');
+
+    const am = document.createElementNS(NS, 'animateMotion');
+    am.setAttribute('dur', c.dur + 's');
+    am.setAttribute('repeatCount', 'indefinite');
+    am.setAttribute('path', c.path);
+    am.setAttribute('begin', c.offset + 's');
+    circ.appendChild(am);
+
+    g.appendChild(circ);
+  });
+}
+
+function stopParticles() {
+  $('#particles').innerHTML = '';
+}
+
+// ============================================================
+//   STEPPER
+// ============================================================
+let curStep = 0;
+let isPlaying = false;
+let playTimer = null;
+const PLAY_INTERVAL = 6500;
+
+function buildProgress() {
+  const wrap = $('#progress');
+  wrap.innerHTML = '';
+  STEPS.forEach((_, i) => {
+    const t = document.createElement('div');
+    t.className = 'progress-tick';
+    wrap.appendChild(t);
+  });
+}
+
+function updateProgress() {
+  $$('.progress-tick').forEach((t, i) => {
+    t.classList.toggle('active', i === curStep);
+    t.classList.toggle('done', i < curStep);
+  });
+}
+
+function showStep(idx, dir = 1) {
+  // exit current
+  if (STEPS[curStep] && STEPS[curStep].exit) STEPS[curStep].exit();
+
+  curStep = Math.max(0, Math.min(STEPS.length - 1, idx));
+  const step = STEPS[curStep];
+
+  $('#stepNum').textContent = step.num;
+  $('#stepTitle').textContent = step.title;
+  // re-trigger slideIn animation
+  const c = $('#content');
+  c.style.animation = 'none';
+  void c.offsetWidth;
+  c.style.animation = '';
+  c.innerHTML = step.html;
+
+  if (step.enter) step.enter();
+  updateProgress();
+
+  $('#prevBtn').disabled = curStep === 0;
+  $('#nextBtn').disabled = curStep === STEPS.length - 1;
+}
+
+function next() {
+  if (curStep < STEPS.length - 1) showStep(curStep + 1);
+  else stopPlay();
+}
+function prev() { if (curStep > 0) showStep(curStep - 1); }
+
+function startPlay() {
+  isPlaying = true;
+  $('#playBtn').textContent = '❚❚ Pause';
+  if (curStep === STEPS.length - 1) showStep(0);
+  playTimer = setInterval(() => {
+    if (curStep === STEPS.length - 1) { stopPlay(); return; }
+    next();
+  }, PLAY_INTERVAL);
+}
+function stopPlay() {
+  isPlaying = false;
+  $('#playBtn').textContent = '▶ Play';
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+}
+function togglePlay() { isPlaying ? stopPlay() : startPlay(); }
+
+function replay() {
+  stopPlay();
+  showStep(0);
+}
+
+// ============================================================
+//   INIT
+// ============================================================
+buildProgress();
+showStep(0);
+
+$('#prevBtn').addEventListener('click', () => { stopPlay(); prev(); });
+$('#nextBtn').addEventListener('click', () => { stopPlay(); next(); });
+$('#playBtn').addEventListener('click', togglePlay);
+$('#replayBtn').addEventListener('click', replay);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { stopPlay(); next(); }
+  if (e.key === 'ArrowLeft')  { stopPlay(); prev(); }
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'r' || e.key === 'R') replay();
+});
+</script>
+</body>
+</html>

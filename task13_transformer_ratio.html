@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer Ratio — Solving for N₂</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80;
+    --copper:#d97706; --copper-light:#fbbf24; --core:#475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.45fr 1fr; height: 100vh; max-width: 1600px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+  .canvas-wrap { flex: 1; padding: 18px 28px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .scene { flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px; background: linear-gradient(180deg, rgba(13,20,30,0.8), rgba(8,12,18,0.8)); position: relative; }
+  .scene svg { width: 100%; height: 100%; display: block; }
+
+  .counter-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .counter {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(91,106,138,0.25);
+    border-radius: 4px; padding: 14px 18px;
+  }
+  .counter .lbl { font-size: 9px; letter-spacing: 0.25em; color: var(--ink-faint); margin-bottom: 4px; }
+  .counter .val { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; }
+  .counter .val.pri { color: var(--coral); }
+  .counter .val.sec { color: var(--cyan); }
+  .counter .val.gold { color: var(--gold); }
+
+  .controls { padding: 16px 28px 20px; display: flex; gap: 10px; align-items: center; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  button.replay { margin-left: auto; border-color: rgba(74,222,128,0.4); color: var(--green); }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(244,197,66,0.04), transparent 60%), var(--bg-1); padding: 32px 36px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .panel-section { margin-bottom: 26px; }
+  .panel-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin-bottom: 12px; }
+  .panel-section .lead { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .panel-section p { font-size: 13.5px; line-height: 1.65; color: var(--ink-dim); margin-bottom: 12px; }
+  .panel-section strong { color: var(--ink); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 14px 18px; margin: 10px 0; border-radius: 2px; font-size: 13px; line-height: 1.85; white-space: pre-wrap; }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+  .eq-block .hi-c { color: var(--coral); }
+  .eq-block .hi-v { color: var(--cyan); }
+  .eq-block .hi-gn { color: var(--green); }
+  .eq-block .blink { animation: blink 1.5s ease infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  .result-card { padding: 24px; background: linear-gradient(135deg, rgba(74,222,128,0.12), rgba(244,197,66,0.06)); border: 1px solid rgba(74,222,128,0.4); border-radius: 4px; text-align: center; }
+  .result-card .lbl { font-size: 10px; letter-spacing: 0.3em; color: var(--green); margin-bottom: 6px; text-transform: uppercase; }
+  .result-card .v { font-family: 'Fraunces', serif; font-size: 44px; font-weight: 800; color: var(--ink); }
+  .result-card .u { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--green); margin-left: 6px; }
+
+  /* SVG */
+  .core { fill: var(--core); stroke: #1e293b; stroke-width: 1.5; }
+  .coil-wire-pri { stroke: var(--copper); stroke-width: 2; fill: none; stroke-linecap: round; opacity: 0.6; }
+  .coil-wire-sec { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(77,208,225,0.5)); }
+  .label { fill: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .label.dim { fill: var(--ink-faint); font-size: 11px; }
+  .wire { stroke: var(--ink-faint); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Turn Counting</div>
+        <div class="doc-title">Step-Down · 120 V → 9 V</div>
+      </div>
+      <div class="doc-id">DOC · 13 / FIND-N₂</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="scene">
+        <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+          <!-- Iron core -->
+          <rect x="280" y="80" width="240" height="240" rx="8" class="core"/>
+          <rect x="320" y="120" width="160" height="160" rx="4" fill="var(--bg-0)"/>
+
+          <!-- Primary coil: dense, fixed (400 turns shown as many faint loops) -->
+          <g id="primaryCoil"></g>
+
+          <!-- Secondary coil: drawn dynamically via JS -->
+          <g id="secondaryCoil"></g>
+
+          <!-- Primary input wires -->
+          <path class="wire" d="M 270 105 L 270 50 L 80 50 L 80 95"/>
+          <path class="wire" d="M 270 295 L 270 360 L 80 360 L 80 305"/>
+          <g transform="translate(80, 130)">
+            <circle r="22" fill="var(--bg-1)" stroke="var(--coral)" stroke-width="2"/>
+            <text x="0" y="5" fill="var(--coral)" text-anchor="middle" font-family="JetBrains Mono" font-size="14">~</text>
+            <text x="0" y="-32" class="label" text-anchor="middle">PRIMARY</text>
+            <text x="0" y="42" fill="var(--coral)" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700">120 V</text>
+          </g>
+
+          <!-- Secondary output wires -->
+          <path class="wire" d="M 530 130 L 530 50 L 720 50 L 720 145"/>
+          <path class="wire" d="M 530 270 L 530 360 L 720 360 L 720 280"/>
+          <g transform="translate(720, 215)">
+            <rect x="-30" y="-40" width="60" height="80" fill="var(--bg-1)" stroke="var(--cyan)" stroke-width="2" rx="4"/>
+            <text x="0" y="0" fill="var(--cyan)" text-anchor="middle" font-family="JetBrains Mono" font-size="13" font-weight="700">9 V</text>
+            <text x="0" y="18" fill="var(--cyan)" text-anchor="middle" font-family="JetBrains Mono" font-size="11">LOAD</text>
+            <text x="0" y="-58" class="label" text-anchor="middle">SECONDARY</text>
+          </g>
+
+          <!-- Counters above coils -->
+          <text x="270" y="70" class="label dim" text-anchor="middle">N₁ = 400 turns</text>
+          <text id="n2Label" x="530" y="115" class="label dim" text-anchor="middle">N₂ = 0 turns</text>
+
+          <!-- Hint label that fills in during animation -->
+          <text id="winder" x="530" y="200" fill="var(--cyan)" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700" opacity="0">winding…</text>
+        </svg>
+      </div>
+
+      <div class="counter-row">
+        <div class="counter">
+          <div class="lbl">N₁ · PRIMARY</div>
+          <div class="val pri">400</div>
+        </div>
+        <div class="counter">
+          <div class="lbl">N₂ · WOUND</div>
+          <div class="val sec" id="n2Counter">0</div>
+        </div>
+        <div class="counter">
+          <div class="lbl">RATIO V₂/V₁</div>
+          <div class="val gold" id="ratioCounter">0/400</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="windBtn" class="primary">↻ Begin Winding</button>
+      <button id="resetBtn">⟲ Reset</button>
+      <button id="instantBtn" class="replay">⚡ Instant 30</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">
+      <div class="lead">PROBLEM</div>
+      <h2>How many secondary turns?</h2>
+      <p>A transformer steps <strong>120 V AC</strong> down to <strong>9 V AC</strong>. The primary coil has <strong>400 turns</strong>. Find N₂.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">RELATIONSHIP</div>
+      <p>Voltages and turns scale together:</p>
+      <div class="eq-block">
+<span class="hi-v">V₁ / V₂</span> = <span class="hi-g">N₁ / N₂</span></div>
+      <p>Solve for N₂:</p>
+      <div class="eq-block">
+<span class="hi-g">N₂</span> = N₁ · (V₂ / V₁)</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">SUBSTITUTE</div>
+      <div class="eq-block">
+<span class="hi-g">N₂</span> = 400 · (9 / 120)
+   = 400 · 0.075
+   = <span class="hi-gn">30 turns</span></div>
+      <p>The watch the secondary coil grow loop-by-loop on the right leg of the core.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="result-card">
+        <div class="lbl">SECONDARY TURN COUNT</div>
+        <div class="v">30<span class="u">turns</span></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">VERIFY THE RATIO</div>
+      <div class="eq-block">
+N₁ : N₂  =  400 : 30  =  <span class="hi-gn">40 : 3</span>
+V₁ : V₂  =  120 : 9   =  <span class="hi-gn">40 : 3</span>     ✓</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">WHY IT WORKS</div>
+      <p>Each turn of either coil sees the <em>same</em> changing magnetic flux through the core. So the EMF per turn is identical on both sides — the only thing that differs is how many turns you sum across.</p>
+      <p>1 turn → 0.3 V (here). 400 of those gives 120 V. 30 of those gives 9 V. Same volts-per-turn, different counts.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const $ = sel => document.querySelector(sel);
+const NS = 'http://www.w3.org/2000/svg';
+
+const N1 = 400;
+const TARGET_N2 = 30;
+const V1 = 120, V2 = 9;
+
+// ===== build dense primary coil (visual only, ~30 visible loops representing 400) =====
+function buildPrimary() {
+  const g = $('#primaryCoil');
+  g.innerHTML = '';
+  const TOP = 110, BOTTOM = 290;
+  const visualLoops = 28;
+  for (let i = 0; i < visualLoops; i++) {
+    const y0 = TOP + (i / visualLoops) * (BOTTOM - TOP);
+    const y1 = y0 + ((BOTTOM - TOP) / visualLoops);
+    const back = document.createElementNS(NS, 'path');
+    back.setAttribute('d', `M 270 ${y0} Q 250 ${(y0+y1)/2} 270 ${y1}`);
+    back.setAttribute('class', 'coil-wire-pri');
+    g.appendChild(back);
+    const front = document.createElementNS(NS, 'path');
+    front.setAttribute('d', `M 270 ${y0} Q 290 ${(y0+y1)/2} 270 ${y1}`);
+    front.setAttribute('class', 'coil-wire-pri');
+    g.appendChild(front);
+  }
+}
+buildPrimary();
+
+// ===== secondary coil grows turn-by-turn =====
+let n2 = 0;
+let winding = false;
+let windingTimer = null;
+
+function setSecondary(n) {
+  const g = $('#secondaryCoil');
+  g.innerHTML = '';
+  const TOP = 130, BOTTOM = 270;
+  const maxN = TARGET_N2;
+  for (let i = 0; i < n; i++) {
+    const y0 = TOP + (i / maxN) * (BOTTOM - TOP);
+    const y1 = y0 + ((BOTTOM - TOP) / maxN);
+    const back = document.createElementNS(NS, 'path');
+    back.setAttribute('d', `M 530 ${y0} Q 510 ${(y0+y1)/2} 530 ${y1}`);
+    back.setAttribute('class', 'coil-wire-sec');
+    g.appendChild(back);
+    const front = document.createElementNS(NS, 'path');
+    front.setAttribute('d', `M 530 ${y0} Q 550 ${(y0+y1)/2} 530 ${y1}`);
+    front.setAttribute('class', 'coil-wire-sec');
+    g.appendChild(front);
+  }
+  $('#n2Counter').textContent = n;
+  $('#n2Label').textContent = 'N₂ = ' + n + ' turn' + (n === 1 ? '' : 's');
+  $('#ratioCounter').textContent = n + '/400';
+}
+
+function startWind() {
+  if (winding) return;
+  winding = true;
+  $('#windBtn').disabled = true;
+  $('#instantBtn').disabled = true;
+  $('#winder').setAttribute('opacity', '1');
+  let i = n2;
+  const speedup = 200; // ms per turn
+  windingTimer = setInterval(() => {
+    i++;
+    setSecondary(i);
+    if (i >= TARGET_N2) {
+      clearInterval(windingTimer);
+      winding = false;
+      $('#windBtn').disabled = false;
+      $('#instantBtn').disabled = false;
+      $('#winder').setAttribute('opacity', '0');
+      n2 = TARGET_N2;
+    }
+  }, speedup);
+  n2 = i;
+}
+
+function reset() {
+  if (windingTimer) { clearInterval(windingTimer); winding = false; }
+  $('#windBtn').disabled = false;
+  $('#instantBtn').disabled = false;
+  $('#winder').setAttribute('opacity', '0');
+  n2 = 0;
+  setSecondary(0);
+}
+
+function instant() {
+  if (windingTimer) { clearInterval(windingTimer); winding = false; }
+  $('#windBtn').disabled = false;
+  $('#instantBtn').disabled = false;
+  $('#winder').setAttribute('opacity', '0');
+  n2 = TARGET_N2;
+  setSecondary(TARGET_N2);
+}
+
+$('#windBtn').addEventListener('click', startWind);
+$('#resetBtn').addEventListener('click', reset);
+$('#instantBtn').addEventListener('click', instant);
+
+setSecondary(0);
+</script>
+</body>
+</html>

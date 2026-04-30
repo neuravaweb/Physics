@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer — Voltage & Current Ratios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80;
+    --copper:#d97706; --copper-light:#fbbf24;
+    --core:#475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.45fr 1fr; height: 100vh; max-width: 1600px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+  .canvas-wrap { flex: 1; padding: 18px 28px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .scene { flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px; background: linear-gradient(180deg, rgba(13,20,30,0.8), rgba(8,12,18,0.8)); position: relative; }
+  .scene svg { width: 100%; height: 100%; display: block; }
+
+  .panel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .side-card {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(91,106,138,0.25);
+    border-radius: 4px; padding: 14px 18px;
+  }
+  .side-card.primary { border-color: rgba(242,95,92,0.3); }
+  .side-card.secondary { border-color: rgba(77,208,225,0.3); }
+  .side-card .header { font-size: 10px; letter-spacing: 0.25em; margin-bottom: 8px; }
+  .side-card.primary .header { color: var(--coral); }
+  .side-card.secondary .header { color: var(--cyan); }
+  .side-card .row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; font-size: 13px; }
+  .side-card .row .lbl { color: var(--ink-faint); }
+  .side-card .row .val { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; color: var(--ink); }
+  .side-card .row .val.acc { color: var(--gold); }
+
+  .controls { padding: 16px 28px 20px; display: flex; gap: 10px; align-items: center; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  .toggle { display: inline-flex; border: 1px solid rgba(91,106,138,0.4); border-radius: 2px; overflow: hidden; margin-left: auto; }
+  .toggle button { border: none; border-radius: 0; padding: 9px 16px; }
+  .toggle button.active { background: var(--cyan); color: var(--bg-0); border-color: var(--cyan); font-weight: 700; }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(244,197,66,0.04), transparent 60%), var(--bg-1); padding: 32px 36px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .panel-section { margin-bottom: 26px; }
+  .panel-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin-bottom: 12px; }
+  .panel-section .lead { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .panel-section p { font-size: 13.5px; line-height: 1.65; color: var(--ink-dim); margin-bottom: 12px; }
+  .panel-section strong { color: var(--ink); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 14px 18px; margin: 10px 0; border-radius: 2px; font-size: 13px; line-height: 1.85; white-space: pre-wrap; }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+  .eq-block .hi-c { color: var(--coral); }
+  .eq-block .hi-v { color: var(--cyan); }
+  .eq-block .hi-gn { color: var(--green); }
+
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result-cell {
+    padding: 16px; background: linear-gradient(135deg, rgba(244,197,66,0.1), rgba(74,222,128,0.06));
+    border: 1px solid rgba(244,197,66,0.3); border-radius: 4px; text-align: center;
+  }
+  .result-cell .lbl { font-size: 9px; letter-spacing: 0.25em; color: var(--gold); margin-bottom: 4px; text-transform: uppercase; }
+  .result-cell .v { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: var(--ink); }
+  .result-cell .u { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--gold); margin-left: 4px; }
+
+  /* SVG */
+  .core { fill: var(--core); stroke: #1e293b; stroke-width: 1.5; }
+  .core-stripe { stroke: rgba(255,255,255,0.04); stroke-width: 1; }
+  .coil-wire { stroke: var(--copper); stroke-width: 4; fill: none; stroke-linecap: round; }
+  .coil-wire-hi { stroke: var(--copper-light); stroke-width: 1.5; fill: none; opacity: 0.8; }
+  .flux-arrow { stroke: var(--cyan); stroke-width: 2; fill: var(--cyan); opacity: 0.7; filter: drop-shadow(0 0 6px rgba(77,208,225,0.5)); }
+  .label { fill: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .label.dim { fill: var(--ink-faint); font-size: 11px; }
+  .label.coral { fill: var(--coral); }
+  .label.cyan { fill: var(--cyan); }
+
+  .wave-track { fill: none; stroke-width: 2; }
+  .wave-pri { stroke: var(--coral); filter: drop-shadow(0 0 4px rgba(242,95,92,0.5)); }
+  .wave-sec { stroke: var(--cyan); filter: drop-shadow(0 0 4px rgba(77,208,225,0.5)); }
+
+  .wire { stroke: var(--ink-faint); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Magnetic Coupling</div>
+        <div class="doc-title">Step-Down Transformer · 1000 : 200</div>
+      </div>
+      <div class="doc-id">DOC · 12 / N₁N₂</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="scene">
+        <svg viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet">
+          <!-- Iron core: stylized rectangular ring -->
+          <g id="core">
+            <rect x="280" y="80" width="240" height="220" rx="8" class="core"/>
+            <rect x="320" y="120" width="160" height="140" rx="4" fill="var(--bg-0)"/>
+            <!-- core striping -->
+            <g class="core-stripe">
+              <line x1="290" y1="90" x2="510" y2="90"/>
+              <line x1="290" y1="100" x2="510" y2="100"/>
+              <line x1="290" y1="110" x2="510" y2="110"/>
+              <line x1="290" y1="270" x2="510" y2="270"/>
+              <line x1="290" y1="280" x2="510" y2="280"/>
+              <line x1="290" y1="290" x2="510" y2="290"/>
+            </g>
+          </g>
+
+          <!-- Flux arrows running through core (animated) -->
+          <g id="fluxArrows" class="flux-arrow">
+            <!-- top run, left to right -->
+            <g id="fluxTop">
+              <polygon points="0,0 10,5 0,10" transform="translate(330, 95)"/>
+              <polygon points="0,0 10,5 0,10" transform="translate(395, 95)"/>
+              <polygon points="0,0 10,5 0,10" transform="translate(460, 95)"/>
+            </g>
+            <!-- right run, top to bottom -->
+            <g id="fluxRight">
+              <polygon points="0,0 5,10 10,0" transform="translate(495, 130)"/>
+              <polygon points="0,0 5,10 10,0" transform="translate(495, 195)"/>
+              <polygon points="0,0 5,10 10,0" transform="translate(495, 260)"/>
+            </g>
+            <!-- bottom run, right to left -->
+            <g id="fluxBottom">
+              <polygon points="10,0 0,5 10,10" transform="translate(460, 285)"/>
+              <polygon points="10,0 0,5 10,10" transform="translate(395, 285)"/>
+              <polygon points="10,0 0,5 10,10" transform="translate(330, 285)"/>
+            </g>
+            <!-- left run, bottom to top -->
+            <g id="fluxLeft">
+              <polygon points="0,10 5,0 10,10" transform="translate(295, 260)"/>
+              <polygon points="0,10 5,0 10,10" transform="translate(295, 195)"/>
+              <polygon points="0,10 5,0 10,10" transform="translate(295, 130)"/>
+            </g>
+          </g>
+
+          <!-- Primary coil (left side of core) — drawn as 8 arcs around the left leg -->
+          <g id="primaryCoil">
+            <!-- back side strokes -->
+            <path class="coil-wire" d="M 270 105 Q 250 115 270 125" />
+            <path class="coil-wire" d="M 270 130 Q 250 140 270 150" />
+            <path class="coil-wire" d="M 270 155 Q 250 165 270 175" />
+            <path class="coil-wire" d="M 270 180 Q 250 190 270 200" />
+            <path class="coil-wire" d="M 270 205 Q 250 215 270 225" />
+            <path class="coil-wire" d="M 270 230 Q 250 240 270 250" />
+            <path class="coil-wire" d="M 270 255 Q 250 265 270 275" />
+            <!-- front side strokes -->
+            <path class="coil-wire" d="M 270 105 Q 290 115 270 125" />
+            <path class="coil-wire" d="M 270 130 Q 290 140 270 150" />
+            <path class="coil-wire" d="M 270 155 Q 290 165 270 175" />
+            <path class="coil-wire" d="M 270 180 Q 290 190 270 200" />
+            <path class="coil-wire" d="M 270 205 Q 290 215 270 225" />
+            <path class="coil-wire" d="M 270 230 Q 290 240 270 250" />
+            <path class="coil-wire" d="M 270 255 Q 290 265 270 275" />
+          </g>
+
+          <!-- Secondary coil (right side of core) — fewer turns -->
+          <g id="secondaryCoil">
+            <path class="coil-wire" d="M 530 130 Q 510 145 530 160"/>
+            <path class="coil-wire" d="M 530 165 Q 510 180 530 195"/>
+            <path class="coil-wire" d="M 530 200 Q 510 215 530 230"/>
+            <path class="coil-wire" d="M 530 235 Q 510 250 530 265"/>
+
+            <path class="coil-wire" d="M 530 130 Q 550 145 530 160"/>
+            <path class="coil-wire" d="M 530 165 Q 550 180 530 195"/>
+            <path class="coil-wire" d="M 530 200 Q 550 215 530 230"/>
+            <path class="coil-wire" d="M 530 235 Q 550 250 530 265"/>
+          </g>
+
+          <!-- Primary input wires -->
+          <path class="wire" d="M 270 105 L 270 50 L 80 50 L 80 70"/>
+          <path class="wire" d="M 270 275 L 270 340 L 80 340 L 80 320"/>
+          <!-- Primary AC source label -->
+          <g transform="translate(80, 100)">
+            <circle r="22" fill="var(--bg-1)" stroke="var(--coral)" stroke-width="2"/>
+            <text x="0" y="5" class="label coral" text-anchor="middle" font-size="14">~</text>
+            <text x="0" y="-32" class="label" text-anchor="middle" font-size="11">PRIMARY</text>
+            <text x="0" y="40" class="label coral" text-anchor="middle" font-size="13" font-weight="700">120 V AC</text>
+          </g>
+
+          <!-- Secondary output wires -->
+          <path class="wire" d="M 530 130 L 530 50 L 720 50 L 720 110"/>
+          <path class="wire" d="M 530 265 L 530 340 L 720 340 L 720 280"/>
+          <!-- Secondary load -->
+          <g transform="translate(720, 195)">
+            <rect x="-22" y="-30" width="44" height="60" fill="var(--bg-1)" stroke="var(--cyan)" stroke-width="2" rx="4"/>
+            <text x="0" y="-46" class="label" text-anchor="middle" font-size="11">SECONDARY</text>
+            <text x="0" y="0" class="label cyan" text-anchor="middle" font-size="11" font-weight="700">LOAD</text>
+            <text x="0" y="58" class="label cyan" text-anchor="middle" font-size="13" font-weight="700" id="loadLabel">24 V AC</text>
+          </g>
+
+          <!-- Turn count tags -->
+          <text x="270" y="70" class="label dim" text-anchor="middle">N₁ = 1000 turns</text>
+          <text x="530" y="115" class="label dim" text-anchor="middle">N₂ = 200 turns</text>
+
+          <!-- Mini AC waves, one each side -->
+          <g transform="translate(40, 200)">
+            <path id="waveP" class="wave-track wave-pri" d=""/>
+          </g>
+          <g transform="translate(680, 200)">
+            <path id="waveS" class="wave-track wave-sec" d=""/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="panel-row">
+        <div class="side-card primary">
+          <div class="header">PRIMARY · INPUT</div>
+          <div class="row"><span class="lbl">Turns N₁</span><span class="val">1000</span></div>
+          <div class="row"><span class="lbl">Voltage V₁</span><span class="val">120 V</span></div>
+          <div class="row"><span class="lbl">Current I₁</span><span class="val acc" id="i1Val">0.6 A</span></div>
+          <div class="row"><span class="lbl">Power P₁</span><span class="val acc">72 W</span></div>
+        </div>
+        <div class="side-card secondary">
+          <div class="header">SECONDARY · OUTPUT</div>
+          <div class="row"><span class="lbl">Turns N₂</span><span class="val">200</span></div>
+          <div class="row"><span class="lbl">Voltage V₂</span><span class="val acc" id="v2Val">24 V</span></div>
+          <div class="row"><span class="lbl">Current I₂</span><span class="val">3 A</span></div>
+          <div class="row"><span class="lbl">Power P₂</span><span class="val acc">72 W</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="playBtn" class="primary">❚❚ Pause</button>
+      <button id="resetBtn">⟲ Reset</button>
+      <div class="toggle">
+        <button class="active" data-view="voltage">VOLTAGE VIEW</button>
+        <button data-view="current">CURRENT VIEW</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">
+      <div class="lead">PROBLEM</div>
+      <h2>Step-Down Transformer</h2>
+      <p>Primary <strong>N₁ = 1000</strong> turns. Secondary <strong>N₂ = 200</strong> turns. Primary voltage <strong>V₁ = 120 V AC</strong>. Find V₂. Then with <strong>I₂ = 3 A</strong>, find I₁.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">VOLTAGE RATIO</div>
+      <p>The same flux Φ links both coils. Each turn sees the same dΦ/dt, so voltage scales with turn count:</p>
+      <div class="eq-block">
+<span class="hi-v">V₂ / V₁</span> = <span class="hi-g">N₂ / N₁</span></div>
+      <div class="eq-block">
+<span class="hi-v">V₂</span> = V₁ · (N₂ / N₁)
+   = 120 · (200 / 1000)
+   = 120 · 0.2
+   = <span class="hi-gn">24 V</span></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">CURRENT RATIO</div>
+      <p>Energy is conserved (ideal transformer): P₁ = P₂. So <strong>V₁·I₁ = V₂·I₂</strong>, which inverts the turns ratio for current:</p>
+      <div class="eq-block">
+<span class="hi-c">I₁ / I₂</span> = <span class="hi-g">N₂ / N₁</span></div>
+      <div class="eq-block">
+<span class="hi-c">I₁</span> = I₂ · (N₂ / N₁)
+   = 3 · (200 / 1000)
+   = 3 · 0.2
+   = <span class="hi-gn">0.6 A</span></div>
+      <p>Voltage stepped <em>down</em> by 5×; current stepped <em>up</em> by 5×. Power balanced.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">RESULT</div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="lbl">SECONDARY V</div>
+          <div class="v">24<span class="u">V</span></div>
+        </div>
+        <div class="result-cell">
+          <div class="lbl">PRIMARY I</div>
+          <div class="v">0.6<span class="u">A</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">POWER CHECK</div>
+      <div class="eq-block">
+P₁ = V₁·I₁ = 120 · 0.6 = <span class="hi-gn">72 W</span>
+P₂ = V₂·I₂ = 24 · 3   = <span class="hi-gn">72 W</span>
+                    P₁ ≡ P₂ ✓</div>
+      <p>Real transformers lose a few percent to core losses (hysteresis, eddy currents) and copper resistance — but the ideal-transformer math is the right starting point.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const $ = sel => document.querySelector(sel);
+const NS = 'http://www.w3.org/2000/svg';
+
+let playing = true;
+let phase = 0;
+let lastTs = performance.now();
+const FREQ = 1.2;  // Hz visual
+
+// Mini AC waves
+function drawWave(pathId, peakColor, atPhase, amplitude) {
+  const path = $('#' + pathId);
+  let d = '';
+  const W = 60, H = 40;
+  for (let i = 0; i <= 60; i++) {
+    const t = (i / 60) * 4 * Math.PI;
+    const x = (i / 60) * W - W;
+    const y = -amplitude * Math.sin(t + atPhase);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+  }
+  path.setAttribute('d', d);
+}
+
+function frame(ts) {
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (playing) phase += dt * FREQ * 2 * Math.PI;
+
+  // sinusoidal value [-1, 1]
+  const s = Math.sin(phase);
+
+  // Primary coil glow (red/coral) intensity tracks |s|
+  const pIntensity = Math.abs(s);
+  document.querySelectorAll('#primaryCoil .coil-wire').forEach(el => {
+    el.style.stroke = `rgb(${Math.round(217 - 60 * (1 - pIntensity))}, ${Math.round(119 + 80 * pIntensity)}, ${Math.round(6 + 40 * pIntensity)})`;
+    el.style.filter = `drop-shadow(0 0 ${4 + pIntensity * 6}px rgba(242,95,92,${0.3 + pIntensity * 0.4}))`;
+  });
+  // Secondary coil same idea but slightly delayed (still in phase for ideal transformer; just visual)
+  const sIntensity = Math.abs(Math.sin(phase + 0.1));
+  document.querySelectorAll('#secondaryCoil .coil-wire').forEach(el => {
+    el.style.stroke = `rgb(${Math.round(20)}, ${Math.round(120 + 80 * sIntensity)}, ${Math.round(180 + 40 * sIntensity)})`;
+    el.style.filter = `drop-shadow(0 0 ${4 + sIntensity * 6}px rgba(77,208,225,${0.3 + sIntensity * 0.4}))`;
+  });
+
+  // Flux: the arrows alternate direction every half cycle
+  const fluxOpacity = pIntensity * 0.85 + 0.15;
+  $('#fluxArrows').setAttribute('opacity', fluxOpacity);
+  // rotate flux direction by 180° on negative half
+  const fluxRot = s >= 0 ? '0' : '180';
+  $('#fluxArrows').setAttribute('transform', `rotate(${fluxRot}, 400, 190)`);
+
+  // Mini waves (sliding sinusoid)
+  drawWave('waveP', 'var(--coral)', phase, 12);
+  drawWave('waveS', 'var(--cyan)', phase, 12);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+$('#playBtn').addEventListener('click', () => {
+  playing = !playing;
+  $('#playBtn').textContent = playing ? '❚❚ Pause' : '▶ Play';
+});
+$('#resetBtn').addEventListener('click', () => { phase = 0; });
+
+document.querySelectorAll('.toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.toggle button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    // Could swap the visual emphasis; for now just visual cue
+  });
+});
+</script>
+</body>
+</html>

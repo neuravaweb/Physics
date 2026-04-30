@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capacitors in Parallel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+        body {
+            font-family: 'Crimson Text', serif;
+            background-color: #f4f4f5;
+        }
+
+        .math-font {
+            font-family: 'Crimson Text', serif;
+        }
+
+        .circuit-line {
+            stroke: #1f2937;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        .plate {
+            stroke: #111827;
+            stroke-width: 5;
+            stroke-linecap: round;
+        }
+
+        .charge-symbol {
+            font-family: sans-serif;
+            font-weight: 800;
+            font-size: 16px;
+            user-select: none;
+            transition: opacity 0.1s linear;
+        }
+
+        .charge-plus { fill: #dc2626; }
+        .charge-minus { fill: #2563eb; }
+
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            background-color: #e0e7ff;
+            border-color: #4f46e5;
+            color: #3730a3;
+            font-weight: 600;
+        }
+        
+        .fade-layer {
+            transition: opacity 0.6s ease-in-out;
+        }
+
+        /* Custom range slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 md:p-8">
+
+    <div class="max-w-6xl w-full bg-white shadow-2xl rounded-xl overflow-hidden flex flex-col lg:flex-row border border-gray-200">
+        
+        <!-- Left: Visualization Area -->
+        <div class="flex-1 bg-[#fafaf9] p-6 flex flex-col relative border-b lg:border-b-0 lg:border-r border-gray-200">
+            <div class="mb-4">
+                <h1 class="text-3xl font-semibold text-gray-900">Capacitors in Parallel</h1>
+                <p class="text-gray-600 text-lg italic mt-1">Observe charge accumulation and energy storage as the voltage increases.</p>
+            </div>
+            
+            <div class="flex-grow flex items-center justify-center relative min-h-[400px]">
+                <svg viewBox="0 0 650 400" class="w-full h-full max-h-[500px]">
+                    <defs>
+                        <linearGradient id="energyGrad1" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#34d399" />
+                            <stop offset="100%" stop-color="#059669" />
+                        </linearGradient>
+                        <linearGradient id="energyGrad2" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#fbbf24" />
+                            <stop offset="100%" stop-color="#d97706" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Wires & Components -->
+                    <!-- Battery loop & parallel branches -->
+                    <polyline class="circuit-line" points="100,215 100,300 500,300 500,215" />
+                    <!-- Top wire with a small charging resistor (R) for physical accuracy -->
+                    <path class="circuit-line" d="M 100,185 L 100,100 L 150,100 L 155,90 L 165,110 L 175,90 L 185,110 L 195,90 L 205,110 L 215,90 L 225,110 L 230,100 L 500,100 L 500,185" />
+                    
+                    <!-- C1 Branch (X=300) -->
+                    <line class="circuit-line" x1="300" y1="100" x2="300" y2="185" />
+                    <line class="circuit-line" x1="300" y1="215" x2="300" y2="300" />
+                    
+                    <!-- Junction Dots -->
+                    <circle cx="300" cy="100" r="4" fill="#1f2937" />
+                    <circle cx="300" cy="300" r="4" fill="#1f2937" />
+                    <circle cx="500" cy="100" r="4" fill="#1f2937" />
+                    <circle cx="500" cy="300" r="4" fill="#1f2937" />
+
+                    <!-- Battery -->
+                    <line class="plate" x1="70" y1="185" x2="130" y2="185" /> <!-- Positive long plate -->
+                    <line class="plate" x1="85" y1="195" x2="115" y2="195" stroke-width="7" />
+                    <line class="plate" x1="70" y1="205" x2="130" y2="205" />
+                    <line class="plate" x1="85" y1="215" x2="115" y2="215" stroke-width="7" /> <!-- Negative short plate -->
+                    
+                    <!-- Labels Left -->
+                    <text x="50" y="205" class="math-font text-xl" fill="black" text-anchor="end"><tspan font-style="italic">V</tspan><tspan font-size="12" dy="5">s</tspan></text>
+                    <text id="svg-vs" x="145" y="205" class="math-font text-lg" fill="#4f46e5" font-weight="bold">10.0 V</text>
+                    <text x="190" y="75" class="math-font text-lg" fill="black" font-style="italic">R</text>
+
+                    <!-- Capacitor 1 (4μF) -->
+                    <!-- Width 80px (ratio 4 to 6) -->
+                    <line class="plate" x1="260" y1="185" x2="340" y2="185" />
+                    <line class="plate" x1="260" y1="215" x2="340" y2="215" />
+                    <text x="250" y="170" class="math-font text-xl" text-anchor="end"><tspan font-style="italic">C</tspan><tspan font-size="12" dy="5">1</tspan><tspan dy="-5"> = 4 μF</tspan></text>
+
+                    <!-- Capacitor 2 (6μF) -->
+                    <!-- Width 120px (ratio 4 to 6) -->
+                    <line class="plate" x1="440" y1="185" x2="560" y2="185" />
+                    <line class="plate" x1="440" y1="215" x2="560" y2="215" />
+                    <text x="430" y="170" class="math-font text-xl" text-anchor="end"><tspan font-style="italic">C</tspan><tspan font-size="12" dy="5">2</tspan><tspan dy="-5"> = 6 μF</tspan></text>
+
+                    <!-- Dynamic Layers -->
+                    <!-- Charge View Layer -->
+                    <g id="layer-charge" class="fade-layer opacity-100">
+                        <g id="c1-charges"></g>
+                        <g id="c2-charges"></g>
+                    </g>
+
+                    <!-- Energy View Layer -->
+                    <g id="layer-energy" class="fade-layer opacity-0 pointer-events-none">
+                        <!-- Background guides for max energy -->
+                        <rect x="350" y="95" width="24" height="120" fill="none" stroke="#d1d5db" stroke-dasharray="2,2" />
+                        <rect x="575" y="95" width="24" height="120" fill="none" stroke="#d1d5db" stroke-dasharray="2,2" />
+                        
+                        <!-- Energy Bars -->
+                        <rect id="bar-u1" x="350" y="215" width="24" height="0" fill="url(#energyGrad1)" class="transition-all duration-75" />
+                        <rect id="bar-u2" x="575" y="215" width="24" height="0" fill="url(#energyGrad2)" class="transition-all duration-75" />
+                        
+                        <!-- Labels -->
+                        <text id="lbl-u1" x="362" y="210" class="math-font text-sm font-semibold" fill="#059669" text-anchor="middle">0 μJ</text>
+                        <text id="lbl-u2" x="587" y="210" class="math-font text-sm font-semibold" fill="#d97706" text-anchor="middle">0 μJ</text>
+                    </g>
+                </svg>
+            </div>
+            
+            <!-- Floating Vc indicator -->
+            <div class="absolute bottom-6 left-6 bg-white/90 px-4 py-2 rounded-md shadow border border-gray-300">
+                <span class="math-font text-lg">Capacitor Voltage (<i class="italic">V<sub>c</sub></i>): <strong id="val-vc" class="text-indigo-600">0.00 V</strong></span>
+            </div>
+        </div>
+
+        <!-- Right: Controls & Math Panel -->
+        <div class="w-full lg:w-[400px] bg-white p-6 flex flex-col justify-between">
+            
+            <div>
+                <!-- View Toggles -->
+                <div class="flex gap-2 mb-8 bg-gray-100 p-1 rounded-lg">
+                    <button id="btn-charge" class="tab-btn active flex-1 py-2 text-center rounded-md font-medium" onclick="setMode('charge')">
+                        View Charge (Q)
+                    </button>
+                    <button id="btn-energy" class="tab-btn flex-1 py-2 text-center rounded-md text-gray-600" onclick="setMode('energy')">
+                        View Energy (U)
+                    </button>
+                </div>
+
+                <!-- Live Math Dashboard -->
+                <div class="bg-[#fdfbf7] border-2 border-gray-200 rounded-lg p-5 shadow-inner min-h-[220px]">
+                    
+                    <!-- Common Constants -->
+                    <div class="flex justify-between border-b border-gray-200 pb-3 mb-3 math-font text-lg">
+                        <div class="flex flex-col">
+                            <span><i class="italic">C</i><sub>1</sub> = 4.0 μF</span>
+                            <span><i class="italic">C</i><sub>2</sub> = 6.0 μF</span>
+                        </div>
+                        <div class="flex flex-col text-right">
+                            <span><i class="italic">V<sub>c</sub></i> = <span id="math-vc">0.0</span> V</span>
+                        </div>
+                    </div>
+
+                    <!-- Charge Equations -->
+                    <div id="math-charge" class="fade-layer opacity-100 math-font text-xl flex flex-col gap-2">
+                        <div class="flex justify-between">
+                            <span><i class="italic">Q</i><sub>1</sub> = <i class="italic">C</i><sub>1</sub><i class="italic">V<sub>c</sub></i></span>
+                            <strong id="math-q1" class="text-blue-700">0.0 μC</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><i class="italic">Q</i><sub>2</sub> = <i class="italic">C</i><sub>2</sub><i class="italic">V<sub>c</sub></i></span>
+                            <strong id="math-q2" class="text-blue-700">0.0 μC</strong>
+                        </div>
+                        <div class="w-full h-px bg-gray-300 my-1"></div>
+                        <div class="flex justify-between text-2xl">
+                            <span><i class="italic">Q</i><sub>total</sub> = <i class="italic">Q</i><sub>1</sub> + <i class="italic">Q</i><sub>2</sub></span>
+                            <strong id="math-qtot" class="text-red-600">0.0 μC</strong>
+                        </div>
+                    </div>
+
+                    <!-- Energy Equations -->
+                    <div id="math-energy" class="fade-layer hidden opacity-0 math-font text-xl flex flex-col gap-2">
+                        <div class="flex justify-between">
+                            <span><i class="italic">U</i><sub>1</sub> = &frac12;<i class="italic">C</i><sub>1</sub><i class="italic">V<sub>c</sub></i>&sup2;</span>
+                            <strong id="math-u1" class="text-emerald-700">0.0 μJ</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><i class="italic">U</i><sub>2</sub> = &frac12;<i class="italic">C</i><sub>2</sub><i class="italic">V<sub>c</sub></i>&sup2;</span>
+                            <strong id="math-u2" class="text-emerald-700">0.0 μJ</strong>
+                        </div>
+                        <div class="w-full h-px bg-gray-300 my-1"></div>
+                        <div class="flex justify-between text-2xl">
+                            <span><i class="italic">U</i><sub>total</sub> = <i class="italic">U</i><sub>1</sub> + <i class="italic">U</i><sub>2</sub></span>
+                            <strong id="math-utot" class="text-amber-600">0.0 μJ</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="mt-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label for="voltage-slider" class="block text-gray-700 font-semibold mb-3">
+                    Battery Voltage (<i class="math-font italic">V<sub>s</sub></i>): <span id="slider-val" class="text-indigo-600">10 V</span>
+                </label>
+                <input type="range" id="voltage-slider" min="0" max="20" step="1" value="10">
+                <div class="flex justify-between text-xs text-gray-500 mt-2 font-mono">
+                    <span>0V</span>
+                    <span>10V</span>
+                    <span>20V</span>
+                </div>
+                <button onclick="resetCircuit()" class="mt-4 w-full py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-100 transition font-medium">
+                    Discharge & Reset
+                </button>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const C1 = 4; // μF
+        const C2 = 6; // μF
+        
+        // Visual settings
+        const MAX_VOLTAGE = 20;
+        const CHARGES_PER_10_UC = 1; // 1 symbol = 10 μC
+        const MAX_ENERGY_HEIGHT = 120; // px
+        const MAX_ENERGY_U2 = 0.5 * C2 * Math.pow(MAX_VOLTAGE, 2); // 1200 μJ max possible for C2
+
+        // State
+        let targetVoltage = 10;
+        let currentVoltage = 0; // Starts at 0 to animate on load
+        let currentMode = 'charge';
+        let isUserInteracted = false;
+
+        // DOM Elements
+        const slider = document.getElementById('voltage-slider');
+        const sliderValEl = document.getElementById('slider-val');
+        const svgVsEl = document.getElementById('svg-vs');
+        const valVcEl = document.getElementById('val-vc');
+        
+        const mathVc = document.getElementById('math-vc');
+        const mathQ1 = document.getElementById('math-q1');
+        const mathQ2 = document.getElementById('math-q2');
+        const mathQtot = document.getElementById('math-qtot');
+        
+        const mathU1 = document.getElementById('math-u1');
+        const mathU2 = document.getElementById('math-u2');
+        const mathUtot = document.getElementById('math-utot');
+
+        const layerCharge = document.getElementById('layer-charge');
+        const layerEnergy = document.getElementById('layer-energy');
+        const mathCharge = document.getElementById('math-charge');
+        const mathEnergy = document.getElementById('math-energy');
+
+        const barU1 = document.getElementById('bar-u1');
+        const barU2 = document.getElementById('bar-u2');
+        const lblU1 = document.getElementById('lbl-u1');
+        const lblU2 = document.getElementById('lbl-u2');
+
+        // Charge symbol references
+        const c1Charges = [];
+        const c2Charges = [];
+
+        // Initialize SVG elements
+        function initCharges() {
+            // C1 (4μF) at 20V max -> Q1 = 80μC -> 8 symbols max
+            // C1 Plate: X from 260 to 340. We will center them.
+            const c1Group = document.getElementById('c1-charges');
+            const c1Positions = [265, 275, 285, 295, 305, 315, 325, 335];
+            
+            for(let i=0; i<8; i++) {
+                const x = c1Positions[i];
+                
+                const plus = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                plus.setAttribute("x", x);
+                plus.setAttribute("y", "178");
+                plus.setAttribute("text-anchor", "middle");
+                plus.setAttribute("class", "charge-symbol charge-plus");
+                plus.textContent = "+";
+                
+                const minus = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                minus.setAttribute("x", x);
+                minus.setAttribute("y", "233");
+                minus.setAttribute("text-anchor", "middle");
+                minus.setAttribute("class", "charge-symbol charge-minus");
+                minus.textContent = "−";
+
+                c1Group.appendChild(plus);
+                c1Group.appendChild(minus);
+                c1Charges.push({plus, minus});
+            }
+
+            // C2 (6μF) at 20V max -> Q2 = 120μC -> 12 symbols max
+            // C2 Plate: X from 440 to 560
+            const c2Group = document.getElementById('c2-charges');
+            const c2Positions = [445, 455, 465, 475, 485, 495, 505, 515, 525, 535, 545, 555];
+
+            for(let i=0; i<12; i++) {
+                const x = c2Positions[i];
+                
+                const plus = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                plus.setAttribute("x", x);
+                plus.setAttribute("y", "178");
+                plus.setAttribute("text-anchor", "middle");
+                plus.setAttribute("class", "charge-symbol charge-plus");
+                plus.textContent = "+";
+                
+                const minus = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                minus.setAttribute("x", x);
+                minus.setAttribute("y", "233");
+                minus.setAttribute("text-anchor", "middle");
+                minus.setAttribute("class", "charge-symbol charge-minus");
+                minus.textContent = "−";
+
+                c2Group.appendChild(plus);
+                c2Group.appendChild(minus);
+                c2Charges.push({plus, minus});
+            }
+        }
+
+        // Toggle View Mode
+        function setMode(mode) {
+            currentMode = mode;
+            isUserInteracted = true;
+            
+            const btnCharge = document.getElementById('btn-charge');
+            const btnEnergy = document.getElementById('btn-energy');
+
+            if(mode === 'charge') {
+                btnCharge.classList.add('active');
+                btnCharge.classList.remove('text-gray-600');
+                btnEnergy.classList.remove('active');
+                btnEnergy.classList.add('text-gray-600');
+
+                layerCharge.classList.replace('opacity-0', 'opacity-100');
+                layerEnergy.classList.replace('opacity-100', 'opacity-0');
+                
+                mathCharge.classList.remove('hidden');
+                setTimeout(() => {
+                    mathCharge.classList.replace('opacity-0', 'opacity-100');
+                    mathEnergy.classList.replace('opacity-100', 'opacity-0');
+                }, 10);
+                setTimeout(() => mathEnergy.classList.add('hidden'), 300);
+
+            } else {
+                btnEnergy.classList.add('active');
+                btnEnergy.classList.remove('text-gray-600');
+                btnCharge.classList.remove('active');
+                btnCharge.classList.add('text-gray-600');
+
+                layerEnergy.classList.replace('opacity-0', 'opacity-100');
+                layerCharge.classList.replace('opacity-100', 'opacity-0');
+                
+                mathEnergy.classList.remove('hidden');
+                setTimeout(() => {
+                    mathEnergy.classList.replace('opacity-0', 'opacity-100');
+                    mathCharge.classList.replace('opacity-100', 'opacity-0');
+                }, 10);
+                setTimeout(() => mathCharge.classList.add('hidden'), 300);
+            }
+        }
+
+        // Slider Interaction
+        slider.addEventListener('input', (e) => {
+            isUserInteracted = true;
+            targetVoltage = parseFloat(e.target.value);
+            sliderValEl.textContent = targetVoltage + ' V';
+            svgVsEl.textContent = targetVoltage.toFixed(1) + ' V';
+        });
+
+        // Reset
+        window.resetCircuit = function() {
+            isUserInteracted = true;
+            targetVoltage = 0;
+            slider.value = 0;
+            sliderValEl.textContent = '0 V';
+            svgVsEl.textContent = '0.0 V';
+            setMode('charge');
+        }
+
+        // Main Animation Loop
+        function animate() {
+            // Low-pass filter for smooth RC charging effect
+            currentVoltage += (targetVoltage - currentVoltage) * 0.04;
+            
+            // Snap to target if very close to prevent tiny floating point updates forever
+            if (Math.abs(targetVoltage - currentVoltage) < 0.01) {
+                currentVoltage = targetVoltage;
+            }
+
+            // Calculations
+            const q1 = C1 * currentVoltage;
+            const q2 = C2 * currentVoltage;
+            const qTot = q1 + q2;
+
+            const u1 = 0.5 * C1 * Math.pow(currentVoltage, 2);
+            const u2 = 0.5 * C2 * Math.pow(currentVoltage, 2);
+            const uTot = u1 + u2;
+
+            // Update Text Readouts
+            valVcEl.textContent = currentVoltage.toFixed(2) + ' V';
+            mathVc.textContent = currentVoltage.toFixed(1);
+            
+            mathQ1.textContent = q1.toFixed(1) + ' μC';
+            mathQ2.textContent = q2.toFixed(1) + ' μC';
+            mathQtot.textContent = qTot.toFixed(1) + ' μC';
+            
+            mathU1.textContent = u1.toFixed(1) + ' μJ';
+            mathU2.textContent = u2.toFixed(1) + ' μJ';
+            mathUtot.textContent = uTot.toFixed(1) + ' μJ';
+
+            // Update Charges Visually (1 symbol = 10 μC)
+            const symbols1 = q1 / 10;
+            for(let i=0; i<8; i++) {
+                const opacity = Math.max(0, Math.min(1, symbols1 - i));
+                c1Charges[i].plus.style.opacity = opacity;
+                c1Charges[i].minus.style.opacity = opacity;
+            }
+
+            const symbols2 = q2 / 10;
+            for(let i=0; i<12; i++) {
+                const opacity = Math.max(0, Math.min(1, symbols2 - i));
+                c2Charges[i].plus.style.opacity = opacity;
+                c2Charges[i].minus.style.opacity = opacity;
+            }
+
+            // Update Energy Bars
+            // Scale based on MAX_ENERGY_U2 = 1200μJ mapping to 120px height
+            const h1 = (u1 / MAX_ENERGY_U2) * MAX_ENERGY_HEIGHT;
+            const h2 = (u2 / MAX_ENERGY_U2) * MAX_ENERGY_HEIGHT;
+
+            barU1.setAttribute('height', h1);
+            barU1.setAttribute('y', 215 - h1);
+            lblU1.setAttribute('y', 215 - h1 - 8);
+            lblU1.textContent = u1 > 1 ? Math.round(u1) + ' μJ' : '';
+
+            barU2.setAttribute('height', h2);
+            barU2.setAttribute('y', 215 - h2);
+            lblU2.setAttribute('y', 215 - h2 - 8);
+            lblU2.textContent = u2 > 1 ? Math.round(u2) + ' μJ' : '';
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize and Start
+        window.onload = () => {
+            initCharges();
+            
+            // Set initial state (charging to 10V)
+            slider.value = 10;
+            targetVoltage = 10;
+            sliderValEl.textContent = '10 V';
+            svgVsEl.textContent = '10.0 V';
+            
+            // Start loop
+            animate();
+
+            // Auto-sequence to demonstrate Energy view if user hasn't clicked anything
+            setTimeout(() => {
+                if(!isUserInteracted && currentMode === 'charge' && Math.abs(currentVoltage - 10) < 0.1) {
+                    setMode('energy');
+                    isUserInteracted = false; // Reset so they still feel they didn't interact
+                }
+            }, 3500);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Current from Charge — I = dQ/dt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80; --violet:#a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.45fr 1fr; height: 100vh; max-width: 1600px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+  .canvas-wrap { flex: 1; padding: 18px 28px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .plot-box {
+    flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px;
+    background: linear-gradient(180deg, rgba(13,20,30,0.8), rgba(8,12,18,0.8)); position: relative;
+  }
+  .plot-box svg { width: 100%; height: 100%; display: block; }
+  .plot-overlay { position: absolute; top: 12px; left: 14px; font-size: 10px; letter-spacing: 0.25em; padding: 4px 10px; border-radius: 2px; pointer-events: none; }
+  .plot-overlay.q { color: var(--violet); border: 1px solid rgba(167,139,250,0.4); background: rgba(167,139,250,0.08); }
+  .plot-overlay.i { color: var(--green); border: 1px solid rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
+  .readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .readout { background: rgba(0,0,0,0.4); border: 1px solid rgba(91,106,138,0.2); padding: 10px 14px; border-radius: 2px; }
+  .readout .label { font-size: 9px; letter-spacing: 0.2em; color: var(--ink-faint); margin-bottom: 4px; }
+  .readout .value { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; }
+  .readout .value.t { color: var(--gold); }
+  .readout .value.q { color: var(--violet); }
+  .readout .value.i { color: var(--green); }
+
+  .controls { padding: 16px 28px 20px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); }
+  .slider-row { display: flex; align-items: center; gap: 14px; }
+  .slider-row label { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.2em; min-width: 60px; }
+  input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(91,106,138,0.3); border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: var(--gold); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(244,197,66,0.5); }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; background: var(--gold); border-radius: 50%; cursor: pointer; border: none; }
+  .btn-row { display: flex; gap: 10px; align-items: center; }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  button.snap { border-color: rgba(74,222,128,0.4); color: var(--green); margin-left: auto; }
+  button.snap:hover { background: rgba(74,222,128,0.08); border-color: var(--green); }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(244,197,66,0.04), transparent 60%), var(--bg-1); padding: 32px 36px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .panel-section { margin-bottom: 26px; }
+  .panel-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin-bottom: 12px; letter-spacing: -0.015em; }
+  .panel-section .lead { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .panel-section p { font-size: 13.5px; line-height: 1.65; color: var(--ink-dim); margin-bottom: 12px; }
+  .panel-section strong { color: var(--ink); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 14px 18px; margin: 10px 0; border-radius: 2px; font-size: 13px; line-height: 1.85; white-space: pre-wrap; overflow-x: auto; }
+  .eq-block .hi-q { color: var(--violet); }
+  .eq-block .hi-i { color: var(--green); }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+  .eq-block .hi-c { color: var(--coral); }
+
+  /* SVG */
+  .grid-line { stroke: rgba(91,106,138,0.15); stroke-width: 1; }
+  .grid-line.major { stroke: rgba(91,106,138,0.28); }
+  .axis { stroke: rgba(232,236,242,0.5); stroke-width: 1.5; }
+  .axis-label { fill: var(--ink-faint); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .axis-title { fill: var(--ink-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; }
+
+  .curve-q { fill: none; stroke: var(--violet); stroke-width: 2.5; filter: drop-shadow(0 0 6px rgba(167,139,250,0.4)); }
+  .curve-i { fill: none; stroke: var(--green); stroke-width: 2.5; filter: drop-shadow(0 0 6px rgba(74,222,128,0.4)); }
+
+  .tangent { stroke: var(--coral); stroke-width: 2; stroke-dasharray: 6 4; opacity: 0.85; filter: drop-shadow(0 0 4px rgba(242,95,92,0.4)); }
+  .vline { stroke: var(--gold); stroke-width: 1.2; stroke-dasharray: 3 4; opacity: 0.7; }
+  .dot-q { fill: var(--violet); stroke: white; stroke-width: 1.5; filter: drop-shadow(0 0 6px var(--violet)); }
+  .dot-i { fill: var(--green); stroke: white; stroke-width: 1.5; filter: drop-shadow(0 0 6px var(--green)); }
+  .slope-tag {
+    fill: var(--coral); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Charge & Current</div>
+        <div class="doc-title">Differentiating Q(t) to find I(t)</div>
+      </div>
+      <div class="doc-id">DOC · 09 / dQ-dt</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <!-- Q(t) plot -->
+      <div class="plot-box">
+        <div class="plot-overlay q">Q(t) = 5t² + 5  ·  COULOMBS</div>
+        <svg id="qPlot" viewBox="0 0 800 280" preserveAspectRatio="none"></svg>
+      </div>
+
+      <!-- I(t) plot -->
+      <div class="plot-box">
+        <div class="plot-overlay i">I(t) = dQ/dt = 10t  ·  AMPERES</div>
+        <svg id="iPlot" viewBox="0 0 800 280" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="label">TIME · t</div><div class="value t" id="tVal">3.00 s</div></div>
+        <div class="readout"><div class="label">CHARGE · Q(t)</div><div class="value q" id="qVal">50.0 C</div></div>
+        <div class="readout"><div class="label">CURRENT · I(t)</div><div class="value i" id="iVal">30.0 A</div></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="slider-row">
+        <label>TIME</label>
+        <input type="range" id="tSlider" min="0" max="5" step="0.01" value="3"/>
+      </div>
+      <div class="btn-row">
+        <button id="playBtn" class="primary">▶ Play</button>
+        <button id="resetBtn">⟲ Reset</button>
+        <button id="snapBtn" class="snap">↦ Snap to t = 3</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">
+      <div class="lead">PROBLEM</div>
+      <h2>Find I at t = 3 s</h2>
+      <p>The charge passing through a wire is given by:</p>
+      <div class="eq-block"><span class="hi-q">Q(t)</span> = 5t² + 5     <span class="hi-d">[C]</span></div>
+      <p>What is the <strong>instantaneous current</strong> at t = 3 s?</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">DEFINITION</div>
+      <p>Current is the <em>rate</em> at which charge passes a point — the time derivative of charge:</p>
+      <div class="eq-block">
+<span class="hi-i">I(t)</span> = <span class="hi-g">dQ/dt</span></div>
+      <p>Geometrically: the <strong style="color:var(--coral)">slope of the Q(t) curve</strong>, drawn as a dashed red tangent on the upper plot.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">DIFFERENTIATE</div>
+      <div class="eq-block">
+<span class="hi-q">Q(t)</span> = 5t² + 5
+
+d/dt [5t²] = 10t
+d/dt [5]   = 0
+
+<span class="hi-i">I(t)</span> = <span class="hi-g">10t</span>     <span class="hi-d">[A]</span></div>
+      <p>The constant +5 carries no current — it's just an offset. Only the time-varying part contributes.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">EVALUATE AT t = 3</div>
+      <div class="eq-block">
+<span class="hi-i">I(3)</span> = 10·(3) = <span class="hi-g">30 A</span></div>
+      <p>Use the slider — at t = 3 s the tangent on Q(t) has slope <strong>30</strong>, and the lower plot reads <strong>30 A</strong>. They have to match; that's what the derivative <em>means</em>.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">SANITY CHECK</div>
+      <p>At t = 0: I = 0. The Q(t) curve is flat there (parabola vertex at (0, 5)) — zero slope, zero current. As t grows, Q curves upward more steeply, so the current rises linearly. ✓</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const T_MAX = 5;       // s
+const Q_MAX = 130;     // Q(5) = 130
+const I_MAX = 50;      // I(5) = 50
+
+// Plot dimensions (matches viewBox 800 × 280)
+const PX0 = 60, PX1 = 760;
+const PY0 = 30, PY1 = 240;
+
+const Q = t => 5*t*t + 5;
+const I = t => 10*t;
+
+const tToX = t => PX0 + (t / T_MAX) * (PX1 - PX0);
+const qToY = q => PY1 - (q / Q_MAX) * (PY1 - PY0);
+const iToY = i => PY1 - (i / I_MAX) * (PY1 - PY0);
+
+const NS = 'http://www.w3.org/2000/svg';
+
+function buildPlot(svg, valueFn, valueToY, color, gridStepY, labelFn) {
+  // grid + axes
+  const g = document.createElementNS(NS, 'g');
+
+  // vertical grid (every 1 s)
+  for (let s = 0; s <= T_MAX; s++) {
+    const x = tToX(s);
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', x); ln.setAttribute('x2', x);
+    ln.setAttribute('y1', PY0); ln.setAttribute('y2', PY1);
+    ln.setAttribute('class', 'grid-line' + (s % 1 === 0 ? ' major' : ''));
+    g.appendChild(ln);
+    const lbl = document.createElementNS(NS, 'text');
+    lbl.setAttribute('x', x); lbl.setAttribute('y', PY1 + 16);
+    lbl.setAttribute('class', 'axis-label'); lbl.setAttribute('text-anchor', 'middle');
+    lbl.textContent = s + 's';
+    g.appendChild(lbl);
+  }
+  // horizontal grid
+  for (let v = 0; v <= 5; v++) {
+    const y = valueToY((v / 5) * (valueToY === qToY ? Q_MAX : I_MAX));
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', PX0); ln.setAttribute('x2', PX1);
+    ln.setAttribute('y1', y); ln.setAttribute('y2', y);
+    ln.setAttribute('class', 'grid-line');
+    g.appendChild(ln);
+    const lbl = document.createElementNS(NS, 'text');
+    lbl.setAttribute('x', PX0 - 8); lbl.setAttribute('y', y + 4);
+    lbl.setAttribute('class', 'axis-label'); lbl.setAttribute('text-anchor', 'end');
+    lbl.textContent = labelFn(v);
+    g.appendChild(lbl);
+  }
+
+  // Axes
+  const xa = document.createElementNS(NS, 'line');
+  xa.setAttribute('x1', PX0); xa.setAttribute('x2', PX1);
+  xa.setAttribute('y1', PY1); xa.setAttribute('y2', PY1);
+  xa.setAttribute('class', 'axis');
+  g.appendChild(xa);
+  const ya = document.createElementNS(NS, 'line');
+  ya.setAttribute('x1', PX0); ya.setAttribute('x2', PX0);
+  ya.setAttribute('y1', PY0); ya.setAttribute('y2', PY1);
+  ya.setAttribute('class', 'axis');
+  g.appendChild(ya);
+
+  // Curve
+  let d = '';
+  const N = 200;
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * T_MAX;
+    const v = valueFn(t);
+    d += (i === 0 ? 'M' : 'L') + tToX(t).toFixed(1) + ' ' + valueToY(v).toFixed(1) + ' ';
+  }
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('class', valueToY === qToY ? 'curve-q' : 'curve-i');
+  g.appendChild(path);
+
+  svg.appendChild(g);
+}
+
+const qSvg = document.getElementById('qPlot');
+const iSvg = document.getElementById('iPlot');
+buildPlot(qSvg, Q, qToY, 'var(--violet)', 25, v => Math.round((v / 5) * Q_MAX));
+buildPlot(iSvg, I, iToY, 'var(--green)',  10, v => Math.round((v / 5) * I_MAX) + 'A');
+
+// Tangent line + tracker overlays (added on top)
+function makeOverlay(svg, kind) {
+  const tang = document.createElementNS(NS, 'line');
+  tang.setAttribute('class', 'tangent'); tang.id = kind + '-tang';
+  svg.appendChild(tang);
+  const vline = document.createElementNS(NS, 'line');
+  vline.setAttribute('class', 'vline'); vline.id = kind + '-vline';
+  vline.setAttribute('y1', PY0); vline.setAttribute('y2', PY1);
+  svg.appendChild(vline);
+  const dot = document.createElementNS(NS, 'circle');
+  dot.setAttribute('class', kind === 'q' ? 'dot-q' : 'dot-i');
+  dot.setAttribute('r', 6);
+  dot.id = kind + '-dot';
+  svg.appendChild(dot);
+  if (kind === 'q') {
+    const tag = document.createElementNS(NS, 'text');
+    tag.setAttribute('class', 'slope-tag'); tag.id = 'slope-tag';
+    svg.appendChild(tag);
+  }
+}
+makeOverlay(qSvg, 'q');
+makeOverlay(iSvg, 'i');
+
+function update(t) {
+  const q = Q(t);
+  const i = I(t);
+  const x = tToX(t);
+
+  // Q plot tracker + tangent
+  const qy = qToY(q);
+  document.getElementById('q-vline').setAttribute('x1', x);
+  document.getElementById('q-vline').setAttribute('x2', x);
+  document.getElementById('q-dot').setAttribute('cx', x);
+  document.getElementById('q-dot').setAttribute('cy', qy);
+
+  // tangent line: slope is i (in physical units), in screen units:
+  // slope_screen = (dy/dt screen) / (dx/dt screen) = (-(PY1-PY0)/Q_MAX * dQ/dt) / ((PX1-PX0)/T_MAX)
+  const dydx_screen = -((PY1 - PY0) / Q_MAX) * i / ((PX1 - PX0) / T_MAX);
+  // extend tangent ±0.6s in time
+  const dt = 0.7;
+  const x1 = tToX(Math.max(0, t - dt));
+  const x2 = tToX(Math.min(T_MAX, t + dt));
+  const y1 = qy + dydx_screen * (x1 - x);
+  const y2 = qy + dydx_screen * (x2 - x);
+  const tang = document.getElementById('q-tang');
+  tang.setAttribute('x1', x1); tang.setAttribute('y1', y1);
+  tang.setAttribute('x2', x2); tang.setAttribute('y2', y2);
+
+  // slope tag
+  const tag = document.getElementById('slope-tag');
+  tag.textContent = 'slope = ' + i.toFixed(1);
+  tag.setAttribute('x', x2 + 6);
+  tag.setAttribute('y', y2);
+
+  // I plot tracker
+  const iy = iToY(i);
+  document.getElementById('i-vline').setAttribute('x1', x);
+  document.getElementById('i-vline').setAttribute('x2', x);
+  document.getElementById('i-dot').setAttribute('cx', x);
+  document.getElementById('i-dot').setAttribute('cy', iy);
+  // tangent on I plot is just horizontal? No — tangent here is just current value, no extra line needed. Use small horizontal stub.
+  const itang = document.getElementById('i-tang');
+  itang.setAttribute('x1', x - 30); itang.setAttribute('x2', x + 30);
+  itang.setAttribute('y1', iy);     itang.setAttribute('y2', iy);
+
+  // readouts
+  document.getElementById('tVal').textContent = t.toFixed(2) + ' s';
+  document.getElementById('qVal').textContent = q.toFixed(1) + ' C';
+  document.getElementById('iVal').textContent = i.toFixed(1) + ' A';
+}
+
+// Animation
+let t = 3;
+let playing = false;
+let lastTs = performance.now();
+const slider = document.getElementById('tSlider');
+
+function frame(ts) {
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (playing) {
+    t += dt * 0.6;
+    if (t > T_MAX) { t = 0; }
+    slider.value = t;
+  }
+  update(t);
+  requestAnimationFrame(frame);
+}
+slider.addEventListener('input', () => { t = parseFloat(slider.value); playing = false; document.getElementById('playBtn').textContent = '▶ Play'; });
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '❚❚ Pause' : '▶ Play';
+});
+document.getElementById('resetBtn').addEventListener('click', () => { t = 0; slider.value = 0; playing = false; document.getElementById('playBtn').textContent = '▶ Play'; });
+document.getElementById('snapBtn').addEventListener('click', () => { t = 3; slider.value = 3; playing = false; document.getElementById('playBtn').textContent = '▶ Play'; });
+
+requestAnimationFrame(frame);
+update(3);
+</script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lightning — Average Current Calculation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80;
+    --electric:#7dd3fc; --storm:#475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.45fr 1fr; height: 100vh; max-width: 1600px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+  .canvas-wrap { flex: 1; padding: 18px 28px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .scene {
+    flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px;
+    background: radial-gradient(ellipse at 50% 30%, rgba(125,211,252,0.06), transparent 70%),
+      linear-gradient(180deg, #0a1428 0%, #0a0d14 70%, #06080d 100%);
+    position: relative; overflow: hidden;
+  }
+  .scene svg { width: 100%; height: 100%; display: block; }
+  .scene::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(125,211,252,0.0) 0%, transparent 60%);
+    transition: background 0.1s; pointer-events: none;
+  }
+  .scene.flash::before {
+    background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.5) 0%, rgba(125,211,252,0.2) 30%, transparent 60%);
+  }
+
+  .readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .readout { background: rgba(0,0,0,0.5); border: 1px solid rgba(91,106,138,0.25); padding: 14px 18px; border-radius: 2px; }
+  .readout .label { font-size: 9px; letter-spacing: 0.2em; color: var(--ink-faint); margin-bottom: 4px; }
+  .readout .value { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 700; }
+  .readout .value.t { color: var(--gold); }
+  .readout .value.q { color: var(--electric); }
+  .readout .value.i { color: var(--coral); }
+
+  .controls { padding: 16px 28px 20px; display: flex; gap: 10px; align-items: center; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  button.replay { margin-left: auto; border-color: rgba(74,222,128,0.4); color: var(--green); }
+  button.replay:hover { background: rgba(74,222,128,0.08); border-color: var(--green); }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(125,211,252,0.04), transparent 60%), var(--bg-1); padding: 32px 36px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .panel-section { margin-bottom: 26px; }
+  .panel-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin-bottom: 12px; letter-spacing: -0.015em; }
+  .panel-section .lead { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .panel-section p { font-size: 13.5px; line-height: 1.65; color: var(--ink-dim); margin-bottom: 12px; }
+  .panel-section strong { color: var(--ink); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 14px 18px; margin: 10px 0; border-radius: 2px; font-size: 13px; line-height: 1.85; white-space: pre-wrap; overflow-x: auto; }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+  .eq-block .hi-c { color: var(--coral); }
+  .eq-block .hi-e { color: var(--electric); }
+
+  /* Result */
+  .result-card { margin-top: 18px; padding: 24px; background: linear-gradient(135deg, rgba(242,95,92,0.12), rgba(244,197,66,0.06)); border: 1px solid rgba(242,95,92,0.4); border-radius: 4px; text-align: center; position: relative; overflow: hidden; }
+  .result-card .label { font-size: 10px; letter-spacing: 0.3em; color: var(--coral); margin-bottom: 6px; text-transform: uppercase; }
+  .result-card .value { font-family: 'Fraunces', serif; font-size: 44px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; line-height: 1; }
+  .result-card .unit { font-family: 'JetBrains Mono', monospace; font-size: 22px; color: var(--coral); margin-left: 6px; }
+
+  /* Comparison bar */
+  .compare-block { margin-top: 20px; }
+  .compare-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 11px; }
+  .compare-row .name { width: 110px; color: var(--ink-dim); }
+  .compare-row .bar-track { flex: 1; height: 14px; background: rgba(91,106,138,0.15); border-radius: 2px; overflow: hidden; position: relative; }
+  .compare-row .bar { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .compare-row .bar.lightning { background: linear-gradient(90deg, var(--coral), var(--gold)); }
+  .compare-row .bar.toaster { background: var(--ink-faint); }
+  .compare-row .bar.car { background: var(--cyan); }
+  .compare-row .bar.led { background: var(--green); }
+  .compare-row .val { width: 80px; text-align: right; color: var(--ink); font-weight: 600; }
+
+  /* SVG styles */
+  .cloud { fill: var(--storm); opacity: 0.85; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
+  .cloud-shadow { fill: #1e293b; opacity: 0.5; }
+  .ground { fill: #1a1f2e; }
+  .ground-line { stroke: var(--ink-faint); stroke-width: 1; opacity: 0.4; }
+  .grass { stroke: var(--ink-faint); stroke-width: 1; opacity: 0.3; }
+
+  .bolt-main {
+    stroke: var(--electric); fill: none;
+    stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+    filter: drop-shadow(0 0 12px var(--electric)) drop-shadow(0 0 24px rgba(125,211,252,0.6));
+  }
+  .bolt-glow {
+    stroke: white; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.95;
+  }
+  .bolt-branch {
+    stroke: var(--electric); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.6;
+    filter: drop-shadow(0 0 6px var(--electric));
+  }
+
+  .progress-bar { fill: rgba(91,106,138,0.2); }
+  .progress-fill { fill: var(--electric); filter: drop-shadow(0 0 6px var(--electric)); }
+  .progress-label { fill: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Storm Physics</div>
+        <div class="doc-title">Lightning — Average Current</div>
+      </div>
+      <div class="doc-id">DOC · 10 / I-AVG</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="scene" id="scene">
+        <svg viewBox="0 0 800 480" preserveAspectRatio="xMidYMid meet">
+          <!-- background gradient -->
+          <defs>
+            <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1e293b"/>
+              <stop offset="100%" stop-color="#0a0d14"/>
+            </linearGradient>
+            <radialGradient id="cloudGrad" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stop-color="#64748b"/>
+              <stop offset="100%" stop-color="#334155"/>
+            </radialGradient>
+          </defs>
+
+          <rect x="0" y="0" width="800" height="480" fill="url(#skyGrad)"/>
+
+          <!-- distant clouds -->
+          <ellipse cx="150" cy="80" rx="80" ry="22" class="cloud-shadow"/>
+          <ellipse cx="650" cy="70" rx="100" ry="26" class="cloud-shadow"/>
+
+          <!-- main thundercloud -->
+          <g id="cloud">
+            <ellipse cx="350" cy="100" rx="100" ry="32" fill="url(#cloudGrad)"/>
+            <ellipse cx="420" cy="90"  rx="80"  ry="28" fill="url(#cloudGrad)"/>
+            <ellipse cx="480" cy="105" rx="70"  ry="26" fill="url(#cloudGrad)"/>
+            <ellipse cx="380" cy="118" rx="120" ry="22" fill="url(#cloudGrad)"/>
+            <!-- charge symbols inside cloud -->
+            <text x="340" y="105" fill="#e8ecf2" font-family="JetBrains Mono" font-size="14" font-weight="700" text-anchor="middle" opacity="0.7">−−−</text>
+            <text x="430" y="100" fill="#e8ecf2" font-family="JetBrains Mono" font-size="14" font-weight="700" text-anchor="middle" opacity="0.7">−−</text>
+          </g>
+
+          <!-- ground -->
+          <rect x="0" y="400" width="800" height="80" class="ground"/>
+          <line x1="0" y1="400" x2="800" y2="400" class="ground-line"/>
+          <!-- grass tufts -->
+          <g class="grass">
+            <line x1="40" y1="400" x2="40" y2="392"/>
+            <line x1="44" y1="400" x2="44" y2="394"/>
+            <line x1="120" y1="400" x2="120" y2="395"/>
+            <line x1="200" y1="400" x2="200" y2="392"/>
+            <line x1="280" y1="400" x2="280" y2="394"/>
+            <line x1="600" y1="400" x2="600" y2="395"/>
+            <line x1="680" y1="400" x2="680" y2="392"/>
+            <line x1="760" y1="400" x2="760" y2="394"/>
+          </g>
+          <!-- charge symbols on ground -->
+          <text x="200" y="425" fill="#94a3b8" font-family="JetBrains Mono" font-size="14" font-weight="700" text-anchor="middle">+++</text>
+          <text x="400" y="425" fill="#94a3b8" font-family="JetBrains Mono" font-size="14" font-weight="700" text-anchor="middle">+++++</text>
+          <text x="600" y="425" fill="#94a3b8" font-family="JetBrains Mono" font-size="14" font-weight="700" text-anchor="middle">+++</text>
+
+          <!-- Lightning bolt: drawn with stroke-dasharray progressive reveal -->
+          <g id="boltGroup" opacity="0">
+            <!-- branches -->
+            <path id="branch1" class="bolt-branch" d="M 405 195 L 380 215 L 395 235 L 370 265"/>
+            <path id="branch2" class="bolt-branch" d="M 415 280 L 445 305 L 425 335"/>
+            <!-- main bolt -->
+            <path id="boltMain" class="bolt-main"
+              d="M 410 130 L 395 175 L 425 195 L 405 230 L 430 260 L 410 290 L 435 325 L 415 360 L 425 400"/>
+            <!-- inner glow -->
+            <path id="boltInner" class="bolt-glow"
+              d="M 410 130 L 395 175 L 425 195 L 405 230 L 430 260 L 410 290 L 435 325 L 415 360 L 425 400"/>
+          </g>
+
+          <!-- Charge progress bar overlay -->
+          <g id="chargeBar" transform="translate(40, 40)">
+            <rect x="0" y="0" width="220" height="24" class="progress-bar" rx="2"/>
+            <rect id="chargeFill" x="0" y="0" width="0" height="24" class="progress-fill" rx="2"/>
+            <text x="110" y="16" class="progress-label" text-anchor="middle">CHARGE  Q</text>
+          </g>
+
+          <!-- Time progress bar -->
+          <g id="timeBar" transform="translate(540, 40)">
+            <rect x="0" y="0" width="220" height="24" class="progress-bar" rx="2"/>
+            <rect id="timeFill" x="0" y="0" width="0" height="24" fill="var(--gold)" rx="2" style="filter: drop-shadow(0 0 6px var(--gold));"/>
+            <text x="110" y="16" class="progress-label" text-anchor="middle">TIME  Δt</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="label">ELAPSED</div><div class="value t" id="tVal">0.000 ms</div></div>
+        <div class="readout"><div class="label">CHARGE TRANSFERRED</div><div class="value q" id="qVal">0.0 C</div></div>
+        <div class="readout"><div class="label">AVG CURRENT (live)</div><div class="value i" id="iVal">— A</div></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="strikeBtn" class="primary">⚡ STRIKE</button>
+      <button id="replayBtn" class="replay" disabled>↻ Replay</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">
+      <div class="lead">PROBLEM</div>
+      <h2>Lightning Bolt</h2>
+      <p>A lightning bolt transfers <strong>30 C</strong> of charge from cloud to ground in <strong>2 ms</strong>. What is the average current of the bolt?</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">DEFINITION</div>
+      <p>Average current is total charge passing per unit time:</p>
+      <div class="eq-block">
+<span class="hi-c">I_avg</span> = <span class="hi-g">ΔQ / Δt</span></div>
+      <p>This is the <em>time-averaged</em> current — actual lightning has a sharp peak well above the average.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">PLUG IN NUMBERS</div>
+      <div class="eq-block">
+<span class="hi-d">ΔQ</span> = 30 C
+<span class="hi-d">Δt</span> = 2 ms = 2 × 10⁻³ s
+
+<span class="hi-c">I_avg</span> = <span class="hi-e">30 C</span> / <span class="hi-g">0.002 s</span>
+       = <span class="hi-c">15 000 A</span>
+       = <span class="hi-c">15 kA</span></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="result-card">
+        <div class="label">AVERAGE CURRENT</div>
+        <div class="value">15<span class="unit">kA</span></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">PERSPECTIVE</div>
+      <p>To grasp 15 kA, compare with everyday current draws:</p>
+      <div class="compare-block">
+        <div class="compare-row">
+          <div class="name">LED bulb</div>
+          <div class="bar-track"><div class="bar led" style="width: 0.05%;"></div></div>
+          <div class="val">~0.07 A</div>
+        </div>
+        <div class="compare-row">
+          <div class="name">Toaster</div>
+          <div class="bar-track"><div class="bar toaster" style="width: 0.07%;"></div></div>
+          <div class="val">~10 A</div>
+        </div>
+        <div class="compare-row">
+          <div class="name">Car starter</div>
+          <div class="bar-track"><div class="bar car" style="width: 1.3%;"></div></div>
+          <div class="val">~200 A</div>
+        </div>
+        <div class="compare-row">
+          <div class="name">Lightning</div>
+          <div class="bar-track"><div class="bar lightning" style="width: 100%;"></div></div>
+          <div class="val">15 000 A</div>
+        </div>
+      </div>
+      <p style="margin-top:12px">A single bolt momentarily dwarfs the current of every appliance on a city block, combined.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const TOTAL_Q = 30;        // C
+const TOTAL_T = 0.002;     // s = 2 ms
+const I_AVG = TOTAL_Q / TOTAL_T;  // 15 000 A
+
+// Animation: stretch 2 ms → 1.6 s for visibility
+const VISUAL_DURATION = 1600;  // ms
+
+const $ = sel => document.querySelector(sel);
+const scene = $('#scene');
+
+const boltMain = $('#boltMain');
+const boltInner = $('#boltInner');
+const boltGroup = $('#boltGroup');
+
+// pre-compute lengths
+const boltLen = boltMain.getTotalLength();
+boltMain.style.strokeDasharray = boltLen;
+boltMain.style.strokeDashoffset = boltLen;
+boltInner.style.strokeDasharray = boltLen;
+boltInner.style.strokeDashoffset = boltLen;
+
+const branch1 = $('#branch1');
+const branch2 = $('#branch2');
+[branch1, branch2].forEach(b => {
+  const L = b.getTotalLength();
+  b.style.strokeDasharray = L;
+  b.style.strokeDashoffset = L;
+});
+
+let animating = false;
+
+function reset() {
+  boltGroup.style.opacity = '0';
+  boltMain.style.strokeDashoffset = boltLen;
+  boltInner.style.strokeDashoffset = boltLen;
+  branch1.style.strokeDashoffset = branch1.getTotalLength();
+  branch2.style.strokeDashoffset = branch2.getTotalLength();
+  $('#chargeFill').setAttribute('width', 0);
+  $('#timeFill').setAttribute('width', 0);
+  $('#tVal').textContent = '0.000 ms';
+  $('#qVal').textContent = '0.0 C';
+  $('#iVal').textContent = '— A';
+  scene.classList.remove('flash');
+}
+
+function strike() {
+  if (animating) return;
+  animating = true;
+  $('#strikeBtn').disabled = true;
+  $('#replayBtn').disabled = true;
+  reset();
+  boltGroup.style.opacity = '1';
+
+  const start = performance.now();
+
+  function step(ts) {
+    const elapsed = ts - start;
+    const p = Math.min(1, elapsed / VISUAL_DURATION);
+
+    // bolt reveal (during first 60% of animation)
+    const revealP = Math.min(1, p / 0.6);
+    boltMain.style.strokeDashoffset = boltLen * (1 - revealP);
+    boltInner.style.strokeDashoffset = boltLen * (1 - revealP);
+
+    // branches pop in 30%-60%
+    if (p > 0.3) {
+      const bp = Math.min(1, (p - 0.3) / 0.3);
+      branch1.style.strokeDashoffset = branch1.getTotalLength() * (1 - bp);
+      branch2.style.strokeDashoffset = branch2.getTotalLength() * (1 - bp);
+    }
+
+    // flash effect at peak
+    if (p > 0.55 && p < 0.7) scene.classList.add('flash');
+    else scene.classList.remove('flash');
+
+    // counters
+    const charge = TOTAL_Q * p;
+    const time_ms = (TOTAL_T * 1000) * p;
+    $('#chargeFill').setAttribute('width', 220 * p);
+    $('#timeFill').setAttribute('width', 220 * p);
+    $('#tVal').textContent = time_ms.toFixed(3) + ' ms';
+    $('#qVal').textContent = charge.toFixed(1) + ' C';
+    if (time_ms > 0.05) {
+      const liveI = (charge / (time_ms / 1000));
+      $('#iVal').textContent = (liveI / 1000).toFixed(1) + ' kA';
+    }
+
+    if (p < 1) {
+      requestAnimationFrame(step);
+    } else {
+      $('#iVal').textContent = '15.0 kA';
+      animating = false;
+      $('#strikeBtn').disabled = false;
+      $('#replayBtn').disabled = false;
+      // bolt fade after a beat
+      setTimeout(() => {
+        boltGroup.style.transition = 'opacity 1.2s ease';
+        boltGroup.style.opacity = '0.4';
+      }, 600);
+    }
+  }
+  boltGroup.style.transition = 'none';
+  requestAnimationFrame(step);
+}
+
+$('#strikeBtn').addEventListener('click', strike);
+$('#replayBtn').addEventListener('click', strike);
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!animating) strike(); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resistor Cube — Equivalent Resistance by Symmetry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80; --violet:#a78bfa;
+    --amber:#e8a73c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.45fr 1fr; height: 100vh; max-width: 1600px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+
+  .canvas-wrap { flex: 1; padding: 18px 28px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .scene { flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px; background: linear-gradient(180deg, rgba(13,20,30,0.8), rgba(8,12,18,0.8)); position: relative; overflow: hidden; }
+  .scene svg { width: 100%; height: 100%; display: block; }
+  .step-tag { position: absolute; top: 14px; left: 16px; font-size: 10px; letter-spacing: 0.25em; color: var(--gold); padding: 4px 10px; border: 1px solid rgba(244,197,66,0.4); background: rgba(244,197,66,0.08); border-radius: 2px; }
+  .rotate-hint { position: absolute; bottom: 14px; right: 16px; font-size: 10px; letter-spacing: 0.15em; color: var(--ink-faint); }
+
+  .controls { padding: 14px 28px 18px; display: flex; gap: 10px; align-items: center; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  .progress { flex: 1; display: flex; gap: 4px; margin: 0 12px; }
+  .progress-tick { flex: 1; height: 2px; background: rgba(91,106,138,0.25); transition: background 0.3s, transform 0.3s; transform-origin: left; }
+  .progress-tick.done { background: var(--ink-faint); }
+  .progress-tick.active { background: var(--gold); transform: scaleY(2); }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(244,197,66,0.04), transparent 60%), var(--bg-1); padding: 32px 36px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .step-header { margin-bottom: 22px; border-bottom: 1px solid rgba(91,106,138,0.15); padding-bottom: 14px; }
+  .step-num { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .step-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 24px; line-height: 1.2; }
+  .content { animation: slideIn 0.4s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .content p { font-size: 13px; line-height: 1.65; color: var(--ink-dim); margin-bottom: 10px; }
+  .content strong { color: var(--ink); }
+  .content em { font-style: normal; color: var(--gold); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 12px 16px; margin: 8px 0; border-radius: 2px; font-size: 13px; line-height: 1.85; white-space: pre-wrap; }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-c { color: var(--coral); }
+  .eq-block .hi-v { color: var(--cyan); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+  .eq-block .hi-gn { color: var(--green); }
+
+  .result-card { padding: 22px; background: linear-gradient(135deg, rgba(74,222,128,0.12), rgba(244,197,66,0.06)); border: 1px solid rgba(74,222,128,0.4); border-radius: 4px; text-align: center; }
+  .result-card .lbl { font-size: 10px; letter-spacing: 0.3em; color: var(--green); margin-bottom: 6px; text-transform: uppercase; }
+  .result-card .v { font-family: 'Fraunces', serif; font-size: 38px; font-weight: 800; color: var(--ink); }
+  .result-card .u { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--green); }
+
+  /* SVG */
+  .edge-back   { stroke: rgba(232,167,60,0.3); stroke-width: 2.5; fill: none; stroke-linecap: round; transition: stroke 0.5s, stroke-width 0.5s, opacity 0.5s; }
+  .edge-front  { stroke: var(--amber); stroke-width: 3.5; fill: none; stroke-linecap: round; transition: stroke 0.5s, stroke-width 0.5s, opacity 0.5s; }
+  .edge-near   { stroke: var(--coral); filter: drop-shadow(0 0 6px rgba(242,95,92,0.5)); }
+  .edge-mid    { stroke: var(--gold); filter: drop-shadow(0 0 6px rgba(244,197,66,0.5)); }
+  .edge-far    { stroke: var(--cyan); filter: drop-shadow(0 0 6px rgba(77,208,225,0.5)); }
+  .edge-faded  { opacity: 0.18; }
+
+  .vertex {
+    fill: var(--bg-1); stroke: var(--ink-dim); stroke-width: 2;
+    transition: fill 0.5s, stroke 0.5s, r 0.3s;
+  }
+  .vertex.input  { fill: var(--coral); stroke: white; r: 9; filter: drop-shadow(0 0 10px rgba(242,95,92,0.6)); }
+  .vertex.output { fill: var(--cyan);  stroke: white; r: 9; filter: drop-shadow(0 0 10px rgba(77,208,225,0.6)); }
+  .vertex.layer1 { fill: var(--coral); opacity: 0.7; stroke: var(--coral); }
+  .vertex.layer2 { fill: var(--cyan);  opacity: 0.7; stroke: var(--cyan); }
+
+  .vertex-label {
+    fill: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+    pointer-events: none;
+  }
+  .label-input { fill: var(--coral); }
+  .label-output { fill: var(--cyan); }
+
+  /* Equipotential haze */
+  .equipot {
+    fill: var(--coral); fill-opacity: 0.06; stroke: var(--coral); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .equipot.layer2 { fill: var(--cyan); stroke: var(--cyan); }
+  .equipot.visible { opacity: 1; }
+
+  .arrow-current { fill: var(--coral); }
+
+  /* Collapsed network panel (side overlay) */
+  .collapsed {
+    position: absolute; top: 14px; right: 16px;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(91,106,138,0.3);
+    border-radius: 4px; padding: 12px 16px; font-size: 11px; line-height: 1.7;
+    opacity: 0; transition: opacity 0.4s;
+    max-width: 240px;
+  }
+  .collapsed.visible { opacity: 1; }
+  .collapsed .row { display: flex; justify-content: space-between; gap: 10px; }
+  .collapsed .row .label { color: var(--ink-faint); }
+  .collapsed .row .val { color: var(--gold); font-family: 'Fraunces', serif; }
+
+  /* equation glow */
+  .eq-glow { animation: eqPulse 2s ease infinite; }
+  @keyframes eqPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } 50% { box-shadow: 0 0 0 4px rgba(74,222,128,0.2); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">Network Symmetry</div>
+        <div class="doc-title">Resistor Cube · 12 Edges, R Each</div>
+      </div>
+      <div class="doc-id">DOC · 15 / R-CUBE</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="scene">
+        <div class="step-tag" id="stepTag">STEP 1 / 5</div>
+        <div class="rotate-hint">DRAG TO ROTATE · AUTO-ROTATE WHEN IDLE</div>
+        <div class="collapsed" id="collapsedInfo">
+          <div class="row"><span class="label">Layer 1 (3 ∥)</span><span class="val">R / 3</span></div>
+          <div class="row"><span class="label">Middle (6 ∥)</span><span class="val">R / 6</span></div>
+          <div class="row"><span class="label">Layer 3 (3 ∥)</span><span class="val">R / 3</span></div>
+          <div style="border-top: 1px solid rgba(91,106,138,0.3); margin-top:8px; padding-top:8px;">
+            <div class="row"><span class="label" style="color:var(--green)">TOTAL</span><span class="val" style="color:var(--green)">5R / 6</span></div>
+          </div>
+        </div>
+
+        <svg id="cubeSvg" viewBox="-300 -240 600 480" preserveAspectRatio="xMidYMid meet">
+          <!-- Equipotential haze (drawn first, behind everything) -->
+          <ellipse id="equipot1" class="equipot" cx="0" cy="0" rx="0" ry="0"/>
+          <ellipse id="equipot2" class="equipot layer2" cx="0" cy="0" rx="0" ry="0"/>
+
+          <!-- Edges (12) - injected by JS -->
+          <g id="edges"></g>
+          <!-- Vertices (8) -->
+          <g id="vertices"></g>
+          <!-- Vertex labels -->
+          <g id="vertexLabels"></g>
+
+          <!-- Current entry/exit arrows -->
+          <g id="ioMarkers"></g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="prevBtn">◀ Prev</button>
+      <button id="nextBtn" class="primary">Next ▶</button>
+      <div class="progress" id="progress"></div>
+      <button id="replayBtn">↻ Restart</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="step-header">
+      <div class="step-num" id="stepNum">STEP 01 / 05</div>
+      <div class="step-title" id="stepTitle">The Cube</div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const $ = sel => document.querySelector(sel);
+const NS = 'http://www.w3.org/2000/svg';
+
+// ===== Define cube vertices in 3D =====
+// Diagonal: A = (0,0,0), G = (1,1,1)
+// Coordinates centered around 0.5
+const SCALE = 130;
+const verts3D = {
+  A: [0, 0, 0],   // input corner   — coral
+  B: [1, 0, 0],   // layer 1
+  D: [0, 1, 0],   // layer 1
+  E: [0, 0, 1],   // layer 1
+  C: [1, 1, 0],   // layer 2
+  F: [1, 0, 1],   // layer 2
+  H: [0, 1, 1],   // layer 2
+  G: [1, 1, 1]    // output corner  — cyan
+};
+// Symmetry classes
+const layer1 = ['B', 'D', 'E'];   // adjacent to A
+const layer2 = ['C', 'F', 'H'];   // adjacent to G
+
+// Edges (12)
+const edges = [
+  // 3 from A
+  { id: 'AB', a: 'A', b: 'B', cls: 'near' },
+  { id: 'AD', a: 'A', b: 'D', cls: 'near' },
+  { id: 'AE', a: 'A', b: 'E', cls: 'near' },
+  // 6 middle
+  { id: 'BC', a: 'B', b: 'C', cls: 'mid' },
+  { id: 'BF', a: 'B', b: 'F', cls: 'mid' },
+  { id: 'DC', a: 'D', b: 'C', cls: 'mid' },
+  { id: 'DH', a: 'D', b: 'H', cls: 'mid' },
+  { id: 'EF', a: 'E', b: 'F', cls: 'mid' },
+  { id: 'EH', a: 'E', b: 'H', cls: 'mid' },
+  // 3 to G
+  { id: 'CG', a: 'C', b: 'G', cls: 'far' },
+  { id: 'FG', a: 'F', b: 'G', cls: 'far' },
+  { id: 'HG', a: 'H', b: 'G', cls: 'far' }
+];
+
+// ===== Rotation state =====
+let rotX = -0.35;   // tilt
+let rotY = 0.5;     // spin
+let dragging = false;
+let lastMx = 0, lastMy = 0;
+let lastInput = performance.now();
+let autoSpin = true;
+
+// Project 3D to 2D
+function project(v) {
+  // Center coords around 0
+  const x = v[0] - 0.5;
+  const y = v[1] - 0.5;
+  const z = v[2] - 0.5;
+  // Rotate around Y (spin)
+  const cy = Math.cos(rotY), sy = Math.sin(rotY);
+  let xr = x * cy + z * sy;
+  let zr = -x * sy + z * cy;
+  let yr = y;
+  // Rotate around X (tilt)
+  const cx = Math.cos(rotX), sx = Math.sin(rotX);
+  let yr2 = yr * cx - zr * sx;
+  let zr2 = yr * sx + zr * cx;
+  // Project (slight perspective)
+  const persp = 1 / (2.5 - zr2);
+  return {
+    x: xr * SCALE * persp * 2.5,
+    y: -yr2 * SCALE * persp * 2.5, // negate for screen
+    z: zr2  // keep z for depth ordering
+  };
+}
+
+// ===== Build SVG elements =====
+const edgeEls = {};
+const vertEls = {};
+const labelEls = {};
+
+const edgesG = $('#edges');
+edges.forEach(e => {
+  const path = document.createElementNS(NS, 'line');
+  path.setAttribute('class', 'edge-front');
+  path.dataset.id = e.id;
+  path.dataset.cls = e.cls;
+  edgesG.appendChild(path);
+  edgeEls[e.id] = path;
+});
+
+const vertG = $('#vertices');
+const labelG = $('#vertexLabels');
+Object.keys(verts3D).forEach(k => {
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('r', 7);
+  c.setAttribute('class', 'vertex');
+  c.dataset.id = k;
+  vertG.appendChild(c);
+  vertEls[k] = c;
+
+  const lbl = document.createElementNS(NS, 'text');
+  lbl.setAttribute('class', 'vertex-label');
+  lbl.setAttribute('text-anchor', 'middle');
+  lbl.textContent = k;
+  labelG.appendChild(lbl);
+  labelEls[k] = lbl;
+});
+
+// I/O arrows (added on top, refreshed each frame)
+const ioG = $('#ioMarkers');
+
+function drawIOMarkers(showArrows) {
+  ioG.innerHTML = '';
+  if (!showArrows) return;
+  const Ap = project(verts3D.A);
+  const Gp = project(verts3D.G);
+  // Arrow into A: from outside, pointing at A
+  const inA = document.createElementNS(NS, 'g');
+  inA.innerHTML = `
+    <path d="M ${Ap.x - 38} ${Ap.y + 10} L ${Ap.x - 14} ${Ap.y + 4}" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M ${Ap.x - 14} ${Ap.y + 4} L ${Ap.x - 22} ${Ap.y - 1} L ${Ap.x - 22} ${Ap.y + 9} Z" fill="var(--coral)"/>
+    <text x="${Ap.x - 50}" y="${Ap.y + 18}" fill="var(--coral)" font-family="JetBrains Mono" font-size="11" font-weight="700">I in</text>
+  `;
+  ioG.appendChild(inA);
+  // Arrow out of G
+  const outG = document.createElementNS(NS, 'g');
+  outG.innerHTML = `
+    <path d="M ${Gp.x + 14} ${Gp.y - 4} L ${Gp.x + 38} ${Gp.y - 10}" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M ${Gp.x + 38} ${Gp.y - 10} L ${Gp.x + 30} ${Gp.y - 5} L ${Gp.x + 30} ${Gp.y - 15} Z" fill="var(--cyan)"/>
+    <text x="${Gp.x + 50}" y="${Gp.y - 14}" fill="var(--cyan)" font-family="JetBrains Mono" font-size="11" font-weight="700">I out</text>
+  `;
+  ioG.appendChild(outG);
+}
+
+// ===== Render =====
+function render() {
+  // Compute projections
+  const proj = {};
+  Object.keys(verts3D).forEach(k => proj[k] = project(verts3D[k]));
+
+  // Draw edges
+  edges.forEach(e => {
+    const a = proj[e.a], b = proj[e.b];
+    const el = edgeEls[e.id];
+    el.setAttribute('x1', a.x); el.setAttribute('y1', a.y);
+    el.setAttribute('x2', b.x); el.setAttribute('y2', b.y);
+    // depth-based opacity
+    const avgZ = (a.z + b.z) / 2;
+    const baseOpacity = 0.6 + Math.min(0.4, Math.max(-0.3, avgZ * 0.6));
+    el.style.opacity = el.classList.contains('edge-faded') ? '0.18' : baseOpacity;
+  });
+
+  // Draw vertices
+  Object.keys(verts3D).forEach(k => {
+    const p = proj[k];
+    vertEls[k].setAttribute('cx', p.x);
+    vertEls[k].setAttribute('cy', p.y);
+    labelEls[k].setAttribute('x', p.x);
+    labelEls[k].setAttribute('y', p.y - 14);
+  });
+
+  // Update equipotential haze if visible
+  const eq1 = $('#equipot1');
+  if (eq1.classList.contains('visible')) {
+    const pts = layer1.map(k => proj[k]);
+    const cx = (pts[0].x + pts[1].x + pts[2].x) / 3;
+    const cy = (pts[0].y + pts[1].y + pts[2].y) / 3;
+    eq1.setAttribute('cx', cx); eq1.setAttribute('cy', cy);
+    eq1.setAttribute('rx', 80); eq1.setAttribute('ry', 60);
+  }
+  const eq2 = $('#equipot2');
+  if (eq2.classList.contains('visible')) {
+    const pts = layer2.map(k => proj[k]);
+    const cx = (pts[0].x + pts[1].x + pts[2].x) / 3;
+    const cy = (pts[0].y + pts[1].y + pts[2].y) / 3;
+    eq2.setAttribute('cx', cx); eq2.setAttribute('cy', cy);
+    eq2.setAttribute('rx', 80); eq2.setAttribute('ry', 60);
+  }
+
+  drawIOMarkers(currentStep >= 1);
+}
+
+// ===== Animation loop =====
+let lastTs = performance.now();
+function frame(ts) {
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (autoSpin && !dragging && (ts - lastInput) > 1500) {
+    rotY += dt * 0.25;
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ===== Drag interaction =====
+const cubeSvg = $('#cubeSvg');
+cubeSvg.addEventListener('pointerdown', e => {
+  dragging = true;
+  cubeSvg.setPointerCapture(e.pointerId);
+  lastMx = e.clientX; lastMy = e.clientY;
+  lastInput = performance.now();
+});
+cubeSvg.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastMx;
+  const dy = e.clientY - lastMy;
+  rotY += dx * 0.012;
+  rotX -= dy * 0.012;
+  rotX = Math.max(-1.4, Math.min(1.4, rotX));
+  lastMx = e.clientX; lastMy = e.clientY;
+  lastInput = performance.now();
+});
+cubeSvg.addEventListener('pointerup', e => {
+  dragging = false;
+  cubeSvg.releasePointerCapture(e.pointerId);
+  lastInput = performance.now();
+});
+cubeSvg.addEventListener('pointerleave', () => { dragging = false; });
+
+// ===== Steps =====
+const STEPS = [
+  {
+    num: 'STEP 01 / 05',
+    title: 'The Cube',
+    html: `
+      <p>Twelve identical resistors of value <strong>R</strong> wired along the 12 edges of a cube. Inject current at corner <strong style="color:var(--coral)">A</strong>, draw it out at the diagonally opposite corner <strong style="color:var(--cyan)">G</strong>.</p>
+      <p>What is the equivalent resistance <em>R_eq</em>?</p>
+      <div class="eq-block">
+<span class="hi-d">Vertices:</span>  8
+<span class="hi-d">Edges:</span>     12 (each = R)
+<span class="hi-d">Inject:</span>    A = (0,0,0)
+<span class="hi-d">Output:</span>    G = (1,1,1)</div>
+      <p>Drag the cube to rotate.</p>
+    `,
+    enter() {
+      Object.values(vertEls).forEach(v => v.classList.remove('input','output','layer1','layer2'));
+      Object.values(edgeEls).forEach(e => { e.classList.remove('edge-near','edge-mid','edge-far','edge-faded'); });
+      $('#equipot1').classList.remove('visible');
+      $('#equipot2').classList.remove('visible');
+      $('#collapsedInfo').classList.remove('visible');
+    }
+  },
+  {
+    num: 'STEP 02 / 05',
+    title: 'Mark the Endpoints',
+    html: `
+      <p>By choosing where current enters and leaves, we set up a <em>symmetry axis</em> running through the body diagonal A–G.</p>
+      <div class="eq-block">
+<span class="hi-c">A</span>  ← current in
+<span class="hi-v">G</span>  ← current out</div>
+      <p>Crucially: rotating the cube 120° around the A–G diagonal swaps the three edges from A among themselves, the three edges into G among themselves, and the six middle edges in two cycles. <strong>The geometry is invariant under this rotation.</strong></p>
+    `,
+    enter() {
+      vertEls.A.classList.add('input');
+      vertEls.G.classList.add('output');
+      labelEls.A.classList.add('label-input');
+      labelEls.G.classList.add('label-output');
+      $('#equipot1').classList.remove('visible');
+      $('#equipot2').classList.remove('visible');
+      $('#collapsedInfo').classList.remove('visible');
+      Object.values(edgeEls).forEach(e => { e.classList.remove('edge-near','edge-mid','edge-far','edge-faded'); });
+    }
+  },
+  {
+    num: 'STEP 03 / 05',
+    title: 'Equipotential Layers',
+    html: `
+      <p>Symmetry implies the three nodes adjacent to A — <strong style="color:var(--coral)">B, D, E</strong> — sit at <em>identical potential</em>. Same for the three adjacent to G — <strong style="color:var(--cyan)">C, F, H</strong>.</p>
+      <div class="eq-block">
+<span class="hi-c">V(B) = V(D) = V(E)</span>
+<span class="hi-v">V(C) = V(F) = V(H)</span></div>
+      <p>Two equipotential clusters appear (dashed haze). Wires connecting nodes at the same potential carry no current, so we may <strong>fuse</strong> each cluster into a single node without changing anything.</p>
+    `,
+    enter() {
+      vertEls.A.classList.add('input');
+      vertEls.G.classList.add('output');
+      layer1.forEach(k => vertEls[k].classList.add('layer1'));
+      layer2.forEach(k => vertEls[k].classList.add('layer2'));
+      $('#equipot1').classList.add('visible');
+      $('#equipot2').classList.add('visible');
+      $('#collapsedInfo').classList.remove('visible');
+      Object.values(edgeEls).forEach(e => { e.classList.remove('edge-near','edge-mid','edge-far','edge-faded'); });
+    }
+  },
+  {
+    num: 'STEP 04 / 05',
+    title: 'Three Stages in Series',
+    html: `
+      <p>After fusing, the circuit collapses to <strong>three resistor banks in series</strong>:</p>
+      <ul style="list-style:none; margin:8px 0; font-size: 12.5px;">
+        <li style="padding:4px 0; color:var(--ink-dim)"><span style="color:var(--coral)">→ Stage 1:</span> A to {B,D,E} — <strong>3 R's in parallel</strong></li>
+        <li style="padding:4px 0; color:var(--ink-dim)"><span style="color:var(--gold)">→ Stage 2:</span> {B,D,E} to {C,F,H} — <strong>6 R's in parallel</strong></li>
+        <li style="padding:4px 0; color:var(--ink-dim)"><span style="color:var(--cyan)">→ Stage 3:</span> {C,F,H} to G — <strong>3 R's in parallel</strong></li>
+      </ul>
+      <div class="eq-block">
+<span class="hi-c">R_stage1</span> = R / 3
+<span class="hi-g">R_stage2</span> = R / 6
+<span class="hi-v">R_stage3</span> = R / 3</div>
+      <p>The three classes of edges are coloured: coral / gold / cyan.</p>
+    `,
+    enter() {
+      vertEls.A.classList.add('input');
+      vertEls.G.classList.add('output');
+      layer1.forEach(k => vertEls[k].classList.add('layer1'));
+      layer2.forEach(k => vertEls[k].classList.add('layer2'));
+      $('#equipot1').classList.add('visible');
+      $('#equipot2').classList.add('visible');
+      $('#collapsedInfo').classList.add('visible');
+      // colour edges
+      edges.forEach(e => {
+        edgeEls[e.id].classList.remove('edge-near','edge-mid','edge-far','edge-faded');
+        if (e.cls === 'near') edgeEls[e.id].classList.add('edge-near');
+        if (e.cls === 'mid')  edgeEls[e.id].classList.add('edge-mid');
+        if (e.cls === 'far')  edgeEls[e.id].classList.add('edge-far');
+      });
+    }
+  },
+  {
+    num: 'STEP 05 / 05',
+    title: 'Sum the Series',
+    html: `
+      <p>Series resistances simply add:</p>
+      <div class="eq-block">
+<span class="hi-c">R_eq</span> = R/3  +  R/6  +  R/3
+   = 2R/6  +  R/6  +  2R/6
+   = <span class="hi-gn">5R / 6</span></div>
+      <div class="result-card eq-glow">
+        <div class="lbl">CUBE EQUIVALENT RESISTANCE</div>
+        <div class="v">5R<span style="color:var(--ink-dim); font-weight:400">/</span>6</div>
+      </div>
+      <p style="margin-top:14px"><strong>Sanity check.</strong> If R = 6 Ω, then R_eq = 5 Ω. The current splits three ways at the start, six ways across the middle, then re-merges three ways at the end — exactly tracking the conductance counts <strong>3, 6, 3</strong>.</p>
+      <p>Same trick works for any symmetric polyhedron — all you need is to identify the symmetry-equivalent nodes and fuse them.</p>
+    `,
+    enter() {
+      vertEls.A.classList.add('input');
+      vertEls.G.classList.add('output');
+      layer1.forEach(k => vertEls[k].classList.add('layer1'));
+      layer2.forEach(k => vertEls[k].classList.add('layer2'));
+      $('#equipot1').classList.add('visible');
+      $('#equipot2').classList.add('visible');
+      $('#collapsedInfo').classList.add('visible');
+      edges.forEach(e => {
+        edgeEls[e.id].classList.remove('edge-faded');
+        if (e.cls === 'near') edgeEls[e.id].classList.add('edge-near');
+        if (e.cls === 'mid')  edgeEls[e.id].classList.add('edge-mid');
+        if (e.cls === 'far')  edgeEls[e.id].classList.add('edge-far');
+      });
+    }
+  }
+];
+
+// ===== Stepper =====
+let currentStep = 0;
+
+function buildProgress() {
+  const wrap = $('#progress'); wrap.innerHTML = '';
+  STEPS.forEach(() => {
+    const t = document.createElement('div'); t.className = 'progress-tick';
+    wrap.appendChild(t);
+  });
+}
+function updateProgress() {
+  document.querySelectorAll('.progress-tick').forEach((t, i) => {
+    t.classList.toggle('active', i === currentStep);
+    t.classList.toggle('done', i < currentStep);
+  });
+}
+
+function showStep(idx) {
+  currentStep = Math.max(0, Math.min(STEPS.length - 1, idx));
+  const s = STEPS[currentStep];
+  $('#stepNum').textContent = s.num;
+  $('#stepTitle').textContent = s.title;
+  $('#stepTag').textContent = `STEP ${currentStep + 1} / ${STEPS.length}`;
+  const c = $('#content');
+  c.style.animation = 'none'; void c.offsetWidth; c.style.animation = '';
+  c.innerHTML = s.html;
+  s.enter();
+  updateProgress();
+  $('#prevBtn').disabled = currentStep === 0;
+  $('#nextBtn').disabled = currentStep === STEPS.length - 1;
+  if (currentStep === STEPS.length - 1) $('#nextBtn').textContent = '✓ Done';
+  else $('#nextBtn').textContent = 'Next ▶';
+}
+
+$('#prevBtn').addEventListener('click', () => showStep(currentStep - 1));
+$('#nextBtn').addEventListener('click', () => showStep(currentStep + 1));
+$('#replayBtn').addEventListener('click', () => showStep(0));
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && currentStep < STEPS.length - 1) showStep(currentStep + 1);
+  if (e.key === 'ArrowLeft' && currentStep > 0) showStep(currentStep - 1);
+});
+
+buildProgress();
+showStep(0);
+</script>
+</body>
+</html>

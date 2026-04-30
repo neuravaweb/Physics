@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLC ⇆ Damped Oscillator — The Same Equation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#0a0d14; --bg-1:#11151f; --grid:rgba(99,138,200,0.06);
+    --ink:#e8ecf2; --ink-dim:#8a93a8; --ink-faint:#5b6a8a;
+    --gold:#f4c542; --cyan:#4dd0e1; --coral:#f25f5c; --green:#4ade80; --violet:#a78bfa;
+    --elec:#4dd0e1; --mech:#a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-0); color: var(--ink); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+  body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 32px 32px; }
+  .app { display: grid; grid-template-columns: 1.5fr 1fr; height: 100vh; max-width: 1700px; margin: 0 auto; }
+  .stage { display: flex; flex-direction: column; border-right: 1px solid rgba(91,106,138,0.2); }
+  .stage-header { padding: 18px 28px 10px; border-bottom: 1px solid rgba(91,106,138,0.15); display: flex; justify-content: space-between; align-items: baseline; }
+  .stage-header .tag { font-size: 10px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+  .stage-header .doc-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .stage-header .doc-id { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; }
+  .canvas-wrap { flex: 1; padding: 14px 28px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+  .systems { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; flex: 0 0 auto; height: 200px; }
+  .system-box { border: 1px solid rgba(91,106,138,0.25); border-radius: 4px; background: rgba(0,0,0,0.25); position: relative; overflow: hidden; }
+  .system-box.elec { border-color: rgba(77,208,225,0.3); }
+  .system-box.mech { border-color: rgba(167,139,250,0.3); }
+  .system-box svg { width: 100%; height: 100%; display: block; }
+  .system-box .head {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 10px; letter-spacing: 0.25em; padding: 3px 8px; border-radius: 2px;
+  }
+  .system-box.elec .head { color: var(--elec); border: 1px solid rgba(77,208,225,0.4); background: rgba(77,208,225,0.08); }
+  .system-box.mech .head { color: var(--mech); border: 1px solid rgba(167,139,250,0.4); background: rgba(167,139,250,0.08); }
+
+  .plot-box { flex: 1; min-height: 0; border: 1px solid rgba(91,106,138,0.25); border-radius: 4px; background: linear-gradient(180deg, rgba(13,20,30,0.8), rgba(8,12,18,0.8)); position: relative; }
+  .plot-box svg { width: 100%; height: 100%; display: block; }
+  .plot-box .head { position: absolute; top: 8px; left: 12px; font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); }
+  .plot-legend { position: absolute; top: 8px; right: 12px; display: flex; gap: 14px; font-size: 11px; }
+  .plot-legend .dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+
+  .controls { padding: 14px 28px 18px; display: flex; gap: 14px; align-items: center; border-top: 1px solid rgba(91,106,138,0.15); background: rgba(0,0,0,0.2); flex-wrap: wrap; }
+  button { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.05em; background: transparent; color: var(--ink-dim); border: 1px solid rgba(91,106,138,0.4); padding: 9px 16px; border-radius: 2px; cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+  button:hover { color: var(--ink); border-color: var(--ink-dim); background: rgba(255,255,255,0.03); }
+  button.primary { background: var(--gold); color: var(--bg-0); border-color: var(--gold); font-weight: 700; }
+  .slider-row { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 240px; }
+  .slider-row label { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.2em; min-width: 90px; }
+  input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(91,106,138,0.3); border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--gold); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(244,197,66,0.5); }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: var(--gold); border-radius: 50%; cursor: pointer; border: none; }
+  .slider-row .val { font-family: 'Fraunces', serif; font-size: 16px; color: var(--gold); min-width: 60px; text-align: right; }
+
+  .panel { background: radial-gradient(ellipse at top right, rgba(244,197,66,0.04), transparent 60%), var(--bg-1); padding: 28px 32px; overflow-y: auto; }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(91,106,138,0.3); border-radius: 3px; }
+  .panel-section { margin-bottom: 22px; }
+  .panel-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; margin-bottom: 10px; }
+  .panel-section .lead { font-size: 10px; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .panel-section p { font-size: 13px; line-height: 1.6; color: var(--ink-dim); margin-bottom: 10px; }
+  .panel-section strong { color: var(--ink); }
+  .eq-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(244,197,66,0.18); border-left: 2px solid var(--gold); padding: 12px 16px; margin: 8px 0; border-radius: 2px; font-size: 12.5px; line-height: 1.85; white-space: pre-wrap; }
+  .eq-block.elec { border-left-color: var(--elec); }
+  .eq-block.mech { border-left-color: var(--mech); }
+  .eq-block .hi-e { color: var(--elec); }
+  .eq-block .hi-m { color: var(--mech); }
+  .eq-block .hi-g { color: var(--gold); }
+  .eq-block .hi-d { color: var(--ink-faint); }
+
+  /* Analogy table */
+  .analogy {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px 14px;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(91,106,138,0.2);
+    padding: 14px 18px; border-radius: 4px; margin: 10px 0;
+  }
+  .analogy .e { color: var(--elec); font-size: 13px; text-align: right; }
+  .analogy .m { color: var(--mech); font-size: 13px; }
+  .analogy .arrow { color: var(--gold); font-size: 13px; text-align: center; font-weight: 700; }
+
+  /* SVG */
+  .wire { stroke: var(--ink-faint); stroke-width: 2; fill: none; stroke-linecap: round; }
+  .resistor { stroke: #d97706; stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  .inductor { stroke: var(--elec); stroke-width: 2; fill: none; }
+  .cap-plate { stroke: var(--ink); stroke-width: 3; }
+  .cap-charge-pos { fill: var(--coral); opacity: 0.8; }
+  .cap-charge-neg { fill: var(--cyan); opacity: 0.8; }
+
+  .spring { stroke: var(--mech); stroke-width: 2; fill: none; }
+  .mass { fill: var(--mech); stroke: white; stroke-width: 1.5; filter: drop-shadow(0 0 8px rgba(167,139,250,0.5)); }
+  .dashpot { stroke: #d97706; stroke-width: 2; fill: rgba(217,119,6,0.15); }
+  .wall { stroke: var(--ink-faint); stroke-width: 1; }
+
+  .label { fill: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .label.dim { fill: var(--ink-faint); font-size: 10px; }
+
+  .trace-q { fill: none; stroke: var(--elec); stroke-width: 2; filter: drop-shadow(0 0 4px rgba(77,208,225,0.4)); }
+  .trace-x { fill: none; stroke: var(--mech); stroke-width: 2; filter: drop-shadow(0 0 4px rgba(167,139,250,0.4)); stroke-dasharray: 4 3; }
+  .axis { stroke: rgba(91,106,138,0.4); stroke-width: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <div>
+        <div class="tag">System Analogy</div>
+        <div class="doc-title">RLC Circuit ⇆ Damped Mass-Spring</div>
+      </div>
+      <div class="doc-id">DOC · 14 / DUAL</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="systems">
+        <!-- ============== ELECTRICAL: RLC ============== -->
+        <div class="system-box elec">
+          <div class="head">RLC · ELECTRICAL</div>
+          <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+            <!-- top wire -->
+            <path class="wire" d="M 60 60 L 340 60"/>
+            <!-- bottom wire -->
+            <path class="wire" d="M 60 160 L 340 160"/>
+            <!-- left vertical (capacitor) -->
+            <path class="wire" d="M 60 60 L 60 95"/>
+            <path class="wire" d="M 60 125 L 60 160"/>
+            <!-- middle vertical (inductor) -->
+            <path class="wire" d="M 200 60 L 200 90"/>
+            <path class="wire" d="M 200 130 L 200 160"/>
+            <!-- right vertical (resistor) -->
+            <path class="wire" d="M 340 60 L 340 95"/>
+            <path class="wire" d="M 340 125 L 340 160"/>
+
+            <!-- Capacitor (left) -->
+            <g transform="translate(60, 110)">
+              <line x1="-15" y1="-15" x2="15" y2="-15" class="cap-plate"/>
+              <line x1="-15" y1="15"  x2="15" y2="15"  class="cap-plate"/>
+              <text x="-22" y="3" class="label dim" text-anchor="end">C</text>
+              <!-- charges that vary with sign of Q -->
+              <g id="capChargesPos">
+                <text x="-3" y="-22" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="var(--coral)" text-anchor="middle" id="chargesTop">+</text>
+              </g>
+              <g id="capChargesNeg">
+                <text x="-3" y="29" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="var(--cyan)" text-anchor="middle" id="chargesBot">−</text>
+              </g>
+            </g>
+
+            <!-- Inductor (middle, semicircle bumps) -->
+            <g transform="translate(200, 110)" class="inductor" id="indGroup">
+              <path d="M 0 -20 Q -8 -20 -8 -10 Q -8 0 0 0 Q 8 0 8 -10 Q 8 -20 0 -20"/>
+              <path d="M 0 0 Q -8 0 -8 10 Q -8 20 0 20"/>
+              <text x="14" y="3" class="label dim">L</text>
+            </g>
+
+            <!-- Resistor (right) -->
+            <g transform="translate(340, 110)">
+              <path class="resistor" d="M 0 -15 L -6 -10 L 6 -2 L -6 6 L 6 14 L 0 15"/>
+              <text x="14" y="3" class="label dim">R</text>
+            </g>
+
+            <!-- current arrow + label -->
+            <g id="currentArrow" opacity="0.7">
+              <path d="M 130 50 L 160 50" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" id="iLine"/>
+              <path d="M 158 47 L 165 50 L 158 53" fill="var(--coral)" stroke="var(--coral)" id="iHead"/>
+              <text x="145" y="42" font-family="JetBrains Mono" font-size="11" fill="var(--coral)" text-anchor="middle">I = dQ/dt</text>
+            </g>
+
+            <text x="200" y="190" class="label dim" text-anchor="middle">L · Q̈ + R · Q̇ + Q/C = 0</text>
+          </svg>
+        </div>
+
+        <!-- ============== MECHANICAL: SPRING-MASS-DAMPER ============== -->
+        <div class="system-box mech">
+          <div class="head">SPRING-MASS-DAMPER · MECHANICAL</div>
+          <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+            <!-- floor -->
+            <line x1="0"   y1="170" x2="400" y2="170" class="wall"/>
+            <g class="wall">
+              <line x1="0" y1="170" x2="10" y2="180"/>
+              <line x1="20" y1="170" x2="30" y2="180"/>
+              <line x1="40" y1="170" x2="50" y2="180"/>
+              <line x1="60" y1="170" x2="70" y2="180"/>
+              <line x1="80" y1="170" x2="90" y2="180"/>
+              <line x1="100" y1="170" x2="110" y2="180"/>
+              <line x1="120" y1="170" x2="130" y2="180"/>
+              <line x1="140" y1="170" x2="150" y2="180"/>
+              <line x1="160" y1="170" x2="170" y2="180"/>
+              <line x1="180" y1="170" x2="190" y2="180"/>
+              <line x1="200" y1="170" x2="210" y2="180"/>
+              <line x1="220" y1="170" x2="230" y2="180"/>
+              <line x1="240" y1="170" x2="250" y2="180"/>
+              <line x1="260" y1="170" x2="270" y2="180"/>
+              <line x1="280" y1="170" x2="290" y2="180"/>
+              <line x1="300" y1="170" x2="310" y2="180"/>
+              <line x1="320" y1="170" x2="330" y2="180"/>
+              <line x1="340" y1="170" x2="350" y2="180"/>
+              <line x1="360" y1="170" x2="370" y2="180"/>
+            </g>
+            <!-- left wall -->
+            <line x1="40" y1="40" x2="40" y2="170" class="wall" stroke-width="2"/>
+            <g class="wall">
+              <line x1="40" y1="50" x2="30" y2="60"/>
+              <line x1="40" y1="70" x2="30" y2="80"/>
+              <line x1="40" y1="90" x2="30" y2="100"/>
+              <line x1="40" y1="110" x2="30" y2="120"/>
+              <line x1="40" y1="130" x2="30" y2="140"/>
+              <line x1="40" y1="150" x2="30" y2="160"/>
+            </g>
+            <!-- equilibrium dashed -->
+            <line id="equilLine" x1="240" y1="60" x2="240" y2="170" stroke="var(--gold)" stroke-width="1" stroke-dasharray="3 4" opacity="0.4"/>
+            <text x="240" y="55" class="label dim" text-anchor="middle">x = 0</text>
+
+            <!-- spring (drawn dynamically) -->
+            <path id="spring" class="spring" d=""/>
+
+            <!-- dashpot (damper) - drawn dynamically -->
+            <g id="dashpotGroup" transform="translate(0,0)">
+              <line id="dashpotConn1" class="wire" x1="40" y1="135" x2="120" y2="135"/>
+              <rect id="dashpotBody" x="120" y="125" width="40" height="20" class="dashpot"/>
+              <line id="dashpotPiston" x1="160" y1="135" x2="240" y2="135" stroke="var(--mech)" stroke-width="3"/>
+              <rect id="dashpotPistonHead" x="155" y="128" width="6" height="14" fill="var(--mech)"/>
+            </g>
+
+            <!-- mass -->
+            <g id="massGroup">
+              <rect id="massBlock" x="240" y="100" width="60" height="60" class="mass" rx="3"/>
+              <text id="massLabel" x="270" y="135" class="label" text-anchor="middle" font-weight="700" fill="white">m</text>
+            </g>
+
+            <text x="200" y="195" class="label dim" text-anchor="middle">m · ẍ + b · ẋ + k · x = 0</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Plot of Q(t) and x(t) overlaid -->
+      <div class="plot-box">
+        <div class="head">Q(t) and x(t) — same shape</div>
+        <div class="plot-legend">
+          <span><span class="dot" style="background:var(--elec)"></span><span style="color:var(--elec)">Q (charge)</span></span>
+          <span><span class="dot" style="background:var(--mech)"></span><span style="color:var(--mech)">x (position)</span></span>
+        </div>
+        <svg id="plot" viewBox="0 0 800 220" preserveAspectRatio="none">
+          <!-- baseline -->
+          <line x1="40" y1="110" x2="780" y2="110" class="axis"/>
+          <line x1="40" y1="20" x2="40" y2="200" class="axis"/>
+          <text x="32" y="113" class="label dim" text-anchor="end">0</text>
+          <text x="32" y="28" class="label dim" text-anchor="end">+1</text>
+          <text x="32" y="200" class="label dim" text-anchor="end">−1</text>
+          <text x="780" y="115" class="label dim" text-anchor="end">→ time</text>
+
+          <!-- traces (drawn live) -->
+          <path id="traceQ" class="trace-q" d=""/>
+          <path id="traceX" class="trace-x" d=""/>
+
+          <!-- live cursor -->
+          <line id="plotCursor" x1="40" y1="20" x2="40" y2="200" stroke="var(--gold)" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.7"/>
+          <circle id="qDot" r="4" fill="var(--elec)" stroke="white" stroke-width="1.5"/>
+          <circle id="xDot" r="4" fill="var(--mech)" stroke="white" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="playBtn" class="primary">❚❚ Pause</button>
+      <button id="resetBtn">⟲ Restart</button>
+      <div class="slider-row">
+        <label>DAMPING γ</label>
+        <input type="range" id="dampSlider" min="0" max="1.5" step="0.01" value="0.2"/>
+        <span class="val" id="dampVal">0.20</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">
+      <div class="lead">SAME EQUATION</div>
+      <h2>Two Worlds, One Math</h2>
+      <p>An RLC circuit and a mass on a spring with a dashpot obey <strong>identical second-order ODEs</strong> — only the symbols differ. Both decay sinusoidally when underdamped.</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">ELECTRICAL · RLC</div>
+      <div class="eq-block elec">
+<span class="hi-e">L · d²Q/dt²</span> + <span class="hi-e">R · dQ/dt</span> + <span class="hi-e">Q/C</span> = V(t)
+
+<span class="hi-d">Inertia of current</span>     ← L
+<span class="hi-d">Energy dissipation</span>    ← R
+<span class="hi-d">Restoring force</span>       ← 1/C
+<span class="hi-d">State variable</span>        ← Q (charge)</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">MECHANICAL · MASS-SPRING</div>
+      <div class="eq-block mech">
+<span class="hi-m">m · d²x/dt²</span> + <span class="hi-m">b · dx/dt</span> + <span class="hi-m">k · x</span> = F(t)
+
+<span class="hi-d">Inertia of motion</span>     ← m
+<span class="hi-d">Friction / damping</span>    ← b
+<span class="hi-d">Spring stiffness</span>      ← k
+<span class="hi-d">State variable</span>        ← x (position)</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">ANALOGY MAP</div>
+      <div class="analogy">
+        <div class="e">L  inductance</div>     <div class="arrow">⇄</div>  <div class="m">m  mass</div>
+        <div class="e">R  resistance</div>     <div class="arrow">⇄</div>  <div class="m">b  damping coef.</div>
+        <div class="e">1/C  elastance</div>    <div class="arrow">⇄</div>  <div class="m">k  spring const.</div>
+        <div class="e">Q  charge</div>         <div class="arrow">⇄</div>  <div class="m">x  position</div>
+        <div class="e">I = dQ/dt</div>         <div class="arrow">⇄</div>  <div class="m">v = dx/dt</div>
+        <div class="e">V  voltage</div>        <div class="arrow">⇄</div>  <div class="m">F  force</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">UNDERDAMPED SOLUTION</div>
+      <p>For both systems with no driving:</p>
+      <div class="eq-block">
+x(t) = A · <span class="hi-g">e^(−γt)</span> · cos(<span class="hi-g">ω_d</span>·t + φ)
+
+<span class="hi-d">where</span>
+γ   = damping rate    (R/2L  or  b/2m)
+ω₀  = natural freq    (√(1/LC) or √(k/m))
+ω_d = √(ω₀² − γ²)    damped freq</div>
+      <p>Slide <strong>γ</strong>: small → ringing for ages, large → quick decay, very large → no oscillation at all (overdamped).</p>
+    </div>
+
+    <div class="panel-section">
+      <div class="lead">WHY IT MATTERS</div>
+      <p>Ideas like Q-factor, resonance, and bandwidth carry over directly. Tune your shock absorbers and you've tuned an RC filter. The math doesn't care.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const $ = sel => document.querySelector(sel);
+const NS = 'http://www.w3.org/2000/svg';
+
+// ===== model parameters =====
+let omega0 = 2.4;       // natural freq (rad/s)
+let gamma = 0.2;        // damping rate
+let A = 1;              // amplitude
+let phi = 0;
+let t = 0;
+let playing = true;
+let lastTs = performance.now();
+
+function x_t(time) {
+  const wd2 = omega0 * omega0 - gamma * gamma;
+  if (wd2 > 0) {
+    const wd = Math.sqrt(wd2);
+    return A * Math.exp(-gamma * time) * Math.cos(wd * time + phi);
+  } else {
+    // overdamped: just exponential decay (rough)
+    const r = gamma + Math.sqrt(-wd2);
+    return A * Math.exp(-r * time) * Math.cos(phi);
+  }
+}
+
+// Slider
+$('#dampSlider').addEventListener('input', e => {
+  gamma = parseFloat(e.target.value);
+  $('#dampVal').textContent = gamma.toFixed(2);
+});
+
+$('#playBtn').addEventListener('click', () => {
+  playing = !playing;
+  $('#playBtn').textContent = playing ? '❚❚ Pause' : '▶ Play';
+});
+$('#resetBtn').addEventListener('click', () => { t = 0; trace.length = 0; });
+
+// ===== Spring drawing =====
+function buildSpringPath(x1, y1, x2, y2, coils = 8, amp = 8) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L;
+  // perpendicular
+  const px = -uy, py = ux;
+  let d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} `;
+  // small straight at start
+  const startGap = 8, endGap = 8;
+  const innerL = L - startGap - endGap;
+  const sx = x1 + ux * startGap, sy = y1 + uy * startGap;
+  d += `L ${sx.toFixed(1)} ${sy.toFixed(1)} `;
+  const N = coils * 2;
+  for (let i = 1; i <= N; i++) {
+    const t = i / N;
+    const cx = sx + ux * (innerL * t);
+    const cy = sy + uy * (innerL * t);
+    const sgn = (i % 2 === 0 ? 1 : -1);
+    d += `L ${(cx + sgn * px * amp).toFixed(1)} ${(cy + sgn * py * amp).toFixed(1)} `;
+  }
+  d += `L ${(x2 - ux * endGap).toFixed(1)} ${(y2 - uy * endGap).toFixed(1)} `;
+  d += `L ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+  return d;
+}
+
+// ===== Plot trace =====
+const trace = [];
+const TRACE_LEN = 600;
+function pushTrace(val) {
+  trace.push(val);
+  if (trace.length > TRACE_LEN) trace.shift();
+}
+function buildTracePath(scale, yc) {
+  if (trace.length < 2) return '';
+  const xMin = 40, xMax = 780;
+  let d = '';
+  for (let i = 0; i < trace.length; i++) {
+    const x = xMin + (i / (TRACE_LEN - 1)) * (xMax - xMin);
+    const y = yc - trace[i] * scale;
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+  }
+  return d;
+}
+
+// ===== Animation frame =====
+function frame(ts) {
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (playing) t += dt;
+
+  const v = x_t(t);
+
+  // ===== ELECTRICAL: capacitor charge sign + magnitude =====
+  // +Q on top, −Q on bottom when v>0; flip when v<0
+  const absV = Math.abs(v);
+  const top = $('#chargesTop'), bot = $('#chargesBot');
+  const charges = '+'.repeat(Math.max(0, Math.round(absV * 6)));
+  const negCh = '−'.repeat(Math.max(0, Math.round(absV * 6)));
+  if (v >= 0) {
+    top.textContent = charges || '·';
+    top.setAttribute('fill', 'var(--coral)');
+    bot.textContent = negCh || '·';
+    bot.setAttribute('fill', 'var(--cyan)');
+  } else {
+    top.textContent = negCh || '·';
+    top.setAttribute('fill', 'var(--cyan)');
+    bot.textContent = charges || '·';
+    bot.setAttribute('fill', 'var(--coral)');
+  }
+  // current arrow opacity tracks |dQ/dt| ~ |v'| ~ amplitude*omega*sin
+  const dvdt = (x_t(t + 0.01) - x_t(t - 0.01)) / 0.02;
+  $('#currentArrow').setAttribute('opacity', Math.min(1, Math.abs(dvdt) * 1.2));
+
+  // ===== MECHANICAL: mass position =====
+  // displacement: equilibrium x = 240 (left edge of mass at 240, mass 60 wide so center 270)
+  const X_EQUIL = 240;
+  const MAX_DISP = 70;
+  const massLeft = X_EQUIL + v * MAX_DISP;
+  const massCenter = massLeft + 30;
+  $('#massBlock').setAttribute('x', massLeft);
+  $('#massLabel').setAttribute('x', massCenter);
+
+  // spring from wall (x=40) to mass (x=massLeft)
+  $('#spring').setAttribute('d', buildSpringPath(40, 110, massLeft, 110, 9, 7));
+
+  // dashpot piston tracking
+  $('#dashpotPiston').setAttribute('x2', massLeft);
+  $('#dashpotPistonHead').setAttribute('x', massLeft - 5);
+
+  // ===== Plot trace =====
+  pushTrace(v);
+  $('#traceQ').setAttribute('d', buildTracePath(80, 110));
+  // x trace: same value, slightly offset for visibility
+  $('#traceX').setAttribute('d', buildTracePath(80, 110));
+
+  // moving cursor on plot
+  if (trace.length > 1) {
+    const xMin = 40, xMax = 780;
+    const x = xMin + ((trace.length - 1) / (TRACE_LEN - 1)) * (xMax - xMin);
+    $('#plotCursor').setAttribute('x1', x);
+    $('#plotCursor').setAttribute('x2', x);
+    $('#qDot').setAttribute('cx', x);
+    $('#qDot').setAttribute('cy', 110 - v * 80);
+    $('#xDot').setAttribute('cx', x);
+    $('#xDot').setAttribute('cy', 110 - v * 80);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// initial spring draw
+$('#spring').setAttribute('d', buildSpringPath(40, 110, 240, 110, 9, 7));
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

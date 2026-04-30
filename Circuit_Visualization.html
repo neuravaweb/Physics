@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Series vs Parallel Circuits</title>
+    <style>
+        :root {
+            --bg-color: #0F172A;
+            --panel-bg: #1E293B;
+            --wire-color: #64748B;
+            --resistor-color: #F59E0B;
+            --battery-pos: #EF4444;
+            --battery-neg: #3B82F6;
+            --text-main: #E2E8F0;
+            --text-accent: #10B981;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 15px;
+            background: #111827;
+            border-bottom: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .header h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.5rem;
+            color: #38BDF8;
+        }
+
+        .header p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #94A3B8;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            border-right: 1px solid #334155;
+        }
+
+        .panel:last-child {
+            border-right: none;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            color: #F8FAFC;
+            letter-spacing: 1px;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1 / 1;
+            background: var(--bg-color);
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        .math-container {
+            background: var(--panel-bg);
+            width: 90%;
+            max-width: 450px;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            min-height: 180px;
+        }
+
+        .math-step {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s ease-in-out;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .math-step.visible {
+            max-height: 150px;
+            opacity: 1;
+            margin-bottom: 12px;
+        }
+
+        .math-step .highlight {
+            color: var(--text-accent);
+            font-weight: bold;
+        }
+
+        .controls {
+            padding: 15px;
+            background: #111827;
+            border-top: 1px solid #334155;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        button {
+            background: #3B82F6;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 16px;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            background: #2563EB;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.btn-secondary {
+            background: #10B981;
+        }
+
+        button.btn-secondary:hover {
+            background: #059669;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            .panel {
+                border-right: none;
+                border-bottom: 2px solid #334155;
+            }
+            .panel:last-child {
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Series vs Parallel Circuits</h1>
+        <p>Observe how resistance affects total current flow. Particle speed is proportional to current.</p>
+    </div>
+
+    <div class="main-content">
+        <!-- Series Panel -->
+        <div class="panel">
+            <h2>Series Circuit</h2>
+            <canvas id="canvas-series" width="600" height="600"></canvas>
+            <div class="math-container">
+                <div class="math-step step-0">R<sub>eq</sub> = R<sub>1</sub> + R<sub>2</sub> + R<sub>3</sub></div>
+                <div class="math-step step-1">R<sub>eq</sub> = 15Ω + 30Ω + 50Ω</div>
+                <div class="math-step step-2">R<sub>eq</sub> = 95Ω</div>
+                <div class="math-step step-3">I = V / R<sub>eq</sub> <br>I = 12V / 95Ω</div>
+                <div class="math-step step-4 highlight">I ≈ 0.126 A</div>
+            </div>
+        </div>
+
+        <!-- Parallel Panel -->
+        <div class="panel">
+            <h2>Parallel Circuit</h2>
+            <canvas id="canvas-parallel" width="600" height="600"></canvas>
+            <div class="math-container">
+                <div class="math-step step-0">1/R<sub>eq</sub> = 1/R<sub>1</sub> + 1/R<sub>2</sub> + 1/R<sub>3</sub></div>
+                <div class="math-step step-1">1/R<sub>eq</sub> = 1/15 + 1/30 + 1/50</div>
+                <div class="math-step step-2">1/R<sub>eq</sub> = 10/150 + 5/150 + 3/150 = 18/150<br>R<sub>eq</sub> = 150 / 18 ≈ 8.33Ω</div>
+                <div class="math-step step-3">I<sub>total</sub> = V / R<sub>eq</sub> <br>I<sub>total</sub> = 12V / 8.33Ω</div>
+                <div class="math-step step-4 highlight">I<sub>total</sub> ≈ 1.44 A <br><span style="font-size: 0.8em; font-weight: normal; color: var(--text-main)">(I₁=0.8A, I₂=0.4A, I₃=0.24A)</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btn-play-pause">Pause Simulation</button>
+        <button id="btn-step" class="btn-secondary">Step Math Forward</button>
+    </div>
+
+    <script>
+        const canvasSeries = document.getElementById('canvas-series');
+        const ctxSeries = canvasSeries.getContext('2d');
+        const canvasParallel = document.getElementById('canvas-parallel');
+        const ctxParallel = canvasParallel.getContext('2d');
+
+        let isPlaying = true;
+        let currentStep = 0;
+        const maxSteps = 4;
+        let lastTime = performance.now();
+
+        // --- SCHEMATIC DRAWING HELPER FUNCTIONS ---
+
+        function drawBattery(ctx, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Positive Terminal (Top)
+            ctx.strokeStyle = '#EF4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-25, -10); ctx.lineTo(25, -10);
+            ctx.stroke();
+
+            // Negative Terminal (Bottom)
+            ctx.strokeStyle = '#3B82F6';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(-15, 10); ctx.lineTo(15, 10);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawResistor(ctx, x, y, orientation, length) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (orientation === 'vertical') ctx.rotate(Math.PI / 2);
+            
+            ctx.strokeStyle = '#F59E0B';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'miter';
+
+            let rLen = 50; // Zigzag width
+            
+            ctx.beginPath();
+            ctx.moveTo(-length/2, 0);
+            ctx.lineTo(-rLen/2, 0);
+
+            let zigzags = 6;
+            let step = rLen / zigzags;
+            let amp = 14;
+
+            for(let i=0; i<zigzags; i++) {
+                let px = -rLen/2 + (i + 0.5) * step;
+                let py = (i % 2 === 0) ? -amp : amp;
+                ctx.lineTo(px, py);
+            }
+            
+            ctx.lineTo(rLen/2, 0);
+            ctx.lineTo(length/2, 0);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- CIRCUIT DRAWING ---
+
+        function renderSeriesCircuit() {
+            ctxSeries.clearRect(0, 0, 600, 600);
+            
+            // Wires
+            ctxSeries.strokeStyle = '#64748B';
+            ctxSeries.lineWidth = 4;
+            ctxSeries.beginPath();
+            
+            // Left gap for battery
+            ctxSeries.moveTo(100, 100); ctxSeries.lineTo(100, 290);
+            ctxSeries.moveTo(100, 310); ctxSeries.lineTo(100, 500);
+            
+            // Top gap for R1
+            ctxSeries.moveTo(100, 100); ctxSeries.lineTo(260, 100);
+            ctxSeries.moveTo(340, 100); ctxSeries.lineTo(500, 100);
+            
+            // Right gap for R2
+            ctxSeries.moveTo(500, 100); ctxSeries.lineTo(500, 260);
+            ctxSeries.moveTo(500, 340); ctxSeries.lineTo(500, 500);
+            
+            // Bottom gap for R3
+            ctxSeries.moveTo(500, 500); ctxSeries.lineTo(340, 500);
+            ctxSeries.moveTo(260, 500); ctxSeries.lineTo(100, 500);
+            ctxSeries.stroke();
+
+            // Components
+            drawBattery(ctxSeries, 100, 300);
+            drawResistor(ctxSeries, 300, 100, 'horizontal', 80); // R1
+            drawResistor(ctxSeries, 500, 300, 'vertical', 80);   // R2
+            drawResistor(ctxSeries, 300, 500, 'horizontal', 80); // R3
+
+            // Static Labels
+            ctxSeries.fillStyle = '#E2E8F0';
+            ctxSeries.font = '18px "Courier New"';
+            ctxSeries.textAlign = 'center';
+            ctxSeries.fillText('12V', 55, 306);
+            ctxSeries.fillText('R₁ = 15Ω', 300, 70);
+            ctxSeries.fillText('R₂ = 30Ω', 410, 306);
+            ctxSeries.fillText('R₃ = 50Ω', 300, 545);
+
+            // Dynamic Labels (appear on step 4)
+            if (currentStep >= 4) {
+                ctxSeries.fillStyle = '#10B981';
+                ctxSeries.font = 'bold 18px "Courier New"';
+                ctxSeries.fillText('I = 0.126A', 300, 135);
+            }
+        }
+
+        function renderParallelCircuit() {
+            ctxParallel.clearRect(0, 0, 600, 600);
+            
+            // Wires
+            ctxParallel.strokeStyle = '#64748B';
+            ctxParallel.lineWidth = 4;
+            ctxParallel.beginPath();
+            
+            // Left main with battery gap
+            ctxParallel.moveTo(100, 100); ctxParallel.lineTo(100, 290);
+            ctxParallel.moveTo(100, 310); ctxParallel.lineTo(100, 500);
+            
+            // Top and Bottom main
+            ctxParallel.moveTo(100, 100); ctxParallel.lineTo(500, 100);
+            ctxParallel.moveTo(100, 500); ctxParallel.lineTo(500, 500);
+
+            // Branches (with gaps for resistors)
+            [200, 350, 500].forEach(x => {
+                ctxParallel.moveTo(x, 100); ctxParallel.lineTo(x, 260);
+                ctxParallel.moveTo(x, 340); ctxParallel.lineTo(x, 500);
+            });
+            ctxParallel.stroke();
+
+            // Components
+            drawBattery(ctxParallel, 100, 300);
+            drawResistor(ctxParallel, 200, 300, 'vertical', 80); // R1
+            drawResistor(ctxParallel, 350, 300, 'vertical', 80); // R2
+            drawResistor(ctxParallel, 500, 300, 'vertical', 80); // R3
+
+            // Static Labels
+            ctxParallel.fillStyle = '#E2E8F0';
+            ctxParallel.font = '18px "Courier New"';
+            ctxParallel.fillText('12V', 55, 306);
+            
+            ctxParallel.textAlign = 'right';
+            ctxParallel.fillText('R₁=15Ω', 185, 306);
+            ctxParallel.fillText('R₂=30Ω', 335, 306);
+            ctxParallel.fillText('R₃=50Ω', 485, 306);
+
+            // Dynamic Labels (appear on step 4)
+            if (currentStep >= 4) {
+                ctxParallel.fillStyle = '#10B981';
+                ctxParallel.font = 'bold 18px "Courier New"';
+                
+                ctxParallel.textAlign = 'left';
+                ctxParallel.fillText('0.8A', 215, 306);
+                ctxParallel.fillText('0.4A', 365, 306);
+                ctxParallel.fillText('0.24A', 515, 306);
+                
+                ctxParallel.textAlign = 'center';
+                ctxParallel.fillText('I_total = 1.44A', 300, 75);
+            }
+        }
+
+        // --- PARTICLE SYSTEM ---
+
+        class WirePath {
+            constructor(points) {
+                this.points = points;
+                this.lengths = [];
+                this.totalLength = 0;
+                for (let i = 0; i < points.length - 1; i++) {
+                    let dx = points[i+1].x - points[i].x;
+                    let dy = points[i+1].y - points[i].y;
+                    let len = Math.hypot(dx, dy);
+                    this.lengths.push(len);
+                    this.totalLength += len;
+                }
+            }
+            getPos(d) {
+                d = ((d % this.totalLength) + this.totalLength) % this.totalLength;
+                let current = 0;
+                for (let i = 0; i < this.lengths.length; i++) {
+                    if (current + this.lengths[i] >= d) {
+                        let t = (d - current) / this.lengths[i];
+                        return {
+                            x: this.points[i].x + t * (this.points[i+1].x - this.points[i].x),
+                            y: this.points[i].y + t * (this.points[i+1].y - this.points[i].y)
+                        };
+                    }
+                    current += this.lengths[i];
+                }
+                return this.points[this.points.length - 1];
+            }
+        }
+
+        // Define circuit flow paths
+        const sPath = new WirePath([
+            {x:100, y:300}, {x:100, y:100}, {x:500, y:100}, 
+            {x:500, y:500}, {x:100, y:500}, {x:100, y:300}
+        ]);
+
+        const p1Path = new WirePath([
+            {x:100, y:300}, {x:100, y:100}, {x:200, y:100}, 
+            {x:200, y:500}, {x:100, y:500}, {x:100, y:300}
+        ]);
+
+        const p2Path = new WirePath([
+            {x:100, y:300}, {x:100, y:100}, {x:350, y:100}, 
+            {x:350, y:500}, {x:100, y:500}, {x:100, y:300}
+        ]);
+
+        const p3Path = new WirePath([
+            {x:100, y:300}, {x:100, y:100}, {x:500, y:100}, 
+            {x:500, y:500}, {x:100, y:500}, {x:100, y:300}
+        ]);
+
+        let particlesSeries = [];
+        let particlesParallel = [];
+        const SPACING = 60; // px distance between particles
+
+        // Initialize particles with speeds mapped to calculated currents
+        // Multiplier K = 150 for visual effect
+        let sCount = Math.floor(sPath.totalLength / SPACING);
+        for(let i=0; i<sCount; i++) {
+            particlesSeries.push({ path: sPath, dist: i * SPACING, speed: 18.9 }); // 0.126A * 150
+        }
+
+        [
+            {p: p1Path, s: 120}, // 0.8A * 150
+            {p: p2Path, s: 60},  // 0.4A * 150
+            {p: p3Path, s: 36}   // 0.24A * 150
+        ].forEach(branch => {
+            let count = Math.floor(branch.p.totalLength / SPACING);
+            for(let i=0; i<count; i++) {
+                particlesParallel.push({ path: branch.p, dist: i * SPACING, speed: branch.s });
+            }
+        });
+
+        function renderParticles(ctx, particles, dt) {
+            ctx.fillStyle = '#10B981';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#10B981';
+            
+            particles.forEach(p => {
+                p.dist += p.speed * dt;
+                let pos = p.path.getPos(p.dist);
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 4, 0, Math.PI*2);
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0; // reset
+        }
+
+        // --- ANIMATION LOOP ---
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            let dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            if (!isPlaying) dt = 0;
+
+            renderSeriesCircuit();
+            renderParallelCircuit();
+
+            renderParticles(ctxSeries, particlesSeries, dt);
+            renderParticles(ctxParallel, particlesParallel, dt);
+        }
+
+        requestAnimationFrame(animate);
+
+        // --- INTERACTION LOGIC ---
+
+        function updateMathDOM() {
+            for (let i = 0; i <= maxSteps; i++) {
+                document.querySelectorAll(`.step-${i}`).forEach(el => {
+                    if (i <= currentStep) {
+                        el.classList.add('visible');
+                    } else {
+                        el.classList.remove('visible');
+                    }
+                });
+            }
+        }
+
+        document.getElementById('btn-play-pause').addEventListener('click', (e) => {
+            isPlaying = !isPlaying;
+            e.target.innerText = isPlaying ? "Pause Simulation" : "Play Simulation";
+            e.target.style.background = isPlaying ? "#3B82F6" : "#475569";
+        });
+
+        document.getElementById('btn-step').addEventListener('click', () => {
+            if (currentStep < maxSteps) {
+                currentStep++;
+            } else {
+                currentStep = 0; // Loop back
+            }
+            updateMathDOM();
+            
+            // Force text render on canvas update even if paused
+            if (!isPlaying) {
+                renderSeriesCircuit();
+                renderParallelCircuit();
+            }
+        });
+
+        // Initialize math state
+        updateMathDOM();
+
+    </script>
+</body>
+</html>

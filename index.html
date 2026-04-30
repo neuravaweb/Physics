@@ -305,7 +305,7 @@
         <div class="brand">
             <div class="dot"></div>
             <span class="brand-name">PHYSICS::LAB</span>
-            <span class="brand-ver">v3.1 · 31 SIMS</span>
+            <span class="brand-ver">v3.1 · 46 SIMS</span>
         </div>
         <div class="search">
             <span style="color: var(--accent); font-size: 12px;">$</span>
@@ -332,13 +332,13 @@
         </h1>
 
         <p class="lede">
-            // 31 real-time physics simulations. Turn the knobs, sweep the parameters,<br>
+            // 46 real-time physics simulations. Turn the knobs, sweep the parameters,<br>
             // watch the math animate. No video. No diagrams. Just live, interactive fields.
         </p>
 
         <div class="stats">
-            <div><div class="stat-label">// SIMS</div><div class="stat-val">31</div></div>
-            <div><div class="stat-label">// CATEGORIES</div><div class="stat-val">5</div></div>
+            <div><div class="stat-label">// SIMS</div><div class="stat-val">46</div></div>
+            <div><div class="stat-label">// CATEGORIES</div><div class="stat-val">6</div></div>
             <div><div class="stat-label">// PARAMS</div><div class="stat-val">∞</div></div>
             <div><div class="stat-label">// FRAMERATE</div><div class="stat-val">60Hz</div></div>
         </div>
@@ -466,11 +466,33 @@
                 ]
             },
             {
+                id: 'circuits', name: 'CIRCUITS & CURRENTS',
+                blurb: 'Ohm, Kirchhoff, transformers, RLC',
+                eq: 'V = IR · ΣV_loop = 0',
+                sims: [
+                    { id: 32, href: "Circuit_Visualization.html",      title: "Series vs Parallel Circuits",          tag: "Topology",     eq: "Rₛ = ΣR · 1/Rₚ = Σ1/R",       anim: 'wire' },
+                    { id: 33, href: "Three_Resistors_Comb.html",       title: "Three 1Ω Resistor Combinations",       tag: "Combination",  eq: "7 unique configs",            anim: 'bars' },
+                    { id: 34, href: "Capacitors.html",                 title: "Capacitors in Parallel",               tag: "Combination",  eq: "C_eq = ΣC",                   anim: 'bars' },
+                    { id: 35, href: "Kirchhoff's_Laws_Anim.html",      title: "Kirchhoff's Laws: Two-Loop Circuit",   tag: "Kirchhoff",    eq: "ΣV = 0 · ΣI = 0",             anim: 'field' },
+                    { id: 36, href: "kirchhoff_ammeter.html",          title: "Solving for the Ammeter Current",      tag: "Kirchhoff",    eq: "ΣI_node = 0",                 anim: 'field' },
+                    { id: 37, href: "Mixed_Circ_Anim.html",            title: "Mixed Circuit Simplification (10Ω)",   tag: "Reduction",    eq: "R_eq via reduction",          anim: 'wire' },
+                    { id: 38, href: "Mixed_Circuit_Anim.html",         title: "Mixed Circuit Simplification",         tag: "Reduction",    eq: "Series ⇄ Parallel",           anim: 'wire' },
+                    { id: 39, href: "task15_resistor_cube.html",       title: "Resistor Cube: Equivalent R",          tag: "Symmetry",     eq: "R_eq = ⁵⁄₆ R",                anim: 'orbit' },
+                    { id: 40, href: "task09_current_from_charge.html", title: "Current from Charge",                  tag: "Definition",   eq: "I = dQ/dt",                   anim: 'pulse' },
+                    { id: 41, href: "task10_lightning.html",           title: "Lightning: Average Current",           tag: "Surge",        eq: "I = ΔQ/Δt",                   anim: 'pulse' },
+                    { id: 42, href: "task08_ac_voltage.html",          title: "AC Voltage Across a Resistor",         tag: "AC",           eq: "V(t) = I(t)·R",               anim: 'sine' },
+                    { id: 43, href: "task11_power_energy.html",        title: "Power & Energy: Resistor Dissipation", tag: "Power",        eq: "P = I²R",                     anim: 'bars' },
+                    { id: 44, href: "task12_transformer.html",         title: "Transformer: Voltage & Current Ratios",tag: "Transformer",  eq: "V₁/V₂ = N₁/N₂",               anim: 'dual' },
+                    { id: 45, href: "task13_transformer_ratio.html",   title: "Transformer Ratio: Solving for N₂",    tag: "Transformer",  eq: "N₂ = N₁·V₂/V₁",               anim: 'dual' },
+                    { id: 46, href: "task14_rlc_oscillator.html",      title: "RLC ⇆ Damped Oscillator",              tag: "Analogy",      eq: "LQ″ + RQ′ + Q/C = 0",         anim: 'damped' },
+                ]
+            },
+            {
                 id: 'chaos', name: 'NONLINEAR DYNAMICS',
                 blurb: 'Strange attractors, deterministic chaos',
                 eq: 'dx/dt = σ(y − x)',
                 sims: [
-                    { id: 31, href: "Chaos_Theory.html",                  title: "Lorenz Attractor",                    tag: "3D Attractor",  eq: "ẋ = σ(y−x)",                  anim: 'chaos' },
+                    { id: 47, href: "Chaos_Theory.html",                  title: "Lorenz Attractor",                    tag: "3D Attractor",  eq: "ẋ = σ(y−x)",                  anim: 'chaos' },
                 ]
             },
         ];

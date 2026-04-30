@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixed Circuit Simplification</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .resistor {
+            transition: transform 1s ease-in-out, opacity 1s ease-in-out;
+        }
+        .resistor-path {
+            stroke: currentColor;
+            stroke-width: 2.5;
+            fill: none;
+            stroke-linejoin: round;
+        }
+        .wire {
+            stroke: #64748b; /* slate-500 */
+            stroke-width: 2.5;
+            fill: none;
+            transition: d 1s ease-in-out;
+            stroke-linecap: butt;
+        }
+        .label {
+            font-size: 14px;
+            font-weight: 700;
+            fill: currentColor;
+            transform: translateY(-22px);
+            text-anchor: middle;
+        }
+        .val {
+            font-size: 13px;
+            font-weight: 600;
+            fill: currentColor;
+            transform: translateY(28px);
+            text-anchor: middle;
+        }
+        /* Hides collapsed wire endpoints behind the resistor symbol */
+        .resistor-bg {
+            fill: #f8fafc; /* matches canvas bg slate-50 */
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans text-slate-800">
+
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="bg-slate-800 text-white p-6 text-center">
+            <h1 class="text-2xl font-bold tracking-wide">Circuit Simplification</h1>
+            <p class="text-slate-300 mt-2">Solving a mixed series-parallel circuit step by step</p>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="p-8 pb-4 flex flex-col items-center">
+            <div id="stepLabel" class="text-lg md:text-xl font-bold text-indigo-700 h-14 text-center flex items-center justify-center w-full px-4 rounded-lg bg-indigo-50 border border-indigo-100 mb-6 transition-all duration-300">
+                Original Circuit: A mixed series-parallel circuit with all 5Ω resistors.
+            </div>
+
+            <svg id="circuitCanvas" viewBox="0 0 800 400" class="w-full h-auto bg-slate-50 rounded-xl shadow-inner border border-slate-200">
+                <!-- Wires -->
+                <g id="wires">
+                    <path id="w_main_start" class="wire" />
+                    <path id="w_between1" class="wire" />
+                    <path id="w_p1_top_in" class="wire" />
+                    <path id="w_p1_bot_in" class="wire" />
+                    <path id="w_p1_top_out" class="wire" />
+                    <path id="w_p1_bot_out" class="wire" />
+                    <path id="w_between2" class="wire" />
+                    <path id="w_p2_top_in" class="wire" />
+                    <path id="w_p2_bot_in" class="wire" />
+                    <path id="w_p2_top_out" class="wire" />
+                    <path id="w_p2_bot_out" class="wire" />
+                    <path id="w_main_end" class="wire" />
+                </g>
+
+                <!-- Terminals -->
+                <circle cx="50" cy="200" r="6" fill="#1e293b" />
+                <text x="30" y="205" font-weight="bold" font-size="16" fill="#1e293b">A</text>
+                <circle cx="750" cy="200" r="6" fill="#1e293b" />
+                <text x="765" y="205" font-weight="bold" font-size="16" fill="#1e293b">B</text>
+
+                <!-- Highlight Box -->
+                <rect id="highlightBox" rx="12" fill="rgba(59, 130, 246, 0.08)" stroke-width="3" stroke-dasharray="8,6" style="opacity: 0; transition: all 1s ease-in-out;" />
+
+                <!-- Resistors -->
+                <g id="r1" class="resistor text-slate-800"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₁</text><text class="val">5Ω</text></g>
+                <g id="r2" class="resistor text-slate-800"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₂</text><text class="val">5Ω</text></g>
+                <g id="r3" class="resistor text-slate-800"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₃</text><text class="val">5Ω</text></g>
+                <g id="r23" class="resistor text-blue-600"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₂₃</text><text class="val">2.5Ω</text></g>
+                <g id="r4" class="resistor text-slate-800"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₄</text><text class="val">5Ω</text></g>
+                <g id="r5" class="resistor text-slate-800"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₅</text><text class="val">5Ω</text></g>
+                <g id="r45" class="resistor text-blue-600"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R₄₅</text><text class="val">2.5Ω</text></g>
+                <g id="req" class="resistor text-emerald-600"><rect x="-25" y="-15" width="50" height="30" class="resistor-bg"/><path class="resistor-path" d="M-25,0 L-15,0 L-10,-12 L0,12 L10,-12 L15,0 L25,0"/><text class="label">R_eq</text><text class="val">10Ω</text></g>
+            </svg>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-slate-50 p-6 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-center">
+            <button id="prevBtn" onclick="prevStep()" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-colors shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Previous
+            </button>
+            
+            <button id="playBtn" onclick="togglePlay()" class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm w-40 justify-center">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                Auto Play
+            </button>
+
+            <button id="nextBtn" onclick="nextStep()" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-colors shadow-sm">
+                Next
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+
+            <button id="resetBtn" onclick="resetCircuit()" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition-colors shadow-sm ml-auto">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const layout = [
+            // State 0: Initial
+            {
+                r1: { x: 150, y: 200, op: 1 },
+                r2: { x: 325, y: 100, op: 1 },
+                r3: { x: 325, y: 300, op: 1 },
+                r23: { x: 325, y: 200, op: 0 },
+                r4: { x: 525, y: 100, op: 1 },
+                r5: { x: 525, y: 300, op: 1 },
+                r45: { x: 525, y: 200, op: 0 },
+                req: { x: 350, y: 200, op: 0 },
+                wires: {
+                    w_main_start: "M 50,200 L 125,200",
+                    w_between1: "M 175,200 L 250,200",
+                    w_p1_top_in: "M 250,200 L 250,100 L 300,100",
+                    w_p1_bot_in: "M 250,200 L 250,300 L 300,300",
+                    w_p1_top_out: "M 350,100 L 400,100 L 400,200",
+                    w_p1_bot_out: "M 350,300 L 400,300 L 400,200",
+                    w_between2: "M 400,200 L 450,200",
+                    w_p2_top_in: "M 450,200 L 450,100 L 500,100",
+                    w_p2_bot_in: "M 450,200 L 450,300 L 500,300",
+                    w_p2_top_out: "M 550,100 L 600,100 L 600,200",
+                    w_p2_bot_out: "M 550,300 L 600,300 L 600,200",
+                    w_main_end: "M 600,200 L 750,200",
+                },
+                text: "Original Circuit: A mixed series-parallel circuit with all 5Ω resistors.",
+                hl: { op: 0, x: 0, y: 0, w: 0, h: 0 }
+            },
+            // State 1: Merge R2 & R3
+            {
+                r1: { x: 150, y: 200, op: 1 },
+                r2: { x: 325, y: 200, op: 0 },
+                r3: { x: 325, y: 200, op: 0 },
+                r23: { x: 325, y: 200, op: 1 },
+                r4: { x: 525, y: 100, op: 1 },
+                r5: { x: 525, y: 300, op: 1 },
+                r45: { x: 525, y: 200, op: 0 },
+                req: { x: 350, y: 200, op: 0 },
+                wires: {
+                    w_main_start: "M 50,200 L 125,200",
+                    w_between1: "M 175,200 L 250,200",
+                    w_p1_top_in: "M 250,200 L 250,200 L 300,200",
+                    w_p1_bot_in: "M 250,200 L 250,200 L 300,200",
+                    w_p1_top_out: "M 350,200 L 400,200 L 400,200",
+                    w_p1_bot_out: "M 350,200 L 400,200 L 400,200",
+                    w_between2: "M 400,200 L 450,200",
+                    w_p2_top_in: "M 450,200 L 450,100 L 500,100",
+                    w_p2_bot_in: "M 450,200 L 450,300 L 500,300",
+                    w_p2_top_out: "M 550,100 L 600,100 L 600,200",
+                    w_p2_bot_out: "M 550,300 L 600,300 L 600,200",
+                    w_main_end: "M 600,200 L 750,200",
+                },
+                text: "Step 1: Combine <span class='text-blue-600'>R₂</span> and <span class='text-blue-600'>R₃</span> in parallel → <span class='text-blue-600'>2.5Ω</span>",
+                hl: { op: 0, x: 0, y: 0, w: 0, h: 0 }
+            },
+            // State 2: Merge R4 & R5
+            {
+                r1: { x: 150, y: 200, op: 1 },
+                r2: { x: 325, y: 200, op: 0 },
+                r3: { x: 325, y: 200, op: 0 },
+                r23: { x: 325, y: 200, op: 1 },
+                r4: { x: 525, y: 200, op: 0 },
+                r5: { x: 525, y: 200, op: 0 },
+                r45: { x: 525, y: 200, op: 1 },
+                req: { x: 350, y: 200, op: 0 },
+                wires: {
+                    w_main_start: "M 50,200 L 125,200",
+                    w_between1: "M 175,200 L 250,200",
+                    w_p1_top_in: "M 250,200 L 250,200 L 300,200",
+                    w_p1_bot_in: "M 250,200 L 250,200 L 300,200",
+                    w_p1_top_out: "M 350,200 L 400,200 L 400,200",
+                    w_p1_bot_out: "M 350,200 L 400,200 L 400,200",
+                    w_between2: "M 400,200 L 450,200",
+                    w_p2_top_in: "M 450,200 L 450,200 L 500,200",
+                    w_p2_bot_in: "M 450,200 L 450,200 L 500,200",
+                    w_p2_top_out: "M 550,200 L 600,200 L 600,200",
+                    w_p2_bot_out: "M 550,200 L 600,200 L 600,200",
+                    w_main_end: "M 600,200 L 750,200",
+                },
+                text: "Step 2: Combine <span class='text-blue-600'>R₄</span> and <span class='text-blue-600'>R₅</span> in parallel → <span class='text-blue-600'>2.5Ω</span>",
+                hl: { op: 0, x: 0, y: 0, w: 0, h: 0 }
+            },
+            // State 3: Merge Series
+            {
+                r1: { x: 350, y: 200, op: 0 },
+                r2: { x: 350, y: 200, op: 0 },
+                r3: { x: 350, y: 200, op: 0 },
+                r23: { x: 350, y: 200, op: 0 },
+                r4: { x: 350, y: 200, op: 0 },
+                r5: { x: 350, y: 200, op: 0 },
+                r45: { x: 350, y: 200, op: 0 },
+                req: { x: 350, y: 200, op: 1 },
+                wires: {
+                    w_main_start: "M 50,200 L 325,200",
+                    w_between1: "M 350,200 L 350,200", 
+                    w_p1_top_in: "M 350,200 L 350,200 L 350,200",
+                    w_p1_bot_in: "M 350,200 L 350,200 L 350,200",
+                    w_p1_top_out: "M 350,200 L 350,200 L 350,200",
+                    w_p1_bot_out: "M 350,200 L 350,200 L 350,200",
+                    w_between2: "M 350,200 L 350,200",
+                    w_p2_top_in: "M 350,200 L 350,200 L 350,200",
+                    w_p2_bot_in: "M 350,200 L 350,200 L 350,200",
+                    w_p2_top_out: "M 350,200 L 350,200 L 350,200",
+                    w_p2_bot_out: "M 350,200 L 350,200 L 350,200",
+                    w_main_end: "M 375,200 L 750,200",
+                },
+                text: "Step 3: Combine series resistors (<span class='text-slate-800'>5Ω</span> + <span class='text-blue-600'>2.5Ω</span> + <span class='text-blue-600'>2.5Ω</span>) → <span class='text-emerald-600'>10Ω</span>",
+                hl: { op: 1, x: 310, y: 150, w: 80, h: 100, color: "#059669" } // Emerald final highlight
+            }
+        ];
+
+        let currentState = 0;
+        let isAnimating = false;
+        let isPlaying = false;
+
+        function updateControls() {
+            const playIcon = isPlaying 
+                ? `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg> Pause` 
+                : `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> Auto Play`;
+            
+            document.getElementById('playBtn').innerHTML = playIcon;
+            document.getElementById('prevBtn').disabled = isAnimating || currentState === 0;
+            document.getElementById('nextBtn').disabled = isAnimating || currentState === 3;
+            document.getElementById('resetBtn').disabled = isAnimating || currentState === 0;
+        }
+
+        function applyState(idx) {
+            const state = layout[idx];
+            document.getElementById('stepLabel').innerHTML = state.text;
+
+            // Apply Resistors
+            ['r1', 'r2', 'r3', 'r23', 'r4', 'r5', 'r45', 'req'].forEach(id => {
+                const el = document.getElementById(id);
+                el.style.transform = `translate(${state[id].x}px, ${state[id].y}px)`;
+                el.style.opacity = state[id].op;
+            });
+
+            // Apply Wires
+            Object.keys(state.wires).forEach(id => {
+                const el = document.getElementById(id);
+                el.setAttribute('d', state.wires[id]);
+            });
+
+            // Apply specific highlight definitions (used for the final step)
+            if (state.hl) {
+                const hl = document.getElementById('highlightBox');
+                if (state.hl.op === 1) {
+                    hl.setAttribute('x', state.hl.x);
+                    hl.setAttribute('y', state.hl.y);
+                    hl.setAttribute('width', state.hl.w);
+                    hl.setAttribute('height', state.hl.h);
+                    if (state.hl.color) hl.setAttribute('stroke', state.hl.color);
+                }
+                hl.style.opacity = state.hl.op;
+            }
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        async function nextStep() {
+            if (isAnimating || currentState >= 3) return;
+            isAnimating = true;
+            updateControls();
+
+            const hl = document.getElementById('highlightBox');
+            hl.style.transition = "all 0.5s ease-in-out"; // Fast appear for the initial glow box
+
+            // 1. Highlight groups
+            if (currentState === 0) {
+                hl.setAttribute('x', '225'); hl.setAttribute('y', '50');
+                hl.setAttribute('width', '180'); hl.setAttribute('height', '300');
+                hl.setAttribute('stroke', '#3b82f6'); // Blue for parallel
+                hl.style.opacity = '1';
+                document.getElementById('stepLabel').innerHTML = "Identifying parallel group: R₂ and R₃...";
+            } else if (currentState === 1) {
+                hl.setAttribute('x', '425'); hl.setAttribute('y', '50');
+                hl.setAttribute('width', '180'); hl.setAttribute('height', '300');
+                hl.setAttribute('stroke', '#3b82f6'); 
+                hl.style.opacity = '1';
+                document.getElementById('stepLabel').innerHTML = "Identifying parallel group: R₄ and R₅...";
+            } else if (currentState === 2) {
+                hl.setAttribute('x', '100'); hl.setAttribute('y', '150');
+                hl.setAttribute('width', '480'); hl.setAttribute('height', '100');
+                hl.setAttribute('stroke', '#059669'); // Green for series
+                hl.style.opacity = '1';
+                document.getElementById('stepLabel').innerHTML = "Identifying series sequence...";
+            }
+
+            // Pause for user to see highlight
+            await sleep(1500);
+
+            // 2. Shrink highlight into merged component
+            hl.style.transition = "all 1s ease-in-out"; // Match the CSS morph duration
+            if (currentState === 0) {
+                hl.setAttribute('x', '300'); hl.setAttribute('y', '175');
+                hl.setAttribute('width', '50'); hl.setAttribute('height', '50');
+                hl.style.opacity = '0';
+            } else if (currentState === 1) {
+                hl.setAttribute('x', '500'); hl.setAttribute('y', '175');
+                hl.setAttribute('width', '50'); hl.setAttribute('height', '50');
+                hl.style.opacity = '0';
+            } else if (currentState === 2) {
+                hl.setAttribute('x', '325'); hl.setAttribute('y', '175');
+                hl.setAttribute('width', '50'); hl.setAttribute('height', '50');
+                hl.style.opacity = '0';
+            }
+
+            // 3. Apply state layout morph
+            currentState++;
+            applyState(currentState);
+
+            await sleep(1000); // Wait for morph to complete
+
+            isAnimating = false;
+            updateControls();
+        }
+
+        function prevStep() {
+            if (isAnimating || currentState <= 0) return;
+            currentState--;
+            
+            // Instantly clear highlights when reversing
+            const hl = document.getElementById('highlightBox');
+            hl.style.transition = "none";
+            hl.style.opacity = '0';
+            
+            // Force reflow
+            void hl.offsetWidth; 
+            hl.style.transition = "all 1s ease-in-out"; 
+
+            applyState(currentState);
+            updateControls();
+        }
+
+        async function togglePlay() {
+            isPlaying = !isPlaying;
+            updateControls();
+            
+            if (isPlaying) {
+                if (currentState >= 3) {
+                    resetCircuit();
+                    await sleep(1200);
+                }
+                while (isPlaying && currentState < 3) {
+                    await nextStep();
+                    if (!isPlaying) break; // In case user paused mid-animation
+                    
+                    if (currentState < 3) {
+                        // Requested 2-second pause between automated steps
+                        let waitMs = 2000;
+                        let waited = 0;
+                        while(waited < waitMs && isPlaying) {
+                            await sleep(100);
+                            waited += 100;
+                        }
+                    }
+                }
+                isPlaying = false;
+                updateControls();
+            }
+        }
+
+        function resetCircuit() {
+            if (isAnimating) return;
+            isPlaying = false;
+            currentState = 0;
+            const hl = document.getElementById('highlightBox');
+            hl.style.transition = "none";
+            hl.style.opacity = '0';
+            setTimeout(() => hl.style.transition = "all 1s ease-in-out", 50);
+            
+            applyState(0);
+            updateControls();
+        }
+
+        // Initialize display
+        document.addEventListener('DOMContentLoaded', () => {
+            applyState(0);
+            updateControls();
+        });
+    </script>
+</body>
+</html>

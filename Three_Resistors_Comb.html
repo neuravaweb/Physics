@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three 1Ω Resistors Combinations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Animation keyframes for drawing SVG paths */
+        @keyframes drawPath {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Initial states */
+        .circuit-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            fill: none;
+        }
+
+        .circuit-path.wire {
+            stroke: #3b82f6; /* Blue 500 */
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .circuit-path.resistor {
+            stroke: #ef4444; /* Red 500 */
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .fade-text {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .node, .res-label {
+            opacity: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            fill: #475569;
+        }
+        
+        .node { fill: #1e293b; }
+
+        /* Active states triggered by JavaScript */
+        .active .circuit-path.wire {
+            animation: drawPath 1.5s forwards ease-in-out;
+        }
+        
+        .active .circuit-path.resistor {
+            /* Resistors draw slightly after wires start */
+            animation: drawPath 1s forwards ease-in-out 0.8s;
+        }
+
+        .active .fade-text {
+            animation: fadeUp 0.8s forwards ease-out 1.8s;
+        }
+
+        .active .node, .active .res-label {
+            animation: fadeIn 0.5s forwards ease-in 1.5s;
+        }
+
+        /* Smooth reveal for cards */
+        .reveal-transition {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-24 font-sans">
+
+    <!-- Header Section -->
+    <header class="max-w-5xl mx-auto pt-10 pb-6 px-6">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
+            Equivalent Resistance Combinations
+        </h1>
+        <p class="text-lg text-slate-600 max-w-3xl">
+            Explore the four unique equivalent resistances you can create using exactly three <strong>1&Omega;</strong> resistors. Use the controls at the bottom to animate each configuration step-by-step.
+        </p>
+    </header>
+
+    <!-- Main Grid Container -->
+    <main class="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8" id="card-container">
+        
+        <!-- Card 1: All Series -->
+        <div id="card-1" class="card hidden opacity-0 reveal-transition bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">1. All Series</h2>
+            <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <svg viewBox="0 0 300 120" class="w-full h-auto max-w-[300px]">
+                    <!-- Wires -->
+                    <path d="M 15,60 L 30,60" class="circuit-path wire" />
+                    <path d="M 90,60 L 120,60" class="circuit-path wire" />
+                    <path d="M 180,60 L 210,60" class="circuit-path wire" />
+                    <path d="M 270,60 L 285,60" class="circuit-path wire" />
+                    <!-- Resistors -->
+                    <path d="M 30,60 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 120,60 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 210,60 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <!-- Labels -->
+                    <text x="60" y="35" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="150" y="35" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="240" y="35" text-anchor="middle" class="res-label">1&Omega;</text>
+                </svg>
+            </div>
+            <div class="fade-text bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <p class="text-sm font-semibold text-indigo-800 mb-1">Calculation:</p>
+                <div class="font-mono text-sm text-slate-700 leading-relaxed">
+                    R<sub>eq</sub> = R<sub>1</sub> + R<sub>2</sub> + R<sub>3</sub><br>
+                    R<sub>eq</sub> = 1&Omega; + 1&Omega; + 1&Omega;<br>
+                    <span class="text-lg font-bold text-indigo-900 mt-1 block">R<sub>eq</sub> = 3&Omega;</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: All Parallel -->
+        <div id="card-2" class="card hidden opacity-0 reveal-transition bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">2. All Parallel</h2>
+            <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <svg viewBox="0 0 300 200" class="w-full h-auto max-w-[300px]">
+                    <!-- Main Wires -->
+                    <path d="M 20,100 L 60,100" class="circuit-path wire" />
+                    <path d="M 240,100 L 280,100" class="circuit-path wire" />
+                    <!-- Top Branch -->
+                    <path d="M 60,100 L 60,40 L 120,40" class="circuit-path wire" />
+                    <path d="M 120,40 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 180,40 L 240,40 L 240,100" class="circuit-path wire" />
+                    <!-- Mid Branch -->
+                    <path d="M 60,100 L 120,100" class="circuit-path wire" />
+                    <path d="M 120,100 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 180,100 L 240,100" class="circuit-path wire" />
+                    <!-- Bottom Branch -->
+                    <path d="M 60,100 L 60,160 L 120,160" class="circuit-path wire" />
+                    <path d="M 120,160 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 180,160 L 240,160 L 240,100" class="circuit-path wire" />
+                    <!-- Nodes -->
+                    <circle cx="60" cy="100" r="4" class="node" />
+                    <circle cx="240" cy="100" r="4" class="node" />
+                    <!-- Labels -->
+                    <text x="150" y="20" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="150" y="80" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="150" y="190" text-anchor="middle" class="res-label">1&Omega;</text>
+                </svg>
+            </div>
+            <div class="fade-text bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <p class="text-sm font-semibold text-indigo-800 mb-1">Calculation:</p>
+                <div class="font-mono text-sm text-slate-700 leading-relaxed">
+                    1/R<sub>eq</sub> = 1/R<sub>1</sub> + 1/R<sub>2</sub> + 1/R<sub>3</sub><br>
+                    1/R<sub>eq</sub> = 1/1 + 1/1 + 1/1 = 3&Omega;<sup>-1</sup><br>
+                    <span class="text-lg font-bold text-indigo-900 mt-1 block">R<sub>eq</sub> = 1/3&Omega; &approx; 0.33&Omega;</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Two Parallel, One Series -->
+        <div id="card-3" class="card hidden opacity-0 reveal-transition bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">3. Two Parallel, One Series</h2>
+            <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <svg viewBox="0 0 300 200" class="w-full h-auto max-w-[300px]">
+                    <!-- Main Wires -->
+                    <path d="M 20,100 L 50,100" class="circuit-path wire" />
+                    <path d="M 240,100 L 280,100" class="circuit-path wire" />
+                    <!-- Top Branch -->
+                    <path d="M 50,100 L 50,50 L 70,50" class="circuit-path wire" />
+                    <path d="M 70,50 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 130,50 L 150,50 L 150,100" class="circuit-path wire" />
+                    <!-- Bottom Branch -->
+                    <path d="M 50,100 L 50,150 L 70,150" class="circuit-path wire" />
+                    <path d="M 70,150 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 130,150 L 150,150 L 150,100" class="circuit-path wire" />
+                    <!-- Series Part -->
+                    <path d="M 150,100 L 180,100" class="circuit-path wire" />
+                    <path d="M 180,100 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <!-- Nodes -->
+                    <circle cx="50" cy="100" r="4" class="node" />
+                    <circle cx="150" cy="100" r="4" class="node" />
+                    <!-- Labels -->
+                    <text x="100" y="30" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="100" y="180" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="210" y="80" text-anchor="middle" class="res-label">1&Omega;</text>
+                </svg>
+            </div>
+            <div class="fade-text bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <p class="text-sm font-semibold text-indigo-800 mb-1">Calculation:</p>
+                <div class="font-mono text-sm text-slate-700 leading-relaxed">
+                    R<sub>p</sub> = (1/1 + 1/1)<sup>-1</sup> = 0.5&Omega;<br>
+                    R<sub>eq</sub> = R<sub>p</sub> + R<sub>series</sub> = 0.5 + 1<br>
+                    <span class="text-lg font-bold text-indigo-900 mt-1 block">R<sub>eq</sub> = 1.5&Omega;</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Two Series, One Parallel -->
+        <div id="card-4" class="card hidden opacity-0 reveal-transition bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">4. Two Series, One Parallel</h2>
+            <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <svg viewBox="0 0 300 200" class="w-full h-auto max-w-[300px]">
+                    <!-- Main Wires -->
+                    <path d="M 20,100 L 60,100" class="circuit-path wire" />
+                    <path d="M 240,100 L 280,100" class="circuit-path wire" />
+                    <!-- Top Branch (Series) -->
+                    <path d="M 60,100 L 60,50 L 70,50" class="circuit-path wire" />
+                    <path d="M 70,50 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 130,50 L 150,50" class="circuit-path wire" />
+                    <path d="M 150,50 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 210,50 L 240,50 L 240,100" class="circuit-path wire" />
+                    <!-- Bottom Branch (Parallel) -->
+                    <path d="M 60,100 L 60,150 L 110,150" class="circuit-path wire" />
+                    <path d="M 110,150 h 10 l 5,-15 l 10,30 l 10,-30 l 10,30 l 5,-15 h 10" class="circuit-path resistor" />
+                    <path d="M 170,150 L 240,150 L 240,100" class="circuit-path wire" />
+                    <!-- Nodes -->
+                    <circle cx="60" cy="100" r="4" class="node" />
+                    <circle cx="240" cy="100" r="4" class="node" />
+                    <!-- Labels -->
+                    <text x="100" y="30" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="180" y="30" text-anchor="middle" class="res-label">1&Omega;</text>
+                    <text x="140" y="180" text-anchor="middle" class="res-label">1&Omega;</text>
+                </svg>
+            </div>
+            <div class="fade-text bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <p class="text-sm font-semibold text-indigo-800 mb-1">Calculation:</p>
+                <div class="font-mono text-sm text-slate-700 leading-relaxed">
+                    R<sub>s</sub> = 1 + 1 = 2&Omega;<br>
+                    R<sub>eq</sub> = (1/R<sub>s</sub> + 1/R<sub>p</sub>)<sup>-1</sup> = (1/2 + 1/1)<sup>-1</sup><br>
+                    <span class="text-lg font-bold text-indigo-900 mt-1 block">R<sub>eq</sub> = 2/3&Omega; &approx; 0.67&Omega;</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Summary Table (Initially Hidden) -->
+    <section id="summary" class="max-w-5xl mx-auto px-6 mt-12 hidden opacity-0 reveal-transition">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 border-b pb-2">Summary of All Configurations</h2>
+        <div class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+            <table class="min-w-full divide-y divide-slate-300">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-slate-900 sm:pl-6">Configuration</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">Formula</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">Equivalent Resistance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 bg-white">
+                    <tr>
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">1. All Series</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">1 + 1 + 1</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm font-bold text-indigo-600">3 &Omega;</td>
+                    </tr>
+                    <tr>
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">2. All Parallel</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">(1<sup>-1</sup> + 1<sup>-1</sup> + 1<sup>-1</sup>)<sup>-1</sup></td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm font-bold text-indigo-600">1/3 &Omega; &approx; 0.33 &Omega;</td>
+                    </tr>
+                    <tr>
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">3. Two Parallel, One Series</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">(1<sup>-1</sup> + 1<sup>-1</sup>)<sup>-1</sup> + 1</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm font-bold text-indigo-600">1.5 &Omega;</td>
+                    </tr>
+                    <tr>
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">4. Two Series, One Parallel</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">((1 + 1)<sup>-1</sup> + 1<sup>-1</sup>)<sup>-1</sup></td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm font-bold text-indigo-600">2/3 &Omega; &approx; 0.67 &Omega;</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Sticky Bottom Control -->
+    <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-sm border-t border-slate-200 p-4 flex justify-center shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-50">
+        <button id="next-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full transition-all text-base shadow-md hover:shadow-lg transform active:scale-95 flex items-center gap-2">
+            Show Configuration 1: All Series
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- JavaScript Controller -->
+    <script>
+        const states = [
+            { text: "Show Configuration 1: All Series", action: "start" },
+            { text: "Show Configuration 2: All Parallel", action: "card-1" },
+            { text: "Show Configuration 3: 2 Parallel, 1 Series", action: "card-2" },
+            { text: "Show Configuration 4: 2 Series, 1 Parallel", action: "card-3" },
+            { text: "Show Summary Table", action: "card-4" },
+            { text: "Restart Animation", action: "summary" }
+        ];
+
+        let currentState = 0;
+        const btn = document.getElementById('next-btn');
+
+        btn.addEventListener('click', () => {
+            currentState++;
+
+            // Handle Reset
+            if (currentState > 5) {
+                currentState = 0;
+                document.querySelectorAll('.card').forEach(c => {
+                    c.classList.remove('active', 'opacity-100');
+                    c.classList.add('opacity-0', 'hidden');
+                });
+                
+                const summary = document.getElementById('summary');
+                summary.classList.remove('opacity-100');
+                summary.classList.add('opacity-0', 'hidden');
+                
+                btn.innerHTML = `Show Configuration 1: All Series
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>`;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            // Show cards 1-4
+            if (currentState >= 1 && currentState <= 4) {
+                const card = document.getElementById(`card-${currentState}`);
+                card.classList.remove('hidden');
+                
+                // Trigger reflow to ensure CSS transition works
+                void card.offsetWidth; 
+                
+                card.classList.remove('opacity-0');
+                card.classList.add('opacity-100', 'active');
+                
+                // Smooth scroll down to the new card
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } 
+            // Show Summary
+            else if (currentState === 5) {
+                const summary = document.getElementById('summary');
+                summary.classList.remove('hidden');
+                
+                void summary.offsetWidth;
+                
+                summary.classList.remove('opacity-0');
+                summary.classList.add('opacity-100');
+                
+                setTimeout(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+
+            // Update button text and icon
+            if (currentState === 5) {
+                btn.innerHTML = `${states[currentState].text}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                    </svg>`;
+            } else {
+                btn.innerHTML = `${states[currentState].text}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>`;
+            }
+        });
+    </script>
+</body>
+</html>
