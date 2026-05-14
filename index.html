@@ -305,7 +305,7 @@
         <div class="brand">
             <div class="dot"></div>
             <span class="brand-name">PHYSICS::LAB</span>
-            <span class="brand-ver">v3.1 · 46 SIMS</span>
+            <span class="brand-ver">v3.1 · 56 SIMS</span>
         </div>
         <div class="search">
             <span style="color: var(--accent); font-size: 12px;">$</span>
@@ -332,13 +332,13 @@
         </h1>
 
         <p class="lede">
-            // 46 real-time physics simulations. Turn the knobs, sweep the parameters,<br>
+            // 56 real-time physics simulations. Turn the knobs, sweep the parameters,<br>
             // watch the math animate. No video. No diagrams. Just live, interactive fields.
         </p>
 
         <div class="stats">
-            <div><div class="stat-label">// SIMS</div><div class="stat-val">46</div></div>
-            <div><div class="stat-label">// CATEGORIES</div><div class="stat-val">6</div></div>
+            <div><div class="stat-label">// SIMS</div><div class="stat-val">56</div></div>
+            <div><div class="stat-label">// CATEGORIES</div><div class="stat-val">7</div></div>
             <div><div class="stat-label">// PARAMS</div><div class="stat-val">∞</div></div>
             <div><div class="stat-label">// FRAMERATE</div><div class="stat-val">60Hz</div></div>
         </div>
@@ -493,6 +493,23 @@
                 eq: 'dx/dt = σ(y − x)',
                 sims: [
                     { id: 47, href: "Chaos_Theory.html",                  title: "Lorenz Attractor",                    tag: "3D Attractor",  eq: "ẋ = σ(y−x)",                  anim: 'chaos' },
+                ]
+            },
+            {
+                id: 'measurement', name: 'MEASUREMENT & UNCERTAINTY',
+                blurb: 'Error propagation, precision, statistics',
+                eq: 'σ_f² = Σ(∂f/∂x)²σ_x²',
+                sims: [
+                    { id: 48, href: "01-sphere-volume.html",     title: "§7.1 — Sphere Volume Propagation",          tag: "Propagation",  eq: "δV/V = 3·δr/r",               anim: 'bars' },
+                    { id: 49, href: "02-rectangle-area.html",    title: "§7.2 — Rectangle Area Propagation",         tag: "Propagation",  eq: "δA/A = δl/l + δw/w",          anim: 'bars' },
+                    { id: 50, href: "03-ohms-law.html",          title: "§7.3 — Resistance from Ohm's Law",          tag: "Propagation",  eq: "δR/R = δV/V + δI/I",          anim: 'wire' },
+                    { id: 51, href: "04-speedometer.html",       title: "§7.4 — Speedometer Uncertainty",            tag: "Propagation",  eq: "v = d/t · δv/v = δd/d + δt/t", anim: 'dual' },
+                    { id: 52, href: "05-percentage.html",        title: "§7.5 — Percentage Uncertainty",             tag: "Precision",    eq: "ε% = (δx/x)·100",             anim: 'bars' },
+                    { id: 53, href: "06-thermometer.html",       title: "§7.6 — Instrument Precision",               tag: "Precision",    eq: "x ± ½·LSD",                   anim: 'bars' },
+                    { id: 54, href: "07-std-deviation.html",     title: "§7.7 — Mean & Standard Deviation",          tag: "Statistics",   eq: "σ = √(Σ(xᵢ−x̄)²/N)",           anim: 'spectrum' },
+                    { id: 55, href: "08-spring.html",            title: "§7.8 — Mass on a Spring",                   tag: "Experiment",   eq: "T = 2π√(m/k)",                anim: 'damped' },
+                    { id: 56, href: "09-pendulum.html",          title: "§7.9 — Pendulum & Gravity",                 tag: "Experiment",   eq: "g = 4π²L/T²",                 anim: 'damped' },
+                    { id: 57, href: "10-light-speed.html",       title: "§7.10 — Speed of Light, in a Microwave",    tag: "Experiment",   eq: "c = 2·f·Δx",                  anim: 'pulse' },
                 ]
             },
         ];

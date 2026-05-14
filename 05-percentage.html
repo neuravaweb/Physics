@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>§7.5 — Percentage Uncertainty</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#f5f1e8;--ink:#1c1c1c;--ink-2:#4a4a45;--red:#d62828;--blue:#003049;--gold:#bf8b30;--line:#d8cfb8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.55}
+  body{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;background-position:-1px -1px;min-height:100vh}
+  .frame{max-width:1180px;margin:0 auto;padding:48px 56px 96px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--ink);padding-bottom:14px;margin-bottom:42px}
+  .sec{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:68px;line-height:1;margin-top:6px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--ink-2)}
+  .lede{font-size:19px;max-width:62ch;margin-bottom:38px;color:#2a2a26}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:start}
+  .stage{aspect-ratio:1/1;background:var(--paper);border:1px solid var(--ink);position:relative;overflow:hidden}
+  .stage svg{width:100%;height:100%;display:block}
+  .step{padding:18px 0 18px 22px;border-left:2px solid var(--line);margin-bottom:14px;opacity:0;transform:translateY(8px);transition:opacity .6s,transform .6s,border-color .6s}
+  .step.on{opacity:1;transform:none;border-left-color:var(--ink)}
+  .step h3{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px}
+  .step .k{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase;display:block;margin-bottom:8px}
+  .eq{font-family:'JetBrains Mono',monospace;padding:6px 0;font-size:15px;color:var(--blue)}
+  .eq .red{color:var(--red)}
+  .result{margin-top:30px;padding:22px 24px;border:1.5px solid var(--ink);background:#faf6ec;opacity:0;transition:opacity 1s ease .2s}
+  .result.on{opacity:1}
+  .result .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  .result .v{font-family:'Instrument Serif',serif;font-style:italic;font-size:54px;line-height:1.1;margin-top:6px}
+  .result .v .pm{color:var(--red)}
+  .controls{margin-top:34px;display:flex;gap:14px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:12px 22px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  button:hover{background:var(--red)}button.ghost:hover{background:var(--ink);color:var(--paper)}
+  @media (max-width:900px){.frame{padding:28px 22px}h1{font-size:46px}.grid{grid-template-columns:1fr;gap:30px}}
+
+  /* stopwatch */
+  .face{fill:#faf6ec;stroke:var(--ink);stroke-width:2}
+  .face-shadow{fill:#1c1c1c;opacity:.08}
+  .crown{fill:#1c1c1c}
+  .tick{stroke:var(--ink);stroke-width:1}
+  .tick-major{stroke:var(--ink);stroke-width:2}
+  .hand{stroke:var(--red);stroke-width:3;stroke-linecap:round}
+  .num{font-family:'JetBrains Mono',monospace;font-size:14px;fill:var(--ink)}
+  .digital{font-family:'JetBrains Mono',monospace;font-size:32px;fill:var(--blue);font-weight:500}
+  .digital-err{font-family:'JetBrains Mono',monospace;font-size:18px;fill:var(--red)}
+  .err-band{fill:var(--red);opacity:.18}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div>
+      <div class="sec">Section 7 · Problem 5</div>
+      <h1>What a four-percent stopwatch looks like.</h1>
+    </div>
+    <div class="meta">
+      PERCENTAGE UNCERTAINTY<br>
+      t = 5.45 ± 0.22 s<br>
+      δt/t = ?
+    </div>
+  </header>
+
+  <p class="lede">Convert an absolute uncertainty back into a percentage of the measured value. This is the standard way to compare two measurements made with different instruments — you compare the <em>fractions</em>, not the raw deltas.</p>
+
+  <div class="grid">
+    <div class="stage">
+      <svg viewBox="0 0 600 600">
+        <!-- crown / top button -->
+        <rect class="crown" x="285" y="20" width="30" height="20" rx="3"/>
+        <line stroke="#1c1c1c" stroke-width="2" x1="270" y1="50" x2="330" y2="50"/>
+
+        <!-- face shadow + face -->
+        <circle class="face-shadow" cx="305" cy="335" r="230"/>
+        <circle class="face" cx="300" cy="330" r="225"/>
+
+        <!-- tick marks for 0..60 seconds around face -->
+        <g id="ticks"></g>
+
+        <!-- error band arc (around 5.45s position) -->
+        <path id="errBand" class="err-band" d=""/>
+
+        <!-- main hand -->
+        <line class="hand" id="hand" x1="300" y1="330" x2="300" y2="330"/>
+        <circle cx="300" cy="330" r="8" fill="#1c1c1c"/>
+
+        <!-- digital readout -->
+        <text class="digital" x="300" y="475" text-anchor="middle" id="digit">0.00 s</text>
+        <text class="digital-err" x="300" y="505" text-anchor="middle" id="errDigit"></text>
+
+        <text font-family="JetBrains Mono" font-size="11" letter-spacing="2" x="60" y="60" fill="#4a4a45">CHRONOGRAPH · 60s SWEEP</text>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="step" id="s1">
+        <span class="k">Step 01 — Read absolute uncertainty</span>
+        <h3>The instrument tells you ± 0.22 s.</h3>
+        <div class="eq">t  = 5.45 s</div>
+        <div class="eq">Δt = <span class="red">± 0.22 s</span></div>
+      </div>
+
+      <div class="step" id="s2">
+        <span class="k">Step 02 — Divide</span>
+        <h3>Percentage = (absolute / value) × 100.</h3>
+        <div class="eq">δt/t = 0.22 / 5.45</div>
+        <div class="eq">δt/t = 0.04037</div>
+      </div>
+
+      <div class="step" id="s3">
+        <span class="k">Step 03 — Express as percent</span>
+        <h3>Multiply by 100.</h3>
+        <div class="eq">δt/t × 100 = <span class="red">4.04 %</span></div>
+      </div>
+
+      <div class="result" id="res">
+        <div class="label">Percentage uncertainty</div>
+        <div class="v">≈ 4 %</div>
+      </div>
+
+      <div class="controls">
+        <button id="play">▷ run animation</button>
+        <button class="ghost" id="reset">reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const svgNS = 'http://www.w3.org/2000/svg';
+const CX = 300, CY = 330, R = 225;
+
+// build ticks 0..60
+const ticksG = $('ticks');
+for(let s = 0; s < 60; s++){
+  const a = (-90 + (s/60)*360) * Math.PI/180;
+  const major = s % 5 === 0;
+  const rOut = R - 10;
+  const rIn = major ? R - 28 : R - 20;
+  const x1 = CX + rOut*Math.cos(a), y1 = CY + rOut*Math.sin(a);
+  const x2 = CX + rIn*Math.cos(a),  y2 = CY + rIn*Math.sin(a);
+  const ln = document.createElementNS(svgNS,'line');
+  ln.setAttribute('x1',x1); ln.setAttribute('y1',y1);
+  ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
+  ln.setAttribute('class', major ? 'tick-major' : 'tick');
+  ticksG.appendChild(ln);
+  if(major){
+    const xN = CX + (R-44)*Math.cos(a), yN = CY + (R-44)*Math.sin(a);
+    const tx = document.createElementNS(svgNS,'text');
+    tx.setAttribute('x',xN); tx.setAttribute('y',yN+5);
+    tx.setAttribute('text-anchor','middle');
+    tx.setAttribute('class','num');
+    tx.textContent = s;
+    ticksG.appendChild(tx);
+  }
+}
+
+function setHand(seconds){
+  const a = (-90 + (seconds/60)*360) * Math.PI/180;
+  const x = CX + (R-40)*Math.cos(a);
+  const y = CY + (R-40)*Math.sin(a);
+  $('hand').setAttribute('x2', x);
+  $('hand').setAttribute('y2', y);
+}
+
+function setErrBand(t, dt){
+  // arc from t-dt to t+dt at radius R-15
+  const r1 = R - 8, r2 = R - 30;
+  const a1 = (-90 + ((t-dt)/60)*360) * Math.PI/180;
+  const a2 = (-90 + ((t+dt)/60)*360) * Math.PI/180;
+  const p1 = [CX + r1*Math.cos(a1), CY + r1*Math.sin(a1)];
+  const p2 = [CX + r1*Math.cos(a2), CY + r1*Math.sin(a2)];
+  const p3 = [CX + r2*Math.cos(a2), CY + r2*Math.sin(a2)];
+  const p4 = [CX + r2*Math.cos(a1), CY + r2*Math.sin(a1)];
+  $('errBand').setAttribute('d',
+    `M ${p1[0]} ${p1[1]} A ${r1} ${r1} 0 0 1 ${p2[0]} ${p2[1]} L ${p3[0]} ${p3[1]} A ${r2} ${r2} 0 0 0 ${p4[0]} ${p4[1]} Z`);
+}
+
+let raf;
+function clear(){
+  ['s1','s2','s3','res'].forEach(id=>$(id).classList.remove('on'));
+  $('digit').textContent = '0.00 s';
+  $('errDigit').textContent = '';
+  setHand(0);
+  $('errBand').setAttribute('d','');
+}
+
+function easeOut(t){ return 1 - Math.pow(1-t, 3); }
+
+function animate(){
+  cancelAnimationFrame(raf);
+  clear();
+  const t0 = performance.now();
+  const tick = (now)=>{
+    const tt = (now-t0)/1000;
+    if(tt < 2.2){
+      const v = 5.45 * easeOut(tt/2.2);
+      setHand(v);
+      $('digit').textContent = v.toFixed(2) + ' s';
+    } else {
+      setHand(5.45);
+      $('digit').textContent = '5.45 s';
+    }
+    if(tt > 0.5 && !$('s1').classList.contains('on')){
+      $('s1').classList.add('on');
+    }
+    if(tt > 2.3 && !$('s2').classList.contains('on')){
+      $('s2').classList.add('on');
+      $('errDigit').textContent = '± 0.22 s';
+    }
+    if(tt > 2.6){
+      const u = Math.min(1, (tt-2.6)/0.8);
+      setErrBand(5.45, 0.22 * easeOut(u));
+    }
+    if(tt > 3.4 && !$('s3').classList.contains('on')) $('s3').classList.add('on');
+    if(tt > 4.2 && !$('res').classList.contains('on')) $('res').classList.add('on');
+    if(tt < 6) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+$('play').addEventListener('click', animate);
+$('reset').addEventListener('click', ()=>{ cancelAnimationFrame(raf); clear(); });
+window.addEventListener('load', ()=> setTimeout(animate, 300));
+</script>
+</body>
+</html>

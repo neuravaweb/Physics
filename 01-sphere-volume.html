@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>§7.1 — Sphere Volume Propagation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f5f1e8;
+    --ink:#1c1c1c;
+    --ink-2:#4a4a45;
+    --red:#d62828;
+    --blue:#003049;
+    --gold:#bf8b30;
+    --line:#d8cfb8;
+    --hi:#fde68a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body{
+    background-image:
+      linear-gradient(var(--line) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:32px 32px;
+    background-position:-1px -1px;
+    min-height:100vh;
+  }
+  .frame{max-width:1180px;margin:0 auto;padding:48px 56px 96px;position:relative}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--ink);padding-bottom:14px;margin-bottom:42px}
+  .sec{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:'Instrument Serif',serif;font-weight:400;font-style:italic;font-size:68px;line-height:1;margin-top:6px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--ink-2);letter-spacing:.05em}
+  .lede{font-size:19px;max-width:62ch;margin-bottom:38px;color:#2a2a26}
+  .lede em{color:var(--red);font-style:italic}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:start}
+  .stage{
+    aspect-ratio:1/1;background:var(--paper);
+    border:1px solid var(--ink);position:relative;overflow:hidden;
+  }
+  .stage svg{width:100%;height:100%;display:block}
+  .panel{padding:0}
+  .step{
+    padding:18px 0 18px 22px;border-left:2px solid var(--line);
+    margin-bottom:14px;opacity:0;transform:translateY(8px);
+    transition:opacity .6s ease,transform .6s ease,border-color .6s;
+  }
+  .step.on{opacity:1;transform:none;border-left-color:var(--ink)}
+  .step h3{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;font-size:26px;margin-bottom:4px}
+  .step .k{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase;display:block;margin-bottom:8px}
+  .eq{font-family:'JetBrains Mono',monospace;background:transparent;padding:6px 0;font-size:15px;color:var(--blue)}
+  .eq .red{color:var(--red)}
+  .result{
+    margin-top:30px;padding:22px 24px;border:1.5px solid var(--ink);background:#faf6ec;
+    opacity:0;transition:opacity 1s ease .2s;
+  }
+  .result.on{opacity:1}
+  .result .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  .result .v{font-family:'Instrument Serif',serif;font-style:italic;font-size:46px;line-height:1.1;margin-top:6px}
+  .result .v .pm{color:var(--red)}
+  .controls{margin-top:34px;display:flex;gap:14px;align-items:center}
+  button{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    background:var(--ink);color:var(--paper);border:none;padding:12px 22px;cursor:pointer;
+  }
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  button:hover{background:var(--red)}
+  button.ghost:hover{background:var(--ink);color:var(--paper)}
+  .margin-note{
+    position:absolute;right:-180px;top:120px;width:180px;
+    font-family:'Instrument Serif',serif;font-style:italic;font-size:18px;color:var(--ink-2);
+    padding-left:18px;border-left:1px solid var(--ink-2);
+  }
+  .margin-note .num{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;font-style:normal;letter-spacing:.2em;margin-bottom:6px}
+  @media (max-width:900px){
+    .frame{padding:28px 22px}
+    h1{font-size:46px}
+    .grid{grid-template-columns:1fr;gap:30px}
+    .margin-note{position:static;width:auto;border-left:none;border-top:1px solid var(--ink-2);padding:14px 0 0;margin-top:24px}
+  }
+  /* sphere */
+  .sphere-fill{fill:#003049;fill-opacity:.06}
+  .sphere-edge{fill:none;stroke:var(--ink);stroke-width:1.5}
+  .uncert-ring{fill:none;stroke:var(--red);stroke-width:1;stroke-dasharray:3 3}
+  .axis{stroke:var(--ink-2);stroke-width:.6;stroke-dasharray:2 4}
+  .radius-line{stroke:var(--ink);stroke-width:1.4}
+  .radius-cap{stroke:var(--ink);stroke-width:1.4;fill:none}
+  .label-text{font-family:'JetBrains Mono',monospace;font-size:11px;fill:var(--ink)}
+  .label-red{fill:var(--red)}
+  .label-blue{fill:var(--blue)}
+  .label-display{font-family:'Instrument Serif',serif;font-style:italic;font-size:18px;fill:var(--ink)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div>
+      <div class="sec">Section 7 · Problem 1</div>
+      <h1>Volume from a measured radius.</h1>
+    </div>
+    <div class="meta">
+      PROPAGATION OF ERROR I<br>
+      r = (6.20 ± 0.05) cm<br>
+      V = (4/3)πr³
+    </div>
+  </header>
+
+  <p class="lede">A sphere is measured with calipers. The single measurement carries an absolute uncertainty of <em>± 0.05 cm</em>. Because volume scales as the <em>cube</em> of radius, the fractional uncertainty is amplified by a factor of three — a small mistake in the ruler becomes a much larger mistake in the volume.</p>
+
+  <div class="grid">
+    <div class="stage">
+      <svg viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+        <!-- crosshair -->
+        <line class="axis" x1="300" y1="40" x2="300" y2="560"/>
+        <line class="axis" x1="40" y1="300" x2="560" y2="300"/>
+
+        <!-- uncertainty rings (max and min radius) -->
+        <circle class="uncert-ring" cx="300" cy="300" r="0" id="rMax"/>
+        <circle class="uncert-ring" cx="300" cy="300" r="0" id="rMin"/>
+
+        <!-- main sphere -->
+        <circle class="sphere-fill" cx="300" cy="300" r="0" id="sphereFill"/>
+        <circle class="sphere-edge" cx="300" cy="300" r="0" id="sphereEdge"/>
+        <!-- inner ellipse for 3D feel -->
+        <ellipse cx="300" cy="300" rx="0" ry="0" id="sphereEll" fill="none" stroke="#003049" stroke-opacity=".25" stroke-width="1"/>
+        <ellipse cx="300" cy="300" rx="0" ry="0" id="sphereEll2" fill="none" stroke="#003049" stroke-opacity=".15" stroke-width="1"/>
+
+        <!-- radius arrow -->
+        <line class="radius-line" x1="300" y1="300" x2="300" y2="300" id="radLine"/>
+        <path class="radius-cap" d="" id="radCap"/>
+
+        <!-- labels -->
+        <text class="label-text" x="310" y="200" id="rLabel"></text>
+        <text class="label-text label-red" x="310" y="160" id="dLabel"></text>
+
+        <!-- legend bottom -->
+        <text class="label-text" x="40" y="580">measured radius r</text>
+        <text class="label-text label-red" x="220" y="580">uncertainty band ± Δr</text>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="step" id="s1">
+        <span class="k">Step 01 — Measurement</span>
+        <h3>Read the instrument.</h3>
+        <div class="eq">r  = 6.20 cm</div>
+        <div class="eq">Δr = <span class="red">± 0.05 cm</span></div>
+        <div class="eq">δr/r = 0.05 / 6.20 = 0.00806  (0.81 %)</div>
+      </div>
+
+      <div class="step" id="s2">
+        <span class="k">Step 02 — Central value</span>
+        <h3>Plug into the formula.</h3>
+        <div class="eq">V = (4/3) π r³</div>
+        <div class="eq">V = (4/3) π (6.20)³</div>
+        <div class="eq">V = (4/3) π (238.328)</div>
+        <div class="eq">V = 998.31 cm³</div>
+      </div>
+
+      <div class="step" id="s3">
+        <span class="k">Step 03 — Propagate</span>
+        <h3>For a power law, fractions multiply.</h3>
+        <div class="eq">V ∝ r³  ⇒  ΔV/V = 3·(Δr/r)</div>
+        <div class="eq">ΔV/V = 3 × 0.00806 = 0.0242  (2.42 %)</div>
+        <div class="eq">ΔV = 0.0242 × 998.31 = <span class="red">24.16 cm³</span></div>
+      </div>
+
+      <div class="result" id="res">
+        <div class="label">Reported value</div>
+        <div class="v">V = 998 <span class="pm">± 24</span> cm³</div>
+      </div>
+
+      <div class="controls">
+        <button id="play">▷ run animation</button>
+        <button class="ghost" id="reset">reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="margin-note">
+    <span class="num">NOTE</span>
+    A 0.8 % error in <em>r</em> becomes a 2.4 % error in <em>V</em>. The cube exponent triples the relative uncertainty.
+  </div>
+</div>
+
+<script>
+// Scale: 1 cm = 35 px (so 6.20 cm radius = 217 px on canvas)
+const PX_PER_CM = 35;
+const R_CM = 6.20, DR_CM = 0.05;
+const R_PX = R_CM * PX_PER_CM;
+const DR_PX = DR_CM * PX_PER_CM * 5; // exaggerate so it's visible
+
+const $ = id => document.getElementById(id);
+let raf;
+
+function setRadius(rPx){
+  $('sphereFill').setAttribute('r', rPx);
+  $('sphereEdge').setAttribute('r', rPx);
+  $('sphereEll').setAttribute('rx', rPx);
+  $('sphereEll').setAttribute('ry', rPx*0.35);
+  $('sphereEll2').setAttribute('rx', rPx*0.7);
+  $('sphereEll2').setAttribute('ry', rPx*0.12);
+}
+
+function drawRadius(rPx){
+  $('radLine').setAttribute('x2', 300 + rPx);
+  $('radLine').setAttribute('y1', 300);
+  $('radLine').setAttribute('y2', 300);
+  // little perpendicular caps at end
+  $('radCap').setAttribute('d', `M ${300+rPx-4} 294 L ${300+rPx+4} 294 M ${300+rPx-4} 306 L ${300+rPx+4} 306 M 296 294 L 296 306`);
+}
+
+function clear(){
+  setRadius(0);
+  drawRadius(0);
+  $('rMax').setAttribute('r', 0);
+  $('rMin').setAttribute('r', 0);
+  $('rLabel').textContent = '';
+  $('dLabel').textContent = '';
+  ['s1','s2','s3','res'].forEach(id=>$(id).classList.remove('on'));
+}
+
+function animate(){
+  cancelAnimationFrame(raf);
+  clear();
+  const t0 = performance.now();
+  const stages = [
+    {t:300,  fn: ()=> $('s1').classList.add('on')},
+    {t:300,  fn: ()=> { $('rLabel').textContent = 'r = 6.20 cm'; }},
+    {t:0,    fn: ()=> {} }, // sphere grow handled by frame loop
+    {t:1900, fn: ()=> $('s2').classList.add('on')},
+    {t:2400, fn: ()=> $('s3').classList.add('on')},
+    {t:2700, fn: ()=> { $('dLabel').textContent = '± 0.05 cm  →  band'; } },
+    {t:3600, fn: ()=> $('res').classList.add('on')},
+  ];
+  // schedule label/step toggles
+  let acc = 0;
+  stages.forEach(s => { acc += s.t; setTimeout(s.fn, acc); });
+
+  // continuous frame loop for sphere growth + band pulse
+  const grow = (now)=>{
+    const t = (now - t0)/1000; // seconds
+    // grow from 0 to R_PX in 1.4s
+    const g = Math.min(1, t/1.4);
+    const e = 1 - Math.pow(1-g, 3);
+    const rNow = R_PX * e;
+    setRadius(rNow);
+    drawRadius(rNow);
+
+    // after t > 2.6, show the uncertainty rings, pulsing
+    if(t > 2.6){
+      const pulse = (Math.sin((t-2.6)*2.2) + 1)/2; // 0..1
+      const band = DR_PX * (0.6 + pulse*0.4);
+      $('rMax').setAttribute('r', R_PX + band);
+      $('rMin').setAttribute('r', Math.max(0, R_PX - band));
+    }
+    if(t < 6) raf = requestAnimationFrame(grow);
+  };
+  raf = requestAnimationFrame(grow);
+}
+
+$('play').addEventListener('click', animate);
+$('reset').addEventListener('click', ()=>{ cancelAnimationFrame(raf); clear(); });
+
+// auto-play on load
+window.addEventListener('load', ()=> setTimeout(animate, 350));
+</script>
+</body>
+</html>

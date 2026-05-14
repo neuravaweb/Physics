@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>§7.7 — Mean & Standard Deviation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#f5f1e8;--ink:#1c1c1c;--ink-2:#4a4a45;--red:#d62828;--blue:#003049;--gold:#bf8b30;--line:#d8cfb8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.55}
+  body{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;background-position:-1px -1px;min-height:100vh}
+  .frame{max-width:1280px;margin:0 auto;padding:48px 56px 96px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--ink);padding-bottom:14px;margin-bottom:42px}
+  .sec{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:68px;line-height:1;margin-top:6px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--ink-2)}
+  .lede{font-size:19px;max-width:62ch;margin-bottom:38px;color:#2a2a26}
+  .stage{background:var(--paper);border:1px solid var(--ink);padding:32px;margin-bottom:30px;position:relative}
+  .stage svg{width:100%;display:block}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+  .calc{padding:0}
+  .calc h2{font-family:'Instrument Serif',serif;font-style:italic;font-size:34px;margin-bottom:10px}
+  .calc h2 .small{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase;display:block;font-style:normal;margin-bottom:6px}
+  .eq{font-family:'JetBrains Mono',monospace;padding:5px 0;font-size:15px;color:var(--blue)}
+  .eq .red{color:var(--red)}
+  .eq.big{font-size:22px;color:var(--ink);margin:10px 0}
+  .res-block{margin-top:18px;padding:16px 20px;border:1.5px solid var(--ink);background:#faf6ec}
+  .res-block .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  .res-block .v{font-family:'Instrument Serif',serif;font-style:italic;font-size:32px;line-height:1.15;margin-top:4px}
+  .controls{margin-top:34px;display:flex;gap:14px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:12px 22px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  button:hover{background:var(--red)}button.ghost:hover{background:var(--ink);color:var(--paper)}
+  @media (max-width:900px){.frame{padding:28px 22px}h1{font-size:46px}.row{grid-template-columns:1fr;gap:30px}}
+
+  .bar{fill:var(--blue);fill-opacity:.7;transition:y .8s cubic-bezier(.4,1.4,.5,1),height .8s cubic-bezier(.4,1.4,.5,1),fill-opacity .6s,fill .6s}
+  .bar.trimmed{fill:var(--ink-2);fill-opacity:.25}
+  .axis-line{stroke:var(--ink);stroke-width:1.5}
+  .grid-line{stroke:var(--ink-2);stroke-width:.5;stroke-dasharray:2 3}
+  .mean-line{stroke:var(--red);stroke-width:1.5;stroke-dasharray:6 4;opacity:0;transition:opacity .6s}
+  .mean-line.on{opacity:1}
+  .std-band{fill:var(--red);opacity:0;transition:opacity .6s}
+  .std-band.on{opacity:.10}
+  .axis-label{font-family:'JetBrains Mono',monospace;font-size:12px;fill:var(--ink)}
+  .bar-label{font-family:'JetBrains Mono',monospace;font-size:11px;fill:var(--ink);text-anchor:middle}
+  .mean-label{font-family:'JetBrains Mono',monospace;font-size:12px;fill:var(--red)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div>
+      <div class="sec">Section 7 · Problem 7</div>
+      <h1>Eleven scores. Two statistics.</h1>
+    </div>
+    <div class="meta">
+      MEAN &amp; STD DEVIATION<br>
+      N = 11 → 9 (after trim)<br>
+      sample std (N−1)
+    </div>
+  </header>
+
+  <p class="lede">Mean is the centre of mass. Standard deviation is the typical distance from that centre. Trimming the highest and lowest values (a crude form of outlier rejection) makes the data tighter — the spread shrinks even though the mean barely moves.</p>
+
+  <div class="stage">
+    <svg viewBox="0 0 1200 460" id="chart"></svg>
+  </div>
+
+  <div class="row">
+    <div class="calc">
+      <h2><span class="small">Full Sample · N = 11</span>Untrimmed.</h2>
+      <div class="eq">scores = [88, 92, 79, 85, 95, 81, 86, 90, 83, 77, 89]</div>
+      <div class="eq">Σ x = 945</div>
+      <div class="eq big">x̄ = 945 / 11 = 85.91</div>
+      <div class="eq">Σ (x − x̄)² = 310.91</div>
+      <div class="eq big">σ = √(310.91 / 10) = 5.58</div>
+      <div class="res-block">
+        <div class="label">Result</div>
+        <div class="v">x̄ = 85.91 · σ = 5.58</div>
+      </div>
+    </div>
+
+    <div class="calc">
+      <h2><span class="small">Trimmed Sample · N = 9</span>Highest (95) & lowest (77) removed.</h2>
+      <div class="eq">scores = [88, 92, 79, 85, 81, 86, 90, 83, 89]</div>
+      <div class="eq">Σ x = 945 − 95 − 77 = 773</div>
+      <div class="eq big">x̄' = 773 / 9 = 85.89</div>
+      <div class="eq">Σ (x − x̄')² = 148.89</div>
+      <div class="eq big">σ' = √(148.89 / 8) = 4.32</div>
+      <div class="res-block">
+        <div class="label">Result</div>
+        <div class="v">x̄' = 85.89 · σ' = 4.32</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="reset">▷ untrimmed</button>
+    <button class="ghost" id="trim">▷ trim outliers</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const svgNS = 'http://www.w3.org/2000/svg';
+
+const data = [88, 92, 79, 85, 95, 81, 86, 90, 83, 77, 89];
+
+// scaling
+const W = 1200, H = 460;
+const padL = 60, padR = 60, padT = 30, padB = 80;
+const plotW = W - padL - padR;
+const plotH = H - padT - padB;
+
+const yMin = 70, yMax = 100;
+function yScale(v){ return padT + plotH * (1 - (v - yMin)/(yMax - yMin)); }
+
+const barW = plotW / data.length * 0.65;
+const barGap = plotW / data.length;
+
+const chart = $('chart');
+
+// build static parts
+function addEl(tag, attrs={}, text=null){
+  const e = document.createElementNS(svgNS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  if(text !== null) e.textContent = text;
+  chart.appendChild(e);
+  return e;
+}
+
+// y grid
+for(let v = yMin; v <= yMax; v += 5){
+  addEl('line', {x1:padL, y1:yScale(v), x2:W-padR, y2:yScale(v), class:'grid-line'});
+  addEl('text', {x:padL-10, y:yScale(v)+4, 'text-anchor':'end', class:'axis-label'}, v);
+}
+// y axis & x axis
+addEl('line', {x1:padL, y1:padT, x2:padL, y2:H-padB, class:'axis-line'});
+addEl('line', {x1:padL, y1:H-padB, x2:W-padR, y2:H-padB, class:'axis-line'});
+addEl('text', {x:padL-46, y:padT-8, class:'axis-label'}, 'score');
+
+// std band & mean line (rendered first so they sit behind bars - but svg order matters; we'll re-add bars on top)
+const stdBand = addEl('rect', {x:padL, y:0, width:plotW, height:0, class:'std-band', id:'stdBand'});
+const meanLine = addEl('line', {x1:padL, y1:0, x2:W-padR, y2:0, class:'mean-line', id:'meanLine'});
+const meanLabel = addEl('text', {x:W-padR+8, y:0, class:'mean-label', id:'meanLabel'}, '');
+
+// bars
+const bars = [];
+data.forEach((v, i)=>{
+  const cx = padL + barGap * (i + 0.5);
+  const x = cx - barW/2;
+  const y = yScale(v);
+  const h = (H - padB) - y;
+  const r = addEl('rect', {x, y, width:barW, height:h, class:'bar', 'data-i':i});
+  bars.push(r);
+  // value label on top
+  addEl('text', {x:cx, y:y-8, class:'bar-label'}, v);
+  // x label
+  addEl('text', {x:cx, y:H-padB+20, class:'bar-label'}, '#'+(i+1));
+});
+
+function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function std(arr){
+  const m = mean(arr);
+  const s2 = arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1);
+  return Math.sqrt(s2);
+}
+
+function showStats(arr){
+  const m = mean(arr);
+  const s = std(arr);
+  const yM = yScale(m);
+  $('meanLine').setAttribute('y1', yM);
+  $('meanLine').setAttribute('y2', yM);
+  $('meanLabel').setAttribute('y', yM + 4);
+  $('meanLabel').textContent = `x̄ = ${m.toFixed(2)}`;
+  const yHi = yScale(m + s), yLo = yScale(m - s);
+  $('stdBand').setAttribute('y', yHi);
+  $('stdBand').setAttribute('height', Math.abs(yLo - yHi));
+  $('meanLine').classList.add('on');
+  $('stdBand').classList.add('on');
+}
+
+function showFull(){
+  bars.forEach(b => b.classList.remove('trimmed'));
+  showStats(data);
+}
+
+function showTrimmed(){
+  // find indices of max (95) and min (77): they are index 4 and 9 respectively
+  const maxIdx = data.indexOf(Math.max(...data));
+  const minIdx = data.indexOf(Math.min(...data));
+  const trimmed = data.filter((_,i)=> i !== maxIdx && i !== minIdx);
+  bars.forEach((b,i)=>{
+    if(i === maxIdx || i === minIdx) b.classList.add('trimmed');
+    else b.classList.remove('trimmed');
+  });
+  showStats(trimmed);
+}
+
+$('reset').addEventListener('click', showFull);
+$('trim').addEventListener('click', showTrimmed);
+
+// auto-run
+setTimeout(showFull, 600);
+setTimeout(showTrimmed, 3500);
+setTimeout(showFull, 6500);
+</script>
+</body>
+</html>

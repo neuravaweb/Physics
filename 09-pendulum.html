@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>§7.9 — Pendulum &amp; Gravity</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#f5f1e8;--ink:#1c1c1c;--ink-2:#4a4a45;--red:#d62828;--blue:#003049;--gold:#bf8b30;--green:#0f766e;--line:#d8cfb8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.55}
+  body{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;background-position:-1px -1px;min-height:100vh}
+  .frame{max-width:1280px;margin:0 auto;padding:48px 56px 96px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--ink);padding-bottom:14px;margin-bottom:42px}
+  .sec{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:64px;line-height:1;margin-top:6px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--ink-2)}
+  .lede{font-size:18px;max-width:64ch;margin-bottom:38px;color:#2a2a26}
+  .grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:48px;align-items:start}
+  .stage{aspect-ratio:.85/1;background:var(--paper);border:1px solid var(--ink);position:relative;overflow:hidden}
+  .stage svg{width:100%;height:100%;display:block}
+  .panel h2{font-family:'Instrument Serif',serif;font-style:italic;font-size:28px;margin-bottom:6px}
+  .panel h2 .small{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase;display:block;font-style:normal;margin-bottom:4px}
+  .clock{display:flex;align-items:baseline;gap:18px;margin:14px 0 18px;padding:18px 22px;border:1.5px solid var(--ink);background:#faf6ec}
+  .clock .time{font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:500;color:var(--ink);letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .clock .lap{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-2)}
+  .btn-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:11px 18px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  button.red{background:var(--red)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  button:hover:not(:disabled){background:var(--red)}
+  button.ghost:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:13px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line)}
+  th{font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:11px;color:var(--ink-2)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .stats{margin-top:24px;padding:20px 22px;border:1.5px solid var(--ink);background:#faf6ec}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .stat .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-2)}
+  .stat .val{font-family:'Instrument Serif',serif;font-style:italic;font-size:30px;line-height:1.1}
+  .stat .val .pm{color:var(--red)}
+  .params{display:flex;gap:24px;margin-bottom:18px;align-items:center;flex-wrap:wrap;padding:14px 18px;border:1px dashed var(--ink-2);background:rgba(255,255,255,.3)}
+  .param{display:flex;flex-direction:column;gap:2px}
+  .param .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase}
+  .param .v{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink)}
+  .param .v em{color:var(--green);font-style:normal}
+  .param .v em.red{color:var(--red)}
+  .slider-row{display:flex;align-items:center;gap:12px}
+  .slider-row input{accent-color:var(--blue)}
+  @media (max-width:900px){.frame{padding:28px 22px}h1{font-size:42px}.grid{grid-template-columns:1fr;gap:30px}.stage{aspect-ratio:1/1}}
+
+  /* svg */
+  .ceiling{fill:#1c1c1c}
+  .ceiling-hatch{stroke:#1c1c1c;stroke-width:1.2}
+  .string{stroke:var(--ink);stroke-width:1.6}
+  .bob{fill:var(--blue);stroke:var(--ink);stroke-width:1.4}
+  .arc-trail{fill:none;stroke:var(--red);stroke-width:1;stroke-dasharray:3 4;opacity:.55}
+  .pivot{fill:#1c1c1c}
+  .axis-line{stroke:#4a4a45;stroke-width:.7}
+  .info-text{font-family:'JetBrains Mono',monospace;font-size:11px;fill:var(--ink-2);letter-spacing:.1em}
+  .angle-text{font-family:'JetBrains Mono',monospace;font-size:11px;fill:var(--ink)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div>
+      <div class="sec">Section 7 · Problem 9</div>
+      <h1>Time ten swings. Recover gravity.</h1>
+    </div>
+    <div class="meta">
+      SIMPLE PENDULUM<br>
+      L = adjustable (exact)<br>
+      T = 2π √(L/g) → g = 4π²L/T̄²
+    </div>
+  </header>
+
+  <p class="lede">Galileo's measurement, repeated by every undergraduate since. The small-angle period depends only on length and <em style="color:var(--green)">g</em>. Time ten oscillations to suppress your reaction-time error by a factor of ten, then average across ten trials to suppress it further. The <em style="color:var(--red)">spread</em> of your trials becomes the uncertainty on g.</p>
+
+  <div class="grid">
+    <div class="stage">
+      <svg viewBox="0 0 480 600" id="svg">
+        <!-- ceiling -->
+        <rect class="ceiling" x="40" y="50" width="400" height="14"/>
+        <g id="hatch"></g>
+
+        <!-- pivot point -->
+        <circle class="pivot" cx="240" cy="64" r="5"/>
+
+        <!-- arc trail -->
+        <path class="arc-trail" id="arcTrail" d=""/>
+
+        <!-- string -->
+        <line class="string" id="string" x1="240" y1="64" x2="240" y2="430"/>
+
+        <!-- bob -->
+        <circle class="bob" id="bob" cx="240" cy="430" r="22"/>
+
+        <!-- vertical reference -->
+        <line class="axis-line" x1="240" y1="64" x2="240" y2="540" stroke-dasharray="2 4"/>
+
+        <!-- angle indicator -->
+        <text class="angle-text" id="angleText" x="260" y="100"></text>
+
+        <text font-family="JetBrains Mono" font-size="11" letter-spacing="2" x="40" y="35" fill="#4a4a45">SIMPLE PENDULUM · SMALL ANGLE</text>
+        <text class="info-text" id="phaseText" x="40" y="580">state: at rest</text>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="params">
+        <div class="param">
+          <span class="k">length L (exact)</span>
+          <div class="slider-row">
+            <input type="range" id="lenSlider" min="0.4" max="1.5" step="0.05" value="1.00"/>
+            <span class="v"><em id="lenVal">1.00</em> m</span>
+          </div>
+        </div>
+        <div class="param"><span class="k">true g (hidden)</span><span class="v">≈ <em>9.81 m/s²</em></span></div>
+        <div class="param"><span class="k">trials</span><span class="v"><em class="red" id="trialCount">0</em> / 10</span></div>
+      </div>
+
+      <h2><span class="small">Stopwatch · 10 oscillations</span>Release. Time 10 full swings. Stop.</h2>
+      <div class="clock">
+        <div class="time" id="stopwatch">0.000</div>
+        <div class="lap">seconds elapsed · counting <span id="cycleCount">0</span> / 10</div>
+      </div>
+      <div class="btn-row">
+        <button id="release">▷ release pendulum</button>
+        <button class="ghost" id="startBtn">start stopwatch</button>
+        <button class="red" id="stopBtn" disabled>stop &amp; record</button>
+        <button class="ghost" id="clearBtn">clear trials</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>#</th><th class="num">time for 10T (s)</th><th class="num">period T (s)</th><th class="num">deviation</th></tr>
+        </thead>
+        <tbody id="trialsBody">
+          <tr><td colspan="4" style="opacity:.5;font-style:italic">no trials yet — release, time 10 swings, hit stop</td></tr>
+        </tbody>
+      </table>
+
+      <div class="stats" id="statsBlock" style="display:none">
+        <div class="stats-row">
+          <div class="stat">
+            <div class="label">Mean period · T̄</div>
+            <div class="val"><span id="meanT">—</span> <span class="pm" id="stdT"></span></div>
+          </div>
+          <div class="stat">
+            <div class="label">Gravity · g = 4π²L / T̄²</div>
+            <div class="val"><span id="gVal">—</span> <span class="pm" id="gErr"></span></div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:14px;color:var(--ink-2)">
+          ε_g = 2 · ε_T  (since T² is in the denominator; L is exact)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const svgNS = 'http://www.w3.org/2000/svg';
+
+const PIV_X = 240, PIV_Y = 64;
+const PX_PER_M = 360; // pixels per meter of length (so L=1m → 360px)
+const THETA_MAX_DEG = 12;
+
+let L = 1.00;
+const G_TRUE = 9.81;
+
+function updateLengthUI(){
+  $('lenVal').textContent = L.toFixed(2);
+}
+
+function bobPos(theta){
+  const Lpx = L * PX_PER_M;
+  const x = PIV_X + Lpx * Math.sin(theta);
+  const y = PIV_Y + Lpx * Math.cos(theta);
+  return [x, y];
+}
+
+function setPendulum(theta){
+  const [x, y] = bobPos(theta);
+  $('string').setAttribute('x2', x);
+  $('string').setAttribute('y2', y);
+  $('bob').setAttribute('cx', x);
+  $('bob').setAttribute('cy', y);
+  $('angleText').textContent = `θ = ${(theta*180/Math.PI).toFixed(1)}°`;
+}
+
+function drawArcTrail(){
+  const Lpx = L * PX_PER_M;
+  const thMax = THETA_MAX_DEG * Math.PI/180;
+  const [xL, yL] = bobPos(-thMax);
+  const [xR, yR] = bobPos(thMax);
+  $('arcTrail').setAttribute('d', `M ${xL} ${yL} A ${Lpx} ${Lpx} 0 0 1 ${xR} ${yR}`);
+}
+
+/* hatch */
+(function(){
+  const g = $('hatch');
+  for(let x = 40; x < 440; x += 12){
+    const ln = document.createElementNS(svgNS,'line');
+    ln.setAttribute('x1', x); ln.setAttribute('y1', 50);
+    ln.setAttribute('x2', x-8); ln.setAttribute('y2', 42);
+    ln.setAttribute('class', 'ceiling-hatch');
+    g.appendChild(ln);
+  }
+})();
+
+setPendulum(0);
+drawArcTrail();
+
+/* ---- Physics: T = 2π √(L/g) ---- */
+function trueT(){ return 2 * Math.PI * Math.sqrt(L / G_TRUE); }
+
+let oscState = 'idle';
+let oscStart = 0;
+let rafOsc;
+
+function tick(now){
+  if(oscState !== 'running') return;
+  const t = (now - oscStart)/1000;
+  const T = trueT();
+  const theta = (THETA_MAX_DEG * Math.PI/180) * Math.cos(2*Math.PI * t / T);
+  setPendulum(theta);
+  const cycles = Math.floor(t / T);
+  $('cycleCount').textContent = Math.min(cycles, 10);
+  $('phaseText').textContent = `state: oscillating — elapsed sim ${t.toFixed(2)} s`;
+  rafOsc = requestAnimationFrame(tick);
+}
+function startOsc(){
+  oscState = 'running';
+  oscStart = performance.now();
+  rafOsc = requestAnimationFrame(tick);
+  $('phaseText').textContent = 'state: oscillating';
+}
+function stopOsc(){
+  oscState = 'idle';
+  cancelAnimationFrame(rafOsc);
+  setPendulum(0);
+  $('phaseText').textContent = 'state: at rest';
+}
+
+/* ---- Stopwatch ---- */
+let swRunning = false, swStart = 0, swElapsed = 0, rafSw;
+function swTick(now){
+  if(!swRunning) return;
+  swElapsed = (now - swStart)/1000;
+  $('stopwatch').textContent = swElapsed.toFixed(3);
+  rafSw = requestAnimationFrame(swTick);
+}
+function swStartFn(){
+  if(swRunning) return;
+  swRunning = true; swStart = performance.now();
+  rafSw = requestAnimationFrame(swTick);
+  $('startBtn').disabled = true;
+  $('stopBtn').disabled = false;
+}
+function swStop(){
+  if(!swRunning) return;
+  swRunning = false;
+  cancelAnimationFrame(rafSw);
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+  recordTrial(swElapsed);
+}
+function swReset(){
+  swRunning = false;
+  cancelAnimationFrame(rafSw);
+  swElapsed = 0;
+  $('stopwatch').textContent = '0.000';
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+}
+
+/* ---- Trials ---- */
+let trials = [];
+
+function recordTrial(t10){
+  trials.push({L: L, t10: t10});
+  updateTable();
+  updateStats();
+  setTimeout(swReset, 200);
+}
+function clearTrials(){
+  trials = [];
+  updateTable();
+  $('statsBlock').style.display = 'none';
+  $('trialCount').textContent = '0';
+  swReset();
+}
+
+function updateTable(){
+  const body = $('trialsBody');
+  if(trials.length === 0){
+    body.innerHTML = `<tr><td colspan="4" style="opacity:.5;font-style:italic">no trials yet — release, time 10 swings, hit stop</td></tr>`;
+    return;
+  }
+  const meanT = trials.reduce((a,b)=>a+b.t10,0)/trials.length / 10;
+  body.innerHTML = trials.map((tr, i)=>{
+    const T = tr.t10/10;
+    const dev = T - meanT;
+    return `<tr><td>${i+1}</td><td class="num">${tr.t10.toFixed(3)}</td><td class="num">${T.toFixed(4)}</td><td class="num" style="color:${Math.abs(dev)>0.01?'var(--red)':'var(--ink-2)'}">${dev>=0?'+':''}${dev.toFixed(4)}</td></tr>`;
+  }).join('');
+  $('trialCount').textContent = trials.length;
+}
+
+function std(arr){
+  if(arr.length < 2) return 0;
+  const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+  const s2 = arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1);
+  return Math.sqrt(s2);
+}
+
+function updateStats(){
+  if(trials.length < 2){ $('statsBlock').style.display = 'none'; return; }
+  $('statsBlock').style.display = 'block';
+  const Ts = trials.map(t=>t.t10/10);
+  const meanT = Ts.reduce((a,b)=>a+b,0)/Ts.length;
+  const sigT = std(Ts);
+  const sigMean = sigT / Math.sqrt(Ts.length);
+  $('meanT').textContent = `T̄ = ${meanT.toFixed(4)} s`;
+  $('stdT').textContent = `± ${sigMean.toFixed(4)} s`;
+
+  // Use the most recent L for g calc (or last trial's L) — assume L constant
+  const Lavg = trials[trials.length-1].L;
+  const g = 4 * Math.PI * Math.PI * Lavg / (meanT * meanT);
+  const dg = g * 2 * (sigMean / meanT);
+  $('gVal').textContent = `g = ${g.toFixed(3)} m/s²`;
+  $('gErr').textContent = `± ${dg.toFixed(3)} m/s²`;
+}
+
+/* events */
+$('release').addEventListener('click', ()=>{
+  if(oscState === 'running') stopOsc();
+  else startOsc();
+  $('release').textContent = oscState === 'running' ? '◼ stop pendulum' : '▷ release pendulum';
+});
+$('startBtn').addEventListener('click', swStartFn);
+$('stopBtn').addEventListener('click', swStop);
+$('clearBtn').addEventListener('click', clearTrials);
+$('lenSlider').addEventListener('input', e => {
+  L = parseFloat(e.target.value);
+  updateLengthUI();
+  if(oscState !== 'running') setPendulum(0);
+  drawArcTrail();
+});
+
+updateLengthUI();
+</script>
+</body>
+</html>

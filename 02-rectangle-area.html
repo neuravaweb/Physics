@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>§7.2 — Rectangle Area Propagation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f5f1e8;--ink:#1c1c1c;--ink-2:#4a4a45;
+    --red:#d62828;--blue:#003049;--gold:#bf8b30;
+    --line:#d8cfb8;--hi:#fde68a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body{
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:32px 32px;background-position:-1px -1px;min-height:100vh;
+  }
+  .frame{max-width:1180px;margin:0 auto;padding:48px 56px 96px;position:relative}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--ink);padding-bottom:14px;margin-bottom:42px}
+  .sec{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:'Instrument Serif',serif;font-weight:400;font-style:italic;font-size:68px;line-height:1;margin-top:6px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--ink-2);letter-spacing:.05em}
+  .lede{font-size:19px;max-width:62ch;margin-bottom:38px;color:#2a2a26}
+  .lede em{color:var(--red);font-style:italic}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:start}
+  .stage{aspect-ratio:1/1;background:var(--paper);border:1px solid var(--ink);position:relative;overflow:hidden}
+  .stage svg{width:100%;height:100%;display:block}
+  .step{padding:18px 0 18px 22px;border-left:2px solid var(--line);margin-bottom:14px;opacity:0;transform:translateY(8px);transition:opacity .6s ease,transform .6s ease,border-color .6s}
+  .step.on{opacity:1;transform:none;border-left-color:var(--ink)}
+  .step h3{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;font-size:26px;margin-bottom:4px}
+  .step .k{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;color:var(--ink-2);text-transform:uppercase;display:block;margin-bottom:8px}
+  .eq{font-family:'JetBrains Mono',monospace;padding:6px 0;font-size:15px;color:var(--blue)}
+  .eq .red{color:var(--red)}
+  .result{margin-top:30px;padding:22px 24px;border:1.5px solid var(--ink);background:#faf6ec;opacity:0;transition:opacity 1s ease .2s}
+  .result.on{opacity:1}
+  .result .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+  .result .v{font-family:'Instrument Serif',serif;font-style:italic;font-size:46px;line-height:1.1;margin-top:6px}
+  .result .v .pm{color:var(--red)}
+  .controls{margin-top:34px;display:flex;gap:14px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:12px 22px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  button:hover{background:var(--red)}
+  button.ghost:hover{background:var(--ink);color:var(--paper)}
+  @media (max-width:900px){
+    .frame{padding:28px 22px}h1{font-size:46px}
+    .grid{grid-template-columns:1fr;gap:30px}
+  }
+  /* svg styles */
+  .rect-fill{fill:#003049;fill-opacity:.07}
+  .rect-edge{fill:none;stroke:var(--ink);stroke-width:1.5}
+  .uncert-rect{fill:#d62828;fill-opacity:.06;stroke:var(--red);stroke-width:1;stroke-dasharray:4 3}
+  .dim{stroke:var(--ink-2);stroke-width:1}
+  .dim-cap{stroke:var(--ink-2);stroke-width:1}
+  .axis{stroke:var(--ink-2);stroke-width:.6;stroke-dasharray:2 4}
+  .label-text{font-family:'JetBrains Mono',monospace;font-size:12px;fill:var(--ink)}
+  .label-red{fill:var(--red)}
+  .label-blue{fill:var(--blue)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div>
+      <div class="sec">Section 7 · Problem 2</div>
+      <h1>Area from two independent measurements.</h1>
+    </div>
+    <div class="meta">
+      PROPAGATION OF ERROR II<br>
+      L = (15.3 ± 0.1) cm · W = (8.4 ± 0.1) cm<br>
+      A = L × W
+    </div>
+  </header>
+
+  <p class="lede">When two independent quantities are <em>multiplied</em>, their relative uncertainties add <em>in quadrature</em>, not directly. The wide side contributes less in fractional terms than the narrow side — this is why the width’s error dominates here.</p>
+
+  <div class="grid">
+    <div class="stage">
+      <svg viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+        <!-- background grid axes -->
+        <line class="axis" x1="80" y1="80" x2="80" y2="540"/>
+        <line class="axis" x1="80" y1="540" x2="540" y2="540"/>
+
+        <!-- uncertainty rectangle (outer) -->
+        <rect id="uOuter" class="uncert-rect" x="80" y="540" width="0" height="0"/>
+        <!-- main rectangle -->
+        <rect id="mainRect" class="rect-fill" x="80" y="540" width="0" height="0"/>
+        <rect id="mainEdge" class="rect-edge" x="80" y="540" width="0" height="0"/>
+        <!-- uncertainty rectangle (inner) -->
+        <rect id="uInner" class="uncert-rect" x="80" y="540" width="0" height="0" fill="none"/>
+
+        <!-- dimension lines -->
+        <line class="dim" id="lDim" x1="80" y1="560" x2="80" y2="560"/>
+        <line class="dim-cap" id="lCapA" x1="80" y1="555" x2="80" y2="565"/>
+        <line class="dim-cap" id="lCapB" x1="80" y1="555" x2="80" y2="565"/>
+        <text class="label-text" id="lLabel" x="0" y="0" text-anchor="middle"></text>
+        <text class="label-text label-red" id="lDelta" x="0" y="0" text-anchor="middle"></text>
+
+        <line class="dim" id="wDim" x1="60" y1="540" x2="60" y2="540"/>
+        <line class="dim-cap" id="wCapA" x1="55" y1="540" x2="65" y2="540"/>
+        <line class="dim-cap" id="wCapB" x1="55" y1="540" x2="65" y2="540"/>
+        <text class="label-text" id="wLabel" x="0" y="0" text-anchor="end"></text>
+        <text class="label-text label-red" id="wDelta" x="0" y="0" text-anchor="end"></text>
+
+        <!-- A label inside -->
+        <text id="aLabel" font-family="Instrument Serif" font-style="italic" font-size="36" fill="#003049" text-anchor="middle"></text>
+
+        <text class="label-text" x="80" y="575">origin</text>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="step" id="s1">
+        <span class="k">Step 01 — Measurements</span>
+        <h3>Two rulers, two uncertainties.</h3>
+        <div class="eq">L = 15.3 cm,  ΔL = <span class="red">± 0.1 cm</span></div>
+        <div class="eq">W =  8.4 cm,  ΔW = <span class="red">± 0.1 cm</span></div>
+        <div class="eq">δL/L = 0.00654  ·  δW/W = 0.01190</div>
+      </div>
+
+      <div class="step" id="s2">
+        <span class="k">Step 02 — Central value</span>
+        <h3>Multiply for the area.</h3>
+        <div class="eq">A = L × W = 15.3 × 8.4</div>
+        <div class="eq">A = 128.52 cm²</div>
+      </div>
+
+      <div class="step" id="s3">
+        <span class="k">Step 03 — Propagate in quadrature</span>
+        <h3>For products, fractions add as squares.</h3>
+        <div class="eq">(ΔA/A)² = (ΔL/L)² + (ΔW/W)²</div>
+        <div class="eq">= (0.00654)² + (0.01190)²</div>
+        <div class="eq">= 4.27e-5 + 1.42e-4 = 1.84e-4</div>
+        <div class="eq">ΔA/A = 0.01358   →  1.36 %</div>
+        <div class="eq">ΔA = 0.01358 × 128.52 = <span class="red">1.745 cm²</span></div>
+      </div>
+
+      <div class="result" id="res">
+        <div class="label">Reported value</div>
+        <div class="v">A = 128.5 <span class="pm">± 1.7</span> cm²</div>
+      </div>
+
+      <div class="controls">
+        <button id="play">▷ run animation</button>
+        <button class="ghost" id="reset">reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+// Geometry: origin at (80, 540), x grows right, y decreases up.
+// Scale 1 cm = 26 px → 15.3 cm = 397.8 px, 8.4 cm = 218.4 px
+const PX = 26;
+const L_PX = 15.3 * PX;
+const W_PX = 8.4  * PX;
+const DL = 0.1 * PX * 6;   // visually amplify
+const DW = 0.1 * PX * 6;
+
+let raf;
+
+function setRect(lp, wp){
+  // main
+  $('mainRect').setAttribute('x', 80);
+  $('mainRect').setAttribute('y', 540 - wp);
+  $('mainRect').setAttribute('width', lp);
+  $('mainRect').setAttribute('height', wp);
+  $('mainEdge').setAttribute('x', 80);
+  $('mainEdge').setAttribute('y', 540 - wp);
+  $('mainEdge').setAttribute('width', lp);
+  $('mainEdge').setAttribute('height', wp);
+
+  // dim L (along bottom)
+  $('lDim').setAttribute('x1', 80);
+  $('lDim').setAttribute('y1', 565);
+  $('lDim').setAttribute('x2', 80 + lp);
+  $('lDim').setAttribute('y2', 565);
+  $('lCapA').setAttribute('x1', 80);  $('lCapA').setAttribute('x2', 80);
+  $('lCapA').setAttribute('y1', 560); $('lCapA').setAttribute('y2', 570);
+  $('lCapB').setAttribute('x1', 80+lp);  $('lCapB').setAttribute('x2', 80+lp);
+  $('lCapB').setAttribute('y1', 560);    $('lCapB').setAttribute('y2', 570);
+
+  // dim W (along left)
+  $('wDim').setAttribute('x1', 60); $('wDim').setAttribute('x2', 60);
+  $('wDim').setAttribute('y1', 540); $('wDim').setAttribute('y2', 540 - wp);
+  $('wCapA').setAttribute('x1', 55); $('wCapA').setAttribute('x2', 65);
+  $('wCapA').setAttribute('y1', 540); $('wCapA').setAttribute('y2', 540);
+  $('wCapB').setAttribute('x1', 55); $('wCapB').setAttribute('x2', 65);
+  $('wCapB').setAttribute('y1', 540-wp); $('wCapB').setAttribute('y2', 540-wp);
+
+  // labels positions
+  $('lLabel').setAttribute('x', 80 + lp/2);
+  $('lLabel').setAttribute('y', 590);
+  $('lDelta').setAttribute('x', 80 + lp/2);
+  $('lDelta').setAttribute('y', 606);
+
+  $('wLabel').setAttribute('x', 50);
+  $('wLabel').setAttribute('y', 540 - wp/2);
+  $('wDelta').setAttribute('x', 50);
+  $('wDelta').setAttribute('y', 540 - wp/2 + 16);
+
+  // A label centered in rect
+  $('aLabel').setAttribute('x', 80 + lp/2);
+  $('aLabel').setAttribute('y', 540 - wp/2 + 10);
+}
+
+function setUncertaintyRects(showOuter, showInner){
+  // outer = (L+ΔL) × (W+ΔW)
+  if(showOuter){
+    $('uOuter').setAttribute('x', 80);
+    $('uOuter').setAttribute('y', 540 - (W_PX + DW));
+    $('uOuter').setAttribute('width', L_PX + DL);
+    $('uOuter').setAttribute('height', W_PX + DW);
+  } else {
+    $('uOuter').setAttribute('width', 0); $('uOuter').setAttribute('height', 0);
+  }
+  if(showInner){
+    $('uInner').setAttribute('x', 80);
+    $('uInner').setAttribute('y', 540 - (W_PX - DW));
+    $('uInner').setAttribute('width', L_PX - DL);
+    $('uInner').setAttribute('height', W_PX - DW);
+  } else {
+    $('uInner').setAttribute('width', 0); $('uInner').setAttribute('height', 0);
+  }
+}
+
+function clear(){
+  setRect(0,0);
+  setUncertaintyRects(false,false);
+  $('lLabel').textContent = '';
+  $('lDelta').textContent = '';
+  $('wLabel').textContent = '';
+  $('wDelta').textContent = '';
+  $('aLabel').textContent = '';
+  ['s1','s2','s3','res'].forEach(id=>$(id).classList.remove('on'));
+}
+
+function animate(){
+  cancelAnimationFrame(raf);
+  clear();
+  const t0 = performance.now();
+  const tick = (now)=>{
+    const t = (now-t0)/1000;
+    // phase 1 (0..1.2s): draw L
+    let lp = 0, wp = 0;
+    if(t < 1.2){ lp = L_PX * (1-Math.pow(1-t/1.2,3)); wp = 4; }
+    // phase 2 (1.2..2.4s): draw W
+    else if(t < 2.4){ lp = L_PX; const u=(t-1.2)/1.2; wp = W_PX * (1-Math.pow(1-u,3)); }
+    else { lp = L_PX; wp = W_PX; }
+    setRect(lp, wp);
+
+    if(t > 0.4 && !$('s1').classList.contains('on')){ $('s1').classList.add('on'); $('lLabel').textContent = 'L = 15.3 cm'; }
+    if(t > 1.4){ $('wLabel').textContent = 'W = 8.4 cm'; }
+    if(t > 2.6 && !$('s2').classList.contains('on')){ $('s2').classList.add('on'); $('aLabel').textContent = 'A = 128.52 cm²'; }
+    if(t > 3.6 && !$('s3').classList.contains('on')){
+      $('s3').classList.add('on');
+      $('lDelta').textContent = '± 0.1';
+      $('wDelta').textContent = '± 0.1';
+      setUncertaintyRects(true,true);
+    }
+    if(t > 4.4 && !$('res').classList.contains('on')) $('res').classList.add('on');
+
+    if(t < 7) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+$('play').addEventListener('click', animate);
+$('reset').addEventListener('click', ()=>{ cancelAnimationFrame(raf); clear(); });
+window.addEventListener('load', ()=> setTimeout(animate, 300));
+</script>
+</body>
+</html>
