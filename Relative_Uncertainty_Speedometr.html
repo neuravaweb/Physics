@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relative Uncertainty - Speedometer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        /* Smooth transitions for the UI values */
+        .value-transition {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 3px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 flex items-center justify-center">
+
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+        
+        <!-- Left Column: Visualization -->
+        <div class="bg-slate-900 text-white p-8 md:w-1/2 flex flex-col items-center justify-center relative">
+            <h2 class="text-2xl font-bold mb-2 text-center text-blue-400">Speedometer Simulator</h2>
+            <p class="text-slate-400 text-sm mb-8 text-center">Visualizing the uncertainty range</p>
+
+            <!-- Speedometer SVG -->
+            <div class="relative w-full max-w-[300px] aspect-[5/3]">
+                <svg viewBox="0 0 200 130" class="w-full h-full drop-shadow-lg">
+                    <!-- Gauge Background Arc -->
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#334155" stroke-width="12" stroke-linecap="round"/>
+                    
+                    <!-- Uncertainty Wedge (Generated dynamically) -->
+                    <path id="uncertainty-wedge" fill="rgba(59, 130, 246, 0.4)" />
+                    
+                    <!-- Gauge Ticks -->
+                    <g id="gauge-ticks"></g>
+                    
+                    <!-- Needle -->
+                    <g id="needle-group" transform="rotate(0, 100, 100)">
+                        <!-- Needle body -->
+                        <polygon points="97,100 103,100 100,25" fill="#ef4444" />
+                        <!-- Needle shadow/highlight for depth -->
+                        <polygon points="100,100 103,100 100,25" fill="#dc2626" />
+                    </g>
+                    
+                    <!-- Pivot point -->
+                    <circle cx="100" cy="100" r="8" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+                    
+                    <!-- Reading Text -->
+                    <text x="100" y="125" text-anchor="middle" class="text-xs font-mono fill-slate-300">
+                        ACTUAL SPEED:
+                    </text>
+                </svg>
+            </div>
+            
+            <!-- Live Digital Display -->
+            <div class="mt-2 text-center">
+                <div class="text-4xl font-mono font-bold text-white tracking-wider flex items-baseline justify-center gap-1">
+                    <span id="live-speed" class="text-blue-400">60.0</span> 
+                    <span class="text-lg text-slate-400">km/h</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1 uppercase tracking-widest">Wandering within uncertainty range</div>
+            </div>
+        </div>
+
+        <!-- Right Column: Interactive Controls & Math -->
+        <div class="p-8 md:w-1/2 flex flex-col justify-between bg-white">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-800 mb-4 tracking-tight">Relative Uncertainty</h1>
+                <p class="text-slate-600 mb-6 leading-relaxed">
+                    A car's speedometer has a <strong class="text-blue-600 bg-blue-50 px-1 rounded">5% uncertainty</strong>. If it reads <strong class="text-slate-800 bg-slate-100 px-1 rounded">60 km/h</strong>, what is the range of the car's actual speed?
+                </p>
+
+                <!-- Interactive Sliders -->
+                <div class="space-y-6 mb-8 bg-slate-50 p-5 rounded-xl border border-slate-100">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-semibold text-slate-700">Speedometer Reading</label>
+                            <span class="text-sm font-bold text-slate-900"><span id="reading-val">60</span> km/h</span>
+                        </div>
+                        <input type="range" id="reading-slider" min="10" max="110" value="60" step="1">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-semibold text-slate-700">Relative Uncertainty</label>
+                            <span class="text-sm font-bold text-slate-900"><span id="uncertainty-val">5</span>%</span>
+                        </div>
+                        <input type="range" id="uncertainty-slider" min="1" max="20" value="5" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Breakdown -->
+            <div class="bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-inner">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-blue-200 pb-2">Step-by-Step Calculation</h3>
+                
+                <div class="space-y-4">
+                    <!-- Step 1 -->
+                    <div>
+                        <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Step 1: Absolute Uncertainty</div>
+                        <div class="text-slate-700 flex items-center gap-2 font-mono text-sm">
+                            <span id="math-reading" class="bg-white px-2 py-1 rounded shadow-sm border border-slate-200 font-bold">60</span>
+                            <span>×</span>
+                            <span id="math-pct" class="bg-white px-2 py-1 rounded shadow-sm border border-slate-200 font-bold">0.05</span>
+                            <span>=</span>
+                            <span id="math-abs" class="bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold shadow-sm border border-blue-200">3.0</span>
+                            <span class="text-slate-500 font-sans text-xs">km/h</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div>
+                        <div class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Step 2: Speed Range</div>
+                        <div class="text-slate-700 flex items-center gap-2 font-mono text-sm mb-2">
+                            <span class="bg-white px-2 py-1 rounded shadow-sm border border-slate-200 font-bold reading-display">60</span>
+                            <span>±</span>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded shadow-sm border border-blue-200 font-bold abs-display">3.0</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-3 mt-3">
+                            <div class="flex-1 bg-white p-3 rounded-lg border-2 border-emerald-100 shadow-sm text-center">
+                                <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Minimum Speed</div>
+                                <div class="text-xl font-bold text-emerald-600"><span id="math-min">57.0</span> <span class="text-xs font-normal">km/h</span></div>
+                            </div>
+                            <div class="text-slate-300 font-bold">to</div>
+                            <div class="flex-1 bg-white p-3 rounded-lg border-2 border-rose-100 shadow-sm text-center">
+                                <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Maximum Speed</div>
+                                <div class="text-xl font-bold text-rose-600"><span id="math-max">63.0</span> <span class="text-xs font-normal">km/h</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const readingSlider = document.getElementById('reading-slider');
+        const uncertaintySlider = document.getElementById('uncertainty-slider');
+        const liveSpeedText = document.getElementById('live-speed');
+        
+        // Math breakdown elements
+        const els = {
+            readingVal: document.getElementById('reading-val'),
+            uncertaintyVal: document.getElementById('uncertainty-val'),
+            mathReading: document.getElementById('math-reading'),
+            mathPct: document.getElementById('math-pct'),
+            mathAbs: document.getElementById('math-abs'),
+            mathMin: document.getElementById('math-min'),
+            mathMax: document.getElementById('math-max'),
+            displaysReading: document.querySelectorAll('.reading-display'),
+            displaysAbs: document.querySelectorAll('.abs-display'),
+            needle: document.getElementById('needle-group'),
+            wedge: document.getElementById('uncertainty-wedge'),
+            ticksGrp: document.getElementById('gauge-ticks')
+        };
+
+        const GAUGE_RADIUS = 80;
+        const CENTER = { x: 100, y: 100 };
+        const MAX_SPEED = 120;
+
+        // State variables
+        let reading = 60;
+        let uncertaintyPct = 5;
+        let absoluteUncertainty = 3;
+        let minSpeed = 57;
+        let maxSpeed = 63;
+        
+        // Animation variables
+        let time = 0;
+        let currentSimulatedSpeed = 60;
+
+        // Helper: convert speed (0-120) to SVG coordinates (angle 180 to 360)
+        function getXY(speed, radius) {
+            // Speed 0 -> 180 deg, Speed 120 -> 360(0) deg
+            let angleDeg = 180 + (speed / MAX_SPEED) * 180;
+            let angleRad = angleDeg * Math.PI / 180;
+            return {
+                x: CENTER.x + radius * Math.cos(angleRad),
+                y: CENTER.y + radius * Math.sin(angleRad)
+            };
+        }
+
+        // Draw ticks on the speedometer
+        function drawTicks() {
+            els.ticksGrp.innerHTML = '';
+            for(let i = 0; i <= MAX_SPEED; i += 10) {
+                let isMajor = i % 20 === 0;
+                let innerRad = isMajor ? GAUGE_RADIUS - 12 : GAUGE_RADIUS - 6;
+                
+                let pOuter = getXY(i, GAUGE_RADIUS);
+                let pInner = getXY(i, innerRad);
+                
+                // Draw line
+                let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", pInner.x);
+                line.setAttribute("y1", pInner.y);
+                line.setAttribute("x2", pOuter.x);
+                line.setAttribute("y2", pOuter.y);
+                line.setAttribute("stroke", isMajor ? "#94a3b8" : "#475569");
+                line.setAttribute("stroke-width", isMajor ? "2" : "1");
+                els.ticksGrp.appendChild(line);
+
+                // Draw text for major ticks
+                if (isMajor) {
+                    let pText = getXY(i, GAUGE_RADIUS - 22);
+                    let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    text.setAttribute("x", pText.x);
+                    text.setAttribute("y", pText.y + 4); // slight vertical adjustment
+                    text.setAttribute("text-anchor", "middle");
+                    text.setAttribute("class", "text-[8px] font-mono fill-slate-400 font-bold");
+                    text.textContent = i;
+                    els.ticksGrp.appendChild(text);
+                }
+            }
+        }
+
+        // Draw the filled region representing the uncertainty range
+        function updateWedge() {
+            // Clamp wedge to gauge boundaries visually
+            let clampMin = Math.max(0, minSpeed);
+            let clampMax = Math.min(MAX_SPEED, maxSpeed);
+            
+            let p1 = getXY(clampMin, GAUGE_RADIUS);
+            let p2 = getXY(clampMax, GAUGE_RADIUS);
+            
+            // Path: Move to center -> line to start point -> arc to end point -> close path
+            let d = `M ${CENTER.x} ${CENTER.y} L ${p1.x} ${p1.y} A ${GAUGE_RADIUS} ${GAUGE_RADIUS} 0 0 1 ${p2.x} ${p2.y} Z`;
+            els.wedge.setAttribute("d", d);
+        }
+
+        // Update calculations and HTML displays
+        function updateMath() {
+            reading = parseFloat(readingSlider.value);
+            uncertaintyPct = parseFloat(uncertaintySlider.value);
+            
+            absoluteUncertainty = reading * (uncertaintyPct / 100);
+            minSpeed = reading - absoluteUncertainty;
+            maxSpeed = reading + absoluteUncertainty;
+
+            // Update UI texts
+            els.readingVal.textContent = reading;
+            els.uncertaintyVal.textContent = uncertaintyPct;
+            els.mathReading.textContent = reading;
+            els.mathPct.textContent = (uncertaintyPct / 100).toFixed(2);
+            
+            let absStr = absoluteUncertainty.toFixed(1);
+            els.mathAbs.textContent = absStr;
+            els.displaysAbs.forEach(el => el.textContent = absStr);
+            els.displaysReading.forEach(el => el.textContent = reading);
+            
+            els.mathMin.textContent = minSpeed.toFixed(1);
+            els.mathMax.textContent = maxSpeed.toFixed(1);
+
+            updateWedge();
+        }
+
+        // Animation Loop for the Needle
+        function animate() {
+            time += 0.05;
+            
+            // Generate organic-looking jitter using combined sine waves
+            // This represents the "actual speed" fluctuating within the bounds
+            let jitter = (Math.sin(time) * 0.5) + (Math.sin(time * 2.3) * 0.3) + (Math.sin(time * 4.7) * 0.2);
+            
+            currentSimulatedSpeed = reading + (jitter * absoluteUncertainty);
+            
+            // Update needle rotation (Mapping: 0km/h is -90deg, 60km/h is 0deg, 120km/h is +90deg relative to top)
+            let rotation = (currentSimulatedSpeed / MAX_SPEED) * 180 - 90;
+            els.needle.setAttribute('transform', `rotate(${rotation}, 100, 100)`);
+            
+            // Update digital text
+            liveSpeedText.textContent = currentSimulatedSpeed.toFixed(1);
+            
+            requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        readingSlider.addEventListener('input', updateMath);
+        uncertaintySlider.addEventListener('input', updateMath);
+
+        // Initialization
+        drawTicks();
+        updateMath();
+        animate();
+
+    </script>
+</body>
+</html>
